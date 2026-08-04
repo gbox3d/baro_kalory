@@ -1,0 +1,225 @@
+/* Tailwind v4 소스 — `pnpm --filter @baro/frontend build:css` → public/app.css.
+   home.html / simulator.html / cctv.html / settings.html / calibration.html 이 링크한다.
+
+   ───────────────────────────────────────────────────────────────────────────
+   테마 교체 가능한 구조 (Tailwind 를 쓰는 핵심 이유)
+   ───────────────────────────────────────────────────────────────────────────
+   - 모든 컴포넌트/유틸리티는 색·글꼴·반경을 토큰(var(--color-*)/var(--font-mono)/
+     var(--radius-*))으로만 참조한다. 하드코딩 색상 금지.
+   - 기본 테마는 @theme 에 정의(→ :root 변수 + Tailwind 유틸리티 동시 생성).
+   - 다른 테마는 :root[data-theme="NAME"] 로 "토큰만" 덮어쓴다 → <html data-theme>
+     하나만 바꾸면 전 페이지가 런타임에(무빌드) 교체된다. theme.mjs 가 관리.
+   - 새 테마 추가 = 아래 THEMES 섹션에 :root[data-theme="X"]{ --색상… } 블록 하나.
+   - CRT 효과(스캔라인/글로우)도 --fx-* 토큰이라 테마별로 끌 수 있다.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@import "tailwindcss";
+
+/* 주의: @source 는 글로브가 아니라 파일 나열이다 — 새 페이지를 빠뜨리면 그 페이지의
+   유틸리티 클래스가 app.css 에 안 실려 무스타일로 뜬다. */
+@source "../public/home.html";
+@source "../public/simulator.html";
+@source "../public/cctv.html";
+@source "../public/discovery.html";
+@source "../public/settings.html";
+@source "../public/calibration.html";
+@source "../src/*.mjs";
+
+/* ── 기본 테마: 80s 유닉스 쉘 / CRT 터미널 (phosphor green, 심플·차분) ── */
+@theme {
+  --font-mono: ui-monospace, "Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Menlo", monospace;
+
+  --color-bg: #0a0e0a;        /* near-black, 미세한 그린 틴트 */
+  --color-panel: #0e130e;     /* 패널/카드 */
+  --color-panel2: #060906;    /* 입력/움푹한 면 */
+  --color-border: #2b3b2b;    /* 얇은 딤 그린 보더 */
+  --color-border2: #3a4f39;   /* 조금 밝은 보더/버튼 */
+  --color-text: #9ec49a;      /* 본문 인광 그린(차분) */
+  --color-bright: #d0e8c8;    /* 강조 텍스트 */
+  --color-muted: #6f8f6c;     /* 힌트/보조 */
+  --color-label: #86a883;     /* 라벨 */
+  --color-accent: #d3a24a;    /* 절제된 앰버 액센트(활성/선택) */
+  --color-link: #b9d6a9;
+  --color-ok: #86c46f;
+  --color-warn: #d3a24a;
+  --color-danger: #cf8a6a;
+
+  --radius-card: 0px;         /* 각진 터미널 */
+}
+
+/* ── 대체 테마들 (토큰 오버라이드만) ─────────────────────────────
+   교체: theme.mjs 가 <html data-theme="amber"> 를 세팅. 새 테마는 블록 추가. */
+:root[data-theme="amber"] {                 /* 앰버 인광 모노크롬(옛 앰버 CRT) */
+  --color-bg: #0d0a04;
+  --color-panel: #14100a;
+  --color-panel2: #0a0704;
+  --color-border: #3a2e18;
+  --color-border2: #4d3d1f;
+  --color-text: #d3a24a;
+  --color-bright: #f0cf94;
+  --color-muted: #977433;
+  --color-label: #b18b45;
+  --color-accent: #8fbf88;    /* 그린 액센트(듀얼 인광 느낌) */
+  --color-link: #e0b869;
+  --color-ok: #8fbf88;
+  --color-warn: #e0b869;
+  --color-danger: #d08a6a;
+  --fx-glow: 0 0 1px rgba(211, 162, 74, .30);
+}
+
+@layer base {
+  body {
+    background: var(--color-bg); color: var(--color-text);
+    font-family: var(--font-mono); font-size: 13px; letter-spacing: .01em;
+    text-shadow: var(--fx-glow, 0 0 1px rgba(158, 196, 154, .28));   /* 미세 인광 글로우(테마별) */
+  }
+  /* 아주 옅은 스캔라인 — UI 패널에만 적용한다. 카메라/시뮬레이터 영상은 원본 프레임을 보존. */
+  header, #tabs, .card, .home-card {
+    position: relative;
+  }
+  header::after, #tabs::after, .card::after, .home-card::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, .07) 2px 3px);
+    opacity: var(--fx-scanline, 1);
+    border-radius: inherit;
+  }
+  a { color: var(--color-link); }
+  h1, h2, h3 { margin: 0; font-weight: 600; }
+  button {
+    background: transparent; color: var(--color-text); border: 1px solid var(--color-border2);
+    border-radius: 0; padding: 5px 10px; font-family: var(--font-mono); font-size: 13px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--color-border); color: var(--color-bright); }
+  button:disabled { opacity: .4; cursor: default; }
+  input, select {
+    background: var(--color-panel2); color: var(--color-text); border: 1px solid var(--color-border2);
+    border-radius: 0; padding: 4px 6px; font-family: var(--font-mono);
+  }
+  input { width: 72px; }
+  input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input:focus, select:focus, button:focus-visible { outline: 1px solid var(--color-accent); outline-offset: 0; }
+  label { font-size: 12px; color: var(--color-label); }
+}
+
+@layer components {
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 8px 14px; background: var(--color-panel); border-bottom: 1px solid var(--color-border);
+  }
+  header h1 { font-size: 14px; font-weight: 600; color: var(--color-bright); }
+  header small { color: var(--color-muted); font-weight: 400; }
+  main { display: block; padding: 14px; }
+
+  .ver { font-size: 12px; color: var(--color-accent); white-space: nowrap; }
+  .navlink { color: var(--color-link); text-decoration: none; font-size: 13px; white-space: nowrap; }
+  .navlink:hover { color: var(--color-bright); text-decoration: underline; }
+  /* 헤더 CCTV 셀렉터 — cctv/calibration 페이지 공용 (camera-select.mjs 가 채운다) */
+  .header-camera { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; font: 12px var(--font-mono); color: var(--color-muted); }
+  #header-camera-select { width: 190px; padding: 4px 6px; font-size: 12px; }
+
+  .card { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-card); padding: 12px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted); margin-bottom: 10px; }
+  .hint { font-size: 12px; color: var(--color-muted); margin-top: 6px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ptz { font-size: 16px; color: var(--color-bright); }
+  .pad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 36px); gap: 6px; }
+
+  #busy { color: var(--color-accent); font-size: 12px; min-height: 16px; }
+  #log { font-size: 12px; color: var(--color-label); white-space: pre-wrap; max-height: 160px; overflow: auto; margin: 0; }
+
+  /* 카메라 프리뷰 스테이지 (클릭=센터링, 드래그=박스줌) */
+  #stage { position: relative; line-height: 0; background: #000; border: 1px solid var(--color-border);
+    border-radius: var(--radius-card); overflow: hidden; width: 860px; max-width: 100%; box-sizing: border-box; }
+  #view { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; height: auto; background: #000; cursor: crosshair; }
+  #stage.preview-waiting::before, #disc-stage.preview-waiting::before {
+    content: ""; position: absolute; inset: 0; z-index: 30; background: #000; pointer-events: none;
+  }
+  #stage.preview-waiting::after, #disc-stage.preview-waiting::after {
+    content: "Wait..."; position: absolute; inset: 0; z-index: 31; display: flex; align-items: center; justify-content: center;
+    color: var(--color-bright); font-size: 18px; line-height: 1; letter-spacing: 0; text-shadow: 0 0 6px #000; pointer-events: none;
+  }
+  #stage.preview-waiting > .preview-waiting-image, #disc-stage.preview-waiting > .preview-waiting-image { visibility: hidden; }
+  /* 정지 상태. src 를 지우면 브라우저가 **깨진 이미지 아이콘 + alt 텍스트**를 좌상단에 그린다
+     — 사용자에게는 "링크가 깨졌다"로 읽힌다(실제로는 정상적인 정지). 이미지를 감추고
+     화면 중앙에 상태를 글자로 쓴다. 대기(Wait...)와 같은 구조라 두 상태가 같은 자리에 뜬다. */
+  #stage.preview-paused::before, #disc-stage.preview-paused::before {
+    content: ""; position: absolute; inset: 0; z-index: 30; background: #000; pointer-events: none;
+  }
+  #stage.preview-paused::after, #disc-stage.preview-paused::after {
+    content: attr(data-paused-label); position: absolute; inset: 0; z-index: 31;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--color-dim); font-size: 18px; line-height: 1; letter-spacing: 0;
+    text-shadow: 0 0 6px #000; pointer-events: none;
+  }
+  #stage.preview-paused > .preview-waiting-image, #disc-stage.preview-paused > .preview-waiting-image { visibility: hidden; }
+  .ptz-control-overlay { position: absolute; left: 12px; bottom: 12px; z-index: 9; width: 386px;
+    display: flex; flex-direction: column; gap: 8px; line-height: 1.5; font-size: 11px; pointer-events: auto; }
+  .ptz-control-overlay[hidden] { display: none; }
+  .ptz-control-overlay .card { background: rgba(6, 9, 6, .24); border-color: var(--color-border2); padding: 8px; }
+  .ptz-control-overlay .card h2 { margin-bottom: 5px; font-size: 11px; }
+  .ptz-control-overlay .ptz-overlay-busy { height: 18px; min-height: 18px; overflow: hidden; }
+  .ptz-control-overlay .ptz-controls-mount { display: flex; flex-direction: column; gap: 6px; }
+  .ptz-control-overlay .pad { grid-template-rows: repeat(3, 26px); grid-template-columns: repeat(3, 34px); }
+  .ptz-control-overlay button { padding: 3px 6px; font-size: 11px; line-height: 1.2; }
+  .ptz-control-overlay input { width: 56px; padding: 2px 4px; font-size: 11px; }
+  .ptz-control-overlay label { font-size: 11px; }
+  #stage > .ptz-absolute-card { position: absolute; right: 12px; bottom: 12px; z-index: 10; width: auto;
+    max-width: 286px; padding: 6px 7px; background: rgba(6, 9, 6, .24); border-color: var(--color-border2);
+    font-size: 10px; line-height: 1.2; pointer-events: auto; }
+  #stage > .ptz-absolute-card[hidden] { display: none; }
+  #stage > .ptz-absolute-card .row { flex-wrap: nowrap; gap: 4px; }
+  #stage > .ptz-absolute-card label { display: flex; align-items: center; gap: 3px; white-space: nowrap; font-size: 10px; }
+  #stage > .ptz-absolute-card input { width: 50px; padding: 2px 3px; font-size: 10px; }
+  #stage > .ptz-absolute-card button { padding: 3px 5px; font-size: 10px; white-space: nowrap; }
+  #viewbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--color-label); }
+  #viewbar input { width: 64px; }
+  #marker { position: absolute; z-index: 7; width: 16px; height: 16px; margin: -8px 0 0 -8px;
+    border: 2px solid var(--color-accent); border-radius: 50%; box-shadow: 0 0 0 1px #0008; pointer-events: none; }
+  #rubber { position: absolute; z-index: 6; border: 1px dashed var(--color-ok); background: rgba(134, 196, 111, .12); pointer-events: none; }
+  .view-crosshair { position: absolute; left: 50%; top: 50%; z-index: 4; width: 0; height: 0; pointer-events: none; }
+  .view-crosshair::before, .view-crosshair::after { content: ""; position: absolute; background: rgba(134, 196, 111, .82); box-shadow: 0 0 0 1px #0008, 0 0 5px rgba(134, 196, 111, .35); }
+  .view-crosshair::before { left: -20px; top: -1px; width: 40px; height: 2px; }
+  .view-crosshair::after { left: -1px; top: -20px; width: 2px; height: 40px; }
+
+  /* 슬롯 위치 오버레이(3D→2D 투영): 렌더 화면 위에 주차면 위치를 얹는다. 프레임 밖은 #stage overflow 가 자름. */
+  #slot-markers { position: absolute; inset: 0; pointer-events: none; z-index: 5; line-height: 1; }
+  .slot-pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .slot-pin .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--color-accent); background: transparent; box-shadow: 0 0 0 1px #000a; box-sizing: border-box; }
+  .slot-pin .tag { font-size: 10px; padding: 1px 4px; background: #000a; color: var(--color-accent); border: 1px solid var(--color-accent); white-space: nowrap; }
+  .slot-pin.occ .dot { background: var(--color-accent); }
+  .slot-pin.dim { opacity: .5; }
+  .slot-pin.dim .dot { border-color: var(--color-muted); }
+  .slot-pin.dim .tag { color: var(--color-muted); border-color: var(--color-border); }
+
+  /* 시뮬레이터 씬: 슬롯 칩 + 차량 리스트 */
+  .sim-slot { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 76px; padding: 6px 8px;
+    background: var(--color-panel2); color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--radius-card);
+    cursor: pointer; font-size: 11px; }
+  .sim-slot b { font-size: 12px; color: var(--color-bright); }
+  .sim-slot span { color: var(--color-muted); }
+  .sim-slot em { color: var(--color-accent); font-style: normal; font-size: 10px; }
+  .sim-slot.occ { border-color: #5a4a2a; background: #14100a; }
+  .sim-slot.sel { border-color: var(--color-accent); background: #12160f; }
+  .sim-car { font-size: 12px; color: var(--color-text); }
+  .sim-mono { color: var(--color-ok); }
+
+  /* home 랜딩 카드 */
+  .home-grid { display: flex; gap: 14px; flex-wrap: wrap; max-width: 900px; }
+  .home-card { flex: 1; min-width: 260px; background: var(--color-panel); border: 1px solid var(--color-border);
+    border-radius: var(--radius-card); padding: 20px; text-decoration: none; color: inherit; display: block;
+    transition: border-color .12s, background .12s; }
+  .home-card:hover { border-color: var(--color-accent); background: #12160f; }
+  .home-card-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+  .home-card h3 { margin: 0; font-size: 16px; color: var(--color-bright); }
+  .home-card-title .ver { flex: 0 0 auto; }
+  .home-card p { margin: 0; font-size: 13px; color: var(--color-muted); line-height: 1.55; }
+  .home-badge { display: inline-block; margin-top: 12px; font-size: 12px; color: var(--color-accent); }
+}

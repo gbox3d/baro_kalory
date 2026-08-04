@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>주차장 CCTV — 심플 뷰</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e7ebf0; --muted:#8b93a3; --accent:#3b82f6; --accent2:#22c55e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui, "Segoe UI", sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header .status { margin-left:auto; color:var(--muted); font-size:12px; }
+  main { display:grid; grid-template-columns: 220px 1fr 200px; gap:14px; padding:14px; align-items:start; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 10px; }
+  /* camera list */
+  .cam { display:flex; flex-direction:column; gap:6px; }
+  .cam button { text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:#1e222b; color:var(--fg); cursor:pointer; }
+  .cam button:hover { border-color:#3a4150; }
+  .cam button.active { border-color:var(--accent); background:#16223c; }
+  .cam button .id { display:block; font-size:11px; color:var(--muted); }
+  .cam button.active .id { color:#8fb3ff; }
+  /* feed */
+  .feed { position:relative; background:#000; border-radius:10px; overflow:hidden; border:1px solid var(--line); aspect-ratio:16/9; }
+  .feed img { width:100%; height:100%; object-fit:contain; display:block; cursor:crosshair; }
+  .feed .hint { position:absolute; left:8px; bottom:8px; font-size:11px; color:#cdd5e0; background:rgba(0,0,0,.45); padding:3px 7px; border-radius:6px; }
+  .ptzline { margin-top:8px; font-family:ui-monospace,monospace; font-size:13px; color:#a9d1ff; }
+  /* ptz pad */
+  .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .pad button { padding:10px 0; border-radius:8px; border:1px solid var(--line); background:#1e222b; color:var(--fg); cursor:pointer; font-size:15px; }
+  .pad button:hover { border-color:#3a4150; }
+  .pad .sp { visibility:hidden; }
+  .zoom { display:flex; gap:6px; margin-top:8px; }
+  .zoom button { flex:1; padding:9px 0; border-radius:8px; border:1px solid var(--line); background:#1e222b; color:var(--fg); cursor:pointer; }
+  .row { display:flex; gap:6px; margin-top:8px; align-items:center; }
+  .row label { font-size:12px; color:var(--muted); }
+  .toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#b91c1c; color:#fff; padding:8px 14px; border-radius:8px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.show { opacity:1; }
+  select { background:#1e222b; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 6px; }
+  /* 화질 튜닝 */
+  .tunepanel { margin:0 14px 14px; }
+  .tune-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px 20px; }
+  .tune-row { display:grid; grid-template-columns:96px 1fr 50px; gap:10px; align-items:center; }
+  .tune-row label { font-size:12px; color:var(--muted); }
+  .tune-row input[type=range] { width:100%; accent-color:var(--accent); }
+  .tune-row .val { font-size:12px; color:var(--fg); text-align:right; font-family:ui-monospace,monospace; }
+  .tune-actions { display:flex; gap:8px; margin-top:10px; }
+  .tune-actions button { padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:#1e222b; color:var(--fg); cursor:pointer; font-size:12px; }
+  .tune-actions button:hover { border-color:#3a4150; }
+  #tuneUnsupported { color:var(--muted); font-size:12px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>주차장 CCTV — 심플 뷰</h1>
+  <div class="status" id="status">연결 중…</div>
+</header>
+
+<main>
+  <!-- 카메라 선택 -->
+  <section class="panel">
+    <h2>카메라</h2>
+    <div class="cam" id="camList">불러오는 중…</div>
+  </section>
+
+  <!-- 라이브 피드 -->
+  <section class="panel">
+    <h2>라이브 <span id="activeName" style="color:var(--fg)"></span></h2>
+    <div class="feed">
+      <img id="feed" alt="camera feed" />
+      <div class="hint">이미지를 클릭하면 그 지점으로 센터링합니다</div>
+    </div>
+    <div class="ptzline" id="ptz">PTZ —</div>
+    <div class="row">
+      <label><input type="checkbox" id="live" checked /> 라이브 갱신</label>
+      <label>간격 <select id="fps"><option value="0" selected>스트림(MJPEG)</option><option value="1500">0.7fps</option><option value="1000">1fps</option><option value="500">2fps</option></select></label>
+      <span id="streamFps" style="font-family:ui-monospace,monospace; font-size:12px; color:#8fe3a5;"></span>
+      <button id="refresh" style="margin-left:auto; padding:5px 10px; border-radius:7px; border:1px solid var(--line); background:#1e222b; color:var(--fg); cursor:pointer;">↻ 지금 갱신</button>
+    </div>
+  </section>
+
+  <!-- PTZ 조작 -->
+  <section class="panel">
+    <h2>PTZ 조작</h2>
+    <div class="pad">
+      <button class="sp"></button>          <button data-nudge="up">▲</button>     <button class="sp"></button>
+      <button data-nudge="left">◀</button>  <button data-nudge="home">⊙</button>   <button data-nudge="right">▶</button>
+      <button class="sp"></button>          <button data-nudge="down">▼</button>   <button class="sp"></button>
+    </div>
+    <div class="zoom">
+      <button data-nudge="zoomout">– 줌아웃</button>
+      <button data-nudge="zoomin">＋ 줌인</button>
+    </div>
+    <div class="row"><label>스텝 <select id="step"><option value="500">작게</option><option value="1500" selected>보통</option><option value="4000">크게</option></select></label></div>
+  </section>
+</main>
+
+<section class="panel tunepanel" id="tunePanel">
+  <h2>화질 튜닝 (시뮬레이터 실시간 — 라이브 피드 즉시 반영)</h2>
+  <div id="tuneUnsupported" class="hidden">이 기기는 화질 튜닝을 지원하지 않습니다 (실기 카메라는 미지원 · 시뮬레이터 전용 기능).</div>
+  <div id="tuneBody">
+    <div class="tune-grid">
+      <div class="tune-row"><label for="tExposure">노출(EV)</label><input type="range" id="tExposure" min="-3" max="3" step="0.1" /><span class="val" id="tExposureVal">—</span></div>
+      <div class="tune-row"><label for="tContrast">대비</label><input type="range" id="tContrast" min="0.5" max="3" step="0.05" /><span class="val" id="tContrastVal">—</span></div>
+      <div class="tune-row"><label for="tQuality">JPEG 품질</label><input type="range" id="tQuality" min="1" max="100" step="1" /><span class="val" id="tQualityVal">—</span></div>
+      <div class="tune-row"><label for="tWarmup">워밍업 프레임</label><input type="range" id="tWarmup" min="0" max="16" step="1" /><span class="val" id="tWarmupVal">—</span></div>
+      <div class="tune-row"><label for="tRes">해상도</label>
+        <select id="tRes">
+          <option value="1280x720">HD (1280x720)</option>
+          <option value="1920x1080">FHD (1920x1080)</option>
+          <option value="2560x1440">QHD (2560x1440)</option>
+          <option value="3840x2160">4K (3840x2160)</option>
+        </select>
+        <span></span>
+      </div>
+    </div>
+    <div class="tune-actions">
+      <button type="button" id="tuneReset">기본값 복원 (노출-0.7 · 대비1.6 · 품질92 · 워밍업0 · QHD)</button>
+    </div>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { getJson, postJson, api } from "../web/api.mjs";
+import { createMjpegPlayer } from "../web/mjpeg-player.mjs";
+
+const $ = (id) => document.getElementById(id);
+let active = null;          // active device id
+let devices = [];           // device list
+let liveTimer = null;
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+// ---- camera list ----
+async function loadDevices() {
+  try {
+    const cfg = await getJson(api("/cctv/config"));
+    devices = (cfg.devices && cfg.devices.list) || [];
+    active = cfg.devices && cfg.devices.active;
+    renderCams();
+    $("status").textContent = `${devices.length}대 등록 · 활성: ${active || "—"}`;
+  } catch (e) {
+    $("status").textContent = "config 로드 실패";
+    toast("기기 목록 로드 실패: " + e.message);
+  }
+}
+
+function renderCams() {
+  const box = $("camList");
+  box.innerHTML = "";
+  if (!devices.length) { box.textContent = "등록된 카메라 없음"; return; }
+  for (const d of devices) {
+    const b = document.createElement("button");
+    if (d.id === active) b.classList.add("active");
+    const where = d.host ? `${d.host}:${d.port ?? ""}` : d.type;
+    b.innerHTML = `${d.name || d.id}<span class="id">${d.id} · ${where}</span>`;
+    b.onclick = () => selectCam(d.id);
+    box.appendChild(b);
+  }
+  const cur = devices.find((d) => d.id === active);
+  $("activeName").textContent = cur ? `— ${cur.name || cur.id}` : "";
+}
+
+async function selectCam(id) {
+  if (id === active) return;
+  $("status").textContent = `전환 중… (${id})`;
+  try {
+    await postJson(api("/cctv/active"), { id });
+    active = id;
+    renderCams();
+    $("status").textContent = `활성: ${id}`;
+    refreshFeed();
+    startLive();   // 스트림 모드면 새 활성 카메라로 재접속 (기존 연결은 이전 카메라를 계속 물고 있음)
+    refreshPtz();
+    loadTuning();
+  } catch (e) {
+    toast("전환 실패: " + e.message);
+    $("status").textContent = "전환 실패";
+  }
+}
+
+// ---- feed ----
+// 스트림은 fetch 기반 플레이어로 재생 — 프레임 단위 파싱이라 수신 fps 를 실측 표시할 수 있다.
+const player = createMjpegPlayer({
+  img: document.getElementById("feed"),
+  onFps: (f) => { $("streamFps").textContent = "≈ " + f.toFixed(1) + " fps"; },
+  onError: () => {
+    // 스트림 실패(시뮬레이터 미기동 등) → 1fps 스냅샷 폴링으로 세션 한정 폴백.
+    if (isStream() && $("live").checked) {
+      $("fps").value = "1000";
+      $("streamFps").textContent = "";
+      toast("MJPEG 스트림 사용 불가 → 1fps 스냅샷으로 전환");
+      refreshFeed(); // 첫 인터벌 틱(1초)까지 깨진 화면이 남지 않게 즉시 한 장
+      startLive();
+    }
+  },
+});
+function isStream() { return Number($("fps").value) === 0; }
+function refreshFeed() {
+  // 스트림 모드에선 피드가 항상 최신 — 갱신할 필요도, 스트림을 끊을 이유도 없다.
+  if (isStream() && $("live").checked) return;
+  // cache-bust so the <img> re-fetches the current active camera's snapshot
+  $("feed").src = api("/snapshot?t=") + Date.now();
+}
+function startLive() {
+  stopLive();
+  if (!$("live").checked) {
+    // 스트림 모드에서 라이브 해제 = 연속 연결을 끊고 현재 프레임 스냅샷으로 정지.
+    if (isStream()) $("feed").src = api("/snapshot?t=") + Date.now();
+    return;
+  }
+  if (isStream()) {
+    // 연속 MJPEG — 타이머 불필요. 캐시버스터는 카메라 전환 시 재접속 보장용.
+    $("streamFps").textContent = "연결 중…";
+    player.start(api("/stream?t=") + Date.now());
+    return;
+  }
+  const iv = Number($("fps").value) || 1000;
+  liveTimer = setInterval(refreshFeed, iv);
+}
+function stopLive() {
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  player.stop();
+  $("streamFps").textContent = "";
+}
+
+// ---- ptz ----
+async function refreshPtz() {
+  try {
+    const p = await getJson(api("/ptz"));
+    $("ptz").textContent = `PTZ  pan ${p.panpos}  tilt ${p.tiltpos}  zoom ${p.zoompos}`;
+  } catch { $("ptz").textContent = "PTZ —"; }
+}
+
+const NUDGE = {
+  // Hucoms 규약: tiltpos↑ = 카메라 '아래'. 화면에서 위로 보려면 tiltpos 를 낮춘다 => up 은 -dTilt.
+  up:      (s) => ({ dTilt: -s }),
+  down:    (s) => ({ dTilt:  s }),
+  left:    (s) => ({ dPan:  -s }),
+  right:   (s) => ({ dPan:   s }),
+  zoomin:  (s) => ({ dZoom:  s * 2 }),
+  zoomout: (s) => ({ dZoom: -s * 2 }),
+};
+
+async function nudge(dir) {
+  const step = Number($("step").value) || 1500;
+  try {
+    if (dir === "home") {
+      const r = await postJson(api("/ptz"), { panpos: 0, tiltpos: 0, zoompos: 0 });
+      applyPtz(r.ptz);
+    } else {
+      const r = await postJson(api("/ptz/nudge"), NUDGE[dir](step));
+      applyPtz(r.ptz);
+    }
+    setTimeout(refreshFeed, 250);
+  } catch (e) { toast("이동 실패: " + e.message); }
+}
+function applyPtz(p) { if (p) $("ptz").textContent = `PTZ  pan ${p.panpos}  tilt ${p.tiltpos}  zoom ${p.zoompos}`; }
+
+// ---- capture tuning (시뮬레이터 전용 — 실기 카메라는 /api/capture-tuning 이 501) ----
+const DEFAULT_TUNING = { exposureBias: -0.7, contrast: 1.6, jpegQuality: 92, warmupFrames: 0, width: 2560, height: 1440 };
+
+function paintTuning(t) {
+  $("tExposure").value = t.exposureBias; $("tExposureVal").textContent = Number(t.exposureBias).toFixed(1);
+  $("tContrast").value = t.contrast; $("tContrastVal").textContent = Number(t.contrast).toFixed(2);
+  $("tQuality").value = t.jpegQuality; $("tQualityVal").textContent = t.jpegQuality;
+  $("tWarmup").value = t.warmupFrames; $("tWarmupVal").textContent = t.warmupFrames;
+  const res = `${t.width}x${t.height}`;
+  if ([...$("tRes").options].some((o) => o.value === res)) $("tRes").value = res;
+}
+
+async function loadTuning() {
+  try {
+    const t = await getJson(api("/capture-tuning"));
+    $("tuneBody").classList.remove("hidden");
+    $("tuneUnsupported").classList.add("hidden");
+    paintTuning(t);
+  } catch {
+    $("tuneBody").classList.add("hidden");
+    $("tuneUnsupported").classList.remove("hidden");
+  }
+}
+
+let tuneTimer = null;
+function applyTuning(partial) {
+  clearTimeout(tuneTimer);
+  tuneTimer = setTimeout(async () => {
+    try {
+      const t = await postJson(api("/capture-tuning"), partial);
+      paintTuning(t);
+      refreshFeed();
+    } catch (e) { toast("튜닝 적용 실패: " + e.message); }
+  }, 150);
+}
+
+// click-to-center on the feed image
+$("feed").addEventListener("click", async (ev) => {
+  const img = $("feed");
+  if (!img.naturalWidth) return;
+  const rect = img.getBoundingClientRect();
+  // account for object-fit:contain letterboxing
+  const scale = Math.min(rect.width / img.naturalWidth, rect.height / img.naturalHeight);
+  const dispW = img.naturalWidth * scale, dispH = img.naturalHeight * scale;
+  const offX = (rect.width - dispW) / 2, offY = (rect.height - dispH) / 2;
+  const px = (ev.clientX - rect.left - offX) / scale;
+  const py = (ev.clientY - rect.top  - offY) / scale;
+  if (px < 0 || py < 0 || px > img.naturalWidth || py > img.naturalHeight) return;
+  try {
+    const r = await postJson(api("/center"), { x: Math.round(px), y: Math.round(py), frameWidth: img.naturalWidth, frameHeight: img.naturalHeight });
+    applyPtz(r.ptz);
+    setTimeout(refreshFeed, 250);
+  } catch (e) { toast("센터링 실패: " + e.message); }
+});
+
+// ---- wire up ----
+document.querySelectorAll("[data-nudge]").forEach((b) => b.onclick = () => nudge(b.dataset.nudge));
+$("live").onchange = startLive;
+$("fps").onchange = startLive;
+// 스트림 모드에서 "지금 갱신" = 재접속 (조용히 멈춘 스트림의 수동 복구 수단)
+$("refresh").onclick = () => { if (isStream() && $("live").checked) startLive(); else refreshFeed(); };
+// 스트림 실패는 플레이어 onError 가 처리. img 자체 에러(스냅샷)는 마지막 프레임 유지.
+$("feed").onerror = () => { /* keep last frame; sim may be momentarily busy */ };
+$("tExposure").oninput = () => { $("tExposureVal").textContent = Number($("tExposure").value).toFixed(1); applyTuning({ exposureBias: Number($("tExposure").value) }); };
+$("tContrast").oninput = () => { $("tContrastVal").textContent = Number($("tContrast").value).toFixed(2); applyTuning({ contrast: Number($("tContrast").value) }); };
+$("tQuality").oninput = () => { $("tQualityVal").textContent = $("tQuality").value; applyTuning({ jpegQuality: Number($("tQuality").value) }); };
+$("tWarmup").oninput = () => { $("tWarmupVal").textContent = $("tWarmup").value; applyTuning({ warmupFrames: Number($("tWarmup").value) }); };
+$("tRes").onchange = () => { const [w, h] = $("tRes").value.split("x").map(Number); applyTuning({ width: w, height: h }); };
+$("tuneReset").onclick = () => applyTuning(DEFAULT_TUNING);
+
+await loadDevices();
+refreshFeed();
+refreshPtz();
+loadTuning();
+startLive();
+</script>
+</body>
+</html>

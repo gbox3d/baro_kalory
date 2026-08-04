@@ -1,0 +1,21 @@
+{
+  "name": "baro-kalory",
+  "version": "0.5.6",
+  "private": false,
+  "type": "module",
+  "description": "PTZ CCTV 커미셔닝 콘솔 웹 UI — 무빌드 바닐라, 정적 호스팅.",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@11.1.0",
+  "scripts": {
+    "build:css": "tailwindcss -i styles/tailwind.css -o public/app.css --minify",
+    "watch:css": "tailwindcss -i styles/tailwind.css -o public/app.css --watch",
+    "build": "pnpm run build:css",
+    "start": "node server.mjs",
+    "test": "node --test \"test/**/*.test.mjs\" \"src/**/*.test.mjs\"",
+    "build:dist": "pnpm run build:css && node pack.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.2",
+    "tailwindcss": "^4.3.2"
+  }
+}

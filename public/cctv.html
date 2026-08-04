@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>baro_calrory · CCTV 제어</title>
+<link rel="icon" href="./favicon.ico" sizes="any" />
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("baro-theme")||"terminal"}catch(e){}</script>
+<link rel="stylesheet" href="./app.css" />
+<style>
+/* cctv.html 전용 컴포넌트 — 공유 base/컴포넌트/토큰은 /app.css(테마 교체 가능)에서 온다.
+   제어 레이아웃과 검출 오버레이만 정의하며, 색/글꼴/반경은 전부 var(--…) 토큰 참조
+   (테마 따라 자동 교체). */
+  :root { color-scheme: dark; }
+  /* 반응형 금지 — 페이지 가로 1200px 고정, 창이 작아지면 브라우저 가로 스크롤. */
+  html, body { min-width: 1200px; }
+  main { padding: 0; }               /* #control 이 자체 패딩을 갖는다(이중 패딩 방지) */
+
+  /* 제어 2단 레이아웃(좌 영상/포즈 · 우 패널) */
+  #panel { flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 14px; }
+  #control { display: flex; gap: 16px; padding: 14px; flex-wrap: nowrap; align-items: stretch;
+    height: calc(100vh - 52px); overflow: hidden; box-sizing: border-box; }
+  #control #left, #control #panel { max-height: 100%; overflow-y: auto; min-width: 0; box-sizing: border-box; }
+  #control #left { flex: 0 0 864px; max-width: calc(100% - 456px); padding-right: 4px; }
+  #control #panel { flex: 0 0 420px; min-width: 320px; padding-right: 4px; }
+
+
+  /* 검출 오버레이 + 결과 카드 */
+  #detector-overlays { position: absolute; inset: 0; pointer-events: none; }
+  .det-box { position: absolute; box-sizing: border-box; border: 2px solid var(--color-accent); background: rgba(211,162,74,.12);
+    color: var(--color-bright); font-size: 11px; font-weight: 700; line-height: 1.3; }
+  .det-label { position: absolute; left: -2px; top: -21px; max-width: 220px; padding: 2px 5px;
+    background: #000a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .det-result-grid { display: grid; gap: 8px; margin-top: 10px; }
+  .det-result { background: var(--color-panel2); border: 1px solid var(--color-border); padding: 8px; }
+  .det-result-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; }
+  .det-result-head b { font-size: 13px; }
+  .det-count { color: var(--color-muted); font-size: 12px; white-space: nowrap; }
+  .det-lines { margin-top: 6px; display: grid; gap: 3px; }
+  .det-line { color: var(--color-muted); font-size: 11px; overflow-wrap: anywhere; }
+  .det-json { margin: 6px 0 0; max-height: 120px; overflow: auto; white-space: pre-wrap; color: var(--color-muted); font-size: 11px; }
+
+  /* Crosshair 토글 — 화면 중앙 조준선만 숨긴다. 검출 박스는 조작 결과라 남긴다. */
+  #stage.crosshair-off .view-crosshair { display: none; }
+
+  .cctv-led { width:10px; height:10px; flex:0 0 auto; border-radius:50%; border:1px solid var(--color-border2); background:var(--color-danger); box-shadow:0 0 0 1px #0008; }
+  .cctv-led.ready { background:var(--color-ok); box-shadow:0 0 7px var(--color-ok), 0 0 0 1px #0008; }
+  .cctv-led.wait { background:var(--color-warn); box-shadow:0 0 7px var(--color-warn), 0 0 0 1px #0008; }
+</style>
+</head>
+<body>
+<header>
+  <h1>baro_calrory · CCTV 제어 <label class="header-camera">CCTV <select id="header-camera-select" data-i18n-skip title="CCTV 선택" disabled><option>불러오는 중…</option></select></label></h1>
+  <span data-role="chrome" style="display:flex; align-items:center; gap:10px;"></span>
+</header>
+<main>
+  <div id="control">
+  <div id="left">
+    <div id="stage" class="preview-paused" data-paused-label="정지됨">
+      <img id="view" class="preview-waiting-image" alt="camera snapshot" />
+      <div class="view-crosshair" aria-hidden="true"></div>
+      <div id="marker" hidden></div>
+      <div id="rubber" hidden></div>
+      <div id="detector-overlays"></div>
+      <div id="cctv-ptz-overlay" class="ptz-control-overlay">
+        <div id="control-ptz-mount" class="ptz-controls-mount"></div>
+      </div>
+    </div>
+    <div id="viewbar">
+      <span id="cctv-preview-led" class="cctv-led wait" title="CCTV 프리뷰 상태"></span>
+      <span id="cctv-preview-status" class="hint">준비됨</span>
+      <button id="cctv-preview-start">시작</button>
+      <button id="cctv-preview-stop" disabled>종료</button>
+      <button id="preview-mode">프리뷰: 스트림</button>
+      <select id="snap-res" title="스크린샷 해상도" style="width:auto; padding:4px 6px; font-size:12px;">
+        <option value="full">원본 해상도</option>
+        <option value="screen">화면 해상도</option>
+      </select>
+      <button id="snap-shot" title="스크린샷 다운로드 — 원본은 카메라에서 새로 받고, 화면은 지금 보이는 프레임 그대로">스크린샷</button>
+      <label style="margin:0;" title="화면 중앙 조준선 켜기/끄기"><input type="checkbox" id="crosshair-toggle" style="width:auto;" checked /> Crosshair</label>
+      <label style="margin:0;"><input type="checkbox" id="ptz-overlay-toggle" style="width:auto;" checked /> PTZ Overlay</label>
+      <label>스냅샷 간격 <input id="fps-int" type="number" min="0" max="3000" step="50" /> ms</label>
+      <span id="fps-actual" class="hint">—</span>
+      <span class="hint">(스트림=MJPEG 연속 · 스냅샷=폴링, 0=최대)</span>
+    </div>
+  </div>
+
+  <div id="panel">
+    <div class="card">
+      <h2>현재 PTZ</h2>
+      <div id="ptz" class="ptz">—</div>
+      <div id="busy"></div>
+    </div>
+
+    <div class="card">
+      <h2>Detector 테스트</h2>
+      <div class="row" style="margin-bottom:8px;">
+        <button id="det-test-vpd">VPD 테스트</button>
+        <button id="det-test-lpd">LPD 테스트</button>
+        <button id="det-test-lpr">LPR 테스트</button>
+        <button id="det-test-all">전체 테스트</button>
+      </div>
+      <div id="det-test-status" class="hint">현재 화면 스냅샷을 검출 API로 보내고 결과 박스를 영상 위에 표시합니다.</div>
+      <div id="det-test-results" class="det-result-grid"></div>
+    </div>
+
+    <div class="card">
+      <h2>로그</h2>
+      <pre id="log"></pre>
+    </div>
+  </div>
+  </div>
+
+</main>
+
+<script type="module">
+import { getJson, postJson, reqJson, fmtPtz as fmt, api, asset } from "./web/api.mjs";
+import { createCameraPreview } from "./web/camera-preview.mjs";
+import { createPtzControls } from "./web/ptz-controls.mjs";
+import { applyI18n, t } from "./web/i18n.mjs";
+import { initPageChrome } from "./web/page-chrome.mjs";
+import { createCameraSelect } from "./web/camera-select.mjs";
+
+initPageChrome({ page: "cctv" });
+
+const view = document.getElementById("view");
+const marker = document.getElementById("marker");
+const ptzEl = document.getElementById("ptz");
+const busyEl = document.getElementById("busy");
+const logEl = document.getElementById("log");
+const detectorOverlays = document.getElementById("detector-overlays");
+let lastPtz = null;
+
+function log(msg) {
+  const t = new Date().toLocaleTimeString();
+  logEl.textContent = `[${t}] ${msg}\n` + logEl.textContent;
+}
+
+// 카메라 전환은 **이전 카메라를 놓아주는 것**부터다. 예전에는 서버 활성을 먼저 바꾸고 나서
+// 프리뷰를 새 카메라로 다시 연결했는데, 그 사이 이전 카메라로 열린 MJPEG 스트림이 유령
+// 시청자로 남았다 — 그 카메라가 유휴로 풀리지 않아 홈 복귀가 안 되고, 캡처 예산을 나눠 써
+// 프레임이 급감했다(2026-08-04 실측: 기기를 연달아 전환한 직후).
+//
+// 그리고 전환 후 **자동으로 다시 켜지 않는다.** "페이지를 여는 행위가 카메라 점유가 되면
+// 안 된다"와 같은 이유다 — 전환하는 행위가 새 카메라 점유가 되어서도 안 된다. 시작 버튼으로만.
+async function releasePreviewForCameraSwitch() {
+  showSwitching(true);
+  controlPreviewWanted = false;
+  savePreviewWanted(false);
+  await controlPreview.stop();
+  controlPreviewRunning = false;
+  // 자동 폴백은 직전 기기에 대한 판정이었다 — 새 기기에 물려주지 않는다. 안 걷어내면
+  // 스트림 없는 기기(기준기)를 한 번 거친 탭이 세션 내내 스냅샷 저fps 에 갇힌다.
+  controlPreview.resetFallbackForNewDevice();
+  renderControlPreviewState(t("전환됨 — 시작을 누르면 새 카메라를 봅니다"));
+}
+
+// 헤더 CCTV 셀렉터 — 활성 카메라는 서버 전역 상태(설정 페이지와 공유). 다른 창이 바꾸면
+// refreshOnVisible 이 돌아왔을 때 표시를 따라잡는다.
+const cam = createCameraSelect({
+  select: document.getElementById("header-camera-select"),
+  beforeChange: () => releasePreviewForCameraSwitch(),   // 놓아주기가 서버 전환보다 먼저
+  onSettled: () => showSwitching(false),
+  log,
+  refreshOnVisible: true,
+});
+cam.load();
+
+function setBusy(on, label) {
+  busyEl.textContent = on ? t(label || "카메라 이동 중…") : "";
+  document.querySelectorAll("button").forEach((b) => { b.disabled = on; });
+}
+// 화면/탭 전환 시 "스트림 종료 대기" 오버레이(대기 대화상자). 테마 토큰 사용.
+let _switchOverlay = null;
+function showSwitching(on) {
+  if (on && !_switchOverlay) {
+    _switchOverlay = document.createElement("div");
+    _switchOverlay.textContent = t("화면 전환 중 — 스트림 종료 대기…");
+    _switchOverlay.style.cssText = "position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);color:var(--color-bright);font-family:var(--font-mono);font-size:14px;";
+    document.body.appendChild(_switchOverlay);
+  }
+  if (_switchOverlay) _switchOverlay.style.display = on ? "flex" : "none";
+}
+
+// Live CCTV preview — shared module (same code drives the discovery editor's view).
+const controlPreview = createCameraPreview({
+  img: view,
+  modeButton: document.getElementById("preview-mode"),
+  intervalInput: document.getElementById("fps-int"),
+  fpsLabel: document.getElementById("fps-actual"),
+  storageKey: "control",
+  log,
+});
+const cctvPreviewStartBtn = document.getElementById("cctv-preview-start");
+const cctvPreviewStopBtn = document.getElementById("cctv-preview-stop");
+const cctvPreviewLed = document.getElementById("cctv-preview-led");
+const cctvPreviewStatus = document.getElementById("cctv-preview-status");
+// 프리뷰 켬/끔은 **사용자 선택**이고 그 선택은 기억한다. 예전에는 페이지를 열면 무조건
+// 시작해서, 설정을 보러 들어왔을 뿐인데도 카메라를 점유했다(시뮬은 카메라 슬롯이 희소하다).
+// 기본값은 꺼짐 — 영상을 볼 의도는 버튼으로 표현한다.
+const PREVIEW_WANTED_KEY = "control:preview-on.v1";
+function readPreviewWanted() {
+  try { return localStorage.getItem(PREVIEW_WANTED_KEY) === "on"; } catch { return false; }
+}
+function savePreviewWanted(on) {
+  try { localStorage.setItem(PREVIEW_WANTED_KEY, on ? "on" : "off"); } catch { /* 저장소 사용 불가 */ }
+}
+let controlPreviewWanted = false;
+let controlPreviewRunning = false;
+
+function renderControlPreviewState(label) {
+  cctvPreviewStartBtn.disabled = controlPreviewRunning;
+  cctvPreviewStopBtn.disabled = !controlPreviewRunning && !controlPreviewWanted;
+  cctvPreviewLed.classList.toggle("ready", controlPreviewRunning);
+  cctvPreviewLed.classList.toggle("wait", !controlPreviewRunning);
+  cctvPreviewStatus.textContent = label || (controlPreviewRunning ? t("실행 중") : t("준비됨"));
+}
+
+function startControlPreview() {
+  controlPreviewWanted = true;
+  savePreviewWanted(true);
+  controlPreview.start();
+  controlPreviewRunning = true;
+  renderControlPreviewState(t("실행 중"));
+  log(t("CCTV 프리뷰 시작"));
+}
+
+async function stopControlPreview() {
+  controlPreviewWanted = false;
+  savePreviewWanted(false);
+  await controlPreview.stop();
+  controlPreviewRunning = false;
+  renderControlPreviewState(t("중지됨"));
+  log(t("CCTV 프리뷰 종료"));
+}
+
+cctvPreviewStartBtn.addEventListener("click", startControlPreview);
+cctvPreviewStopBtn.addEventListener("click", stopControlPreview);
+renderControlPreviewState(t("준비됨"));
+
+// 현재 미리보기 프레임을 캔버스로 떠서 브라우저로 바로 다운로드 (서버 저장 없음).
+// 영상(#view)은 동일 출처(/api/stream|snapshot)라 canvas 가 오염되지 않아 그대로 toBlob 가능.
+// 스크린샷 두 갈래 — 화면에 보이는 프레임과 카메라 원본은 같은 그림이 아니다.
+// 프리뷰는 720p 스트림이거나 ?preview=1 로 스트림에서 떠 온 저해상 프레임이라(그래야 카메라를
+// 새로 돌리지 않는다), 그걸 캔버스로 복사하면 화면 해상도가 그대로 파일이 된다.
+// "원본"은 ?preview=1 없이 /api/snapshot 을 받는다 = 추론이 쓰는 그 원본이고, 받은 JPEG 을
+// 재인코딩 없이 그대로 저장한다(캔버스를 거치면 화질이 한 번 더 깎인다).
+const SNAP_RES_KEY = "cctv:snap-res.v1";
+const snapResSel = document.getElementById("snap-res");
+try { const v = localStorage.getItem(SNAP_RES_KEY); if (v) snapResSel.value = v; } catch {}
+snapResSel.addEventListener("change", () => {
+  try { localStorage.setItem(SNAP_RES_KEY, snapResSel.value); } catch {}
+});
+
+function saveBlob(blob, suffix) {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  const name = `barocalory-${cam.activeId() || "cam"}-${stamp}${suffix}.jpg`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
+}
+
+async function downloadFullSnapshot() {
+  const btn = document.getElementById("snap-shot");
+  btn.disabled = true;
+  try {
+    // 캐시 무효화용 t= 만 붙인다. preview=1 을 붙이면 저해상 경로로 되돌아간다.
+    const r = await fetch(api("/snapshot") + "?t=" + Date.now());
+    if (!r.ok) {
+      // 능력 부재(501)와 진짜 장애를 구분해 준다 — 스냅샷을 못 주는 기기가 있다.
+      let why = `HTTP ${r.status}`;
+      try { const j = await r.json(); if (j.error) why = j.error; } catch {}
+      log(t("스크린샷 실패") + ": " + why);
+      return;
+    }
+    const blob = await r.blob();
+    const bmp = await createImageBitmap(blob).catch(() => null);
+    const name = saveBlob(blob, "");
+    log(t("스크린샷 저장: {name}", { name }) + (bmp ? ` (${bmp.width}×${bmp.height})` : ""));
+  } catch (e) {
+    log(t("스크린샷 실패") + ": " + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function downloadScreenSnapshot() {
+  if (!view.naturalWidth || !view.naturalHeight) { log(t("스크린샷 실패: 표시 중인 영상 프레임이 없습니다")); return; }
+  const cv = document.createElement("canvas");
+  cv.width = view.naturalWidth; cv.height = view.naturalHeight;
+  try {
+    cv.getContext("2d").drawImage(view, 0, 0);
+    cv.toBlob((blob) => {
+      if (!blob) { log(t("스크린샷 실패: 인코딩 오류")); return; }
+      const name = saveBlob(blob, "-screen");
+      log(t("스크린샷 저장: {name}", { name }) + ` (${cv.width}×${cv.height})`);
+    }, "image/jpeg", 0.95);
+  } catch (e) { log(t("스크린샷 실패") + ": " + e.message); }
+}
+
+document.getElementById("snap-shot").addEventListener("click", () => {
+  if (snapResSel.value === "screen") downloadScreenSnapshot();
+  else downloadFullSnapshot();
+});
+
+async function loopPtz() {
+  // 숨겨진 탭에서는 카메라를 깨우지 않는다. 예전에는 가드 없이 800ms 마다 영구히 돌아,
+  // 아무도 안 보는 탭 하나가 하루 10만 건 넘게 카메라 HTTP 를 두드렸다. 시뮬에서는 그
+  // 핸들러가 게임스레드에서 처리돼 캡처와 경쟁한다. 타이머는 유지해 복귀 시 즉시 재개한다.
+  if (document.hidden) { setTimeout(loopPtz, 800); return; }
+  try { lastPtz = await getJson(api("/ptz")); ptzEl.textContent = fmt(lastPtz); }
+  catch (e) {
+    // 절대 좌표가 없는 계열(IDIS 등)은 위치를 못 주는 것이 **설계**다 — 그걸 "읽기 실패"로
+    // 부르면 정상 동작을 고장으로 오인하게 만든다. 능력 부재(501)와 진짜 장애를 구분한다.
+    lastPtz = null;
+    ptzEl.textContent = e.status === 501
+      ? t("이 기기는 위치를 알려주지 않습니다 (상대 이동 전용)")
+      : t("읽기 실패") + ": " + e.message;
+  }
+  setTimeout(loopPtz, 800);
+}
+
+// Click = center only. Drag a box = center + zoom into that area (camera box-zoom).
+const rubber = document.getElementById("rubber");
+let dragStart = null;
+
+function viewPoint(e) {
+  const rect = view.getBoundingClientRect();
+  // Fall back to the Hucoms reference frame before the first snapshot loads
+  // (also lets fake mode be clicked without a real image).
+  const nw = view.naturalWidth || 1920;
+  const nh = view.naturalHeight || 1080;
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
+  return {
+    px, py, nw, nh, rect,
+    x: Math.round(px / rect.width * nw),
+    y: Math.round(py / rect.height * nh),
+  };
+}
+
+function moveMarkerToViewCenter() {
+  const stage = document.getElementById("stage");
+  marker.style.left = (stage.clientWidth / 2) + "px";
+  marker.style.top = (stage.clientHeight / 2) + "px";
+  marker.style.opacity = "";
+  marker.hidden = false;
+}
+
+function finalizeCenterMarker() {
+  moveMarkerToViewCenter();
+  requestAnimationFrame(moveMarkerToViewCenter);
+}
+
+view.addEventListener("dragstart", (e) => e.preventDefault());
+
+view.addEventListener("mousedown", (e) => {
+  if (e.button !== 0) return;
+  const rect = view.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  dragStart = viewPoint(e);
+});
+
+view.addEventListener("mousemove", (e) => {
+  if (!dragStart) return;
+  const p = viewPoint(e);
+  rubber.hidden = false;
+  rubber.style.left = Math.min(dragStart.px, p.px) + "px";
+  rubber.style.top = Math.min(dragStart.py, p.py) + "px";
+  rubber.style.width = Math.abs(p.px - dragStart.px) + "px";
+  rubber.style.height = Math.abs(p.py - dragStart.py) + "px";
+});
+
+window.addEventListener("mouseup", async (e) => {
+  if (!dragStart) return;
+  const start = dragStart;
+  dragStart = null;
+  rubber.hidden = true;
+  const end = viewPoint(e);
+  const isDrag = Math.abs(end.px - start.px) > 8 || Math.abs(end.py - start.py) > 8;
+
+  if (!isDrag) {
+    marker.style.left = start.px + "px";
+    marker.style.top = start.py + "px";
+    marker.hidden = false;
+    setBusy(true);
+    // 클릭 시점부터 표시 영상을 감시: 원(마커)은 서버 정착 응답이 아니라
+    // "화면에 보이는" 팬이 끝난 뒤에 중앙 십자로 옮긴다(프리뷰는 1~2초 지연).
+    const motion = controlPreview.watchDisplayedMotion();
+    try {
+      const j = await postJson(api("/center"), {
+        x: start.x, y: start.y, frameWidth: start.nw, frameHeight: start.nh, speed: controlPtz.speed(),
+      });
+      lastPtz = j.ptz;
+      ptzEl.textContent = fmt(j.ptz);
+      await motion.settled();
+      finalizeCenterMarker();
+      log(t("센터링 ({x}, {y}) → {p}", { x: start.x, y: start.y, p: fmt(j.ptz) }));
+    } catch (err) {
+      log(t("센터링 실패") + ": " + err.message);
+    } finally {
+      motion.stop();
+      setBusy(false);
+    }
+    return;
+  }
+
+  marker.hidden = true;
+  const box = {
+    startX: Math.min(start.x, end.x),
+    startY: Math.min(start.y, end.y),
+    endX: Math.max(start.x, end.x),
+    endY: Math.max(start.y, end.y),
+  };
+  setBusy(true);
+  try {
+    const j = await postJson(api("/center-box"), {
+      ...box, frameWidth: start.nw, frameHeight: start.nh, speed: controlPtz.speed(),
+    });
+    lastPtz = j.ptz;
+    ptzEl.textContent = fmt(j.ptz);
+    log(t("박스줌 ({x1},{y1})-({x2},{y2}) → {p}", { x1: box.startX, y1: box.startY, x2: box.endX, y2: box.endY, p: fmt(j.ptz) }));
+  } catch (err) {
+    log(t("박스줌 실패") + ": " + err.message);
+  } finally {
+    setBusy(false);
+  }
+});
+
+// PTZ control pad + absolute move — shared module (control tab only).
+const controlPtz = createPtzControls({
+  mount: document.getElementById("control-ptz-mount"),
+  overlay: {
+    stage: document.getElementById("stage"),
+    container: document.getElementById("cctv-ptz-overlay"),
+    toggle: document.getElementById("ptz-overlay-toggle"),
+  },
+  onPtz: (ptz) => { lastPtz = ptz; ptzEl.textContent = fmt(ptz); },
+  onBusy: setBusy,
+  log,
+  getLastPtz: () => lastPtz,
+});
+
+// Crosshair 토글 — 화면 중앙 조준선을 켜고 끈다. 선택은 localStorage 에 남는다.
+// PTZ 조작 패드는 별개 토글(ptz-overlay-toggle)이 담당.
+const crosshairToggle = document.getElementById("crosshair-toggle");
+const CROSSHAIR_KEY = "cctv:crosshair.v1";
+try { crosshairToggle.checked = localStorage.getItem(CROSSHAIR_KEY) !== "off"; } catch { /* 저장소 사용 불가 */ }
+const applyCrosshairToggle = () => document.getElementById("stage").classList.toggle("crosshair-off", !crosshairToggle.checked);
+crosshairToggle.addEventListener("change", () => {
+  try { localStorage.setItem(CROSSHAIR_KEY, crosshairToggle.checked ? "on" : "off"); } catch { /* 저장소 사용 불가 */ }
+  applyCrosshairToggle();
+});
+applyCrosshairToggle();
+
+// --- Detector test: send current snapshot to VPD/LPD/LPR and overlay boxes ---
+const detTestStatus = document.getElementById("det-test-status");
+const detTestResults = document.getElementById("det-test-results");
+const detTestButtons = [
+  document.getElementById("det-test-vpd"),
+  document.getElementById("det-test-lpd"),
+  document.getElementById("det-test-lpr"),
+  document.getElementById("det-test-all"),
+].filter(Boolean);
+
+function setDetectorTestBusy(on, label) {
+  detTestButtons.forEach((btn) => { btn.disabled = on; });
+  detTestStatus.textContent = on ? t(label || "테스트 중…") : t("현재 화면 스냅샷을 검출 API로 보내고 결과 박스를 영상 위에 표시합니다.");
+}
+
+function clearDetectorOverlay() {
+  detectorOverlays.replaceChildren();
+}
+
+function detectorBoxFrom(bbox) {
+  const nums = Array.isArray(bbox) ? bbox.flat(Infinity).map(Number).filter(Number.isFinite) : [];
+  if (nums.length < 4) return null;
+  if (nums.length === 4) {
+    const [x1, y1, x2, y2] = nums;
+    return { x1, y1, x2, y2 };
+  }
+  const xs = [];
+  const ys = [];
+  for (let i = 0; i < nums.length - 1; i += 2) { xs.push(nums[i]); ys.push(nums[i + 1]); }
+  return { x1: Math.min(...xs), y1: Math.min(...ys), x2: Math.max(...xs), y2: Math.max(...ys) };
+}
+
+function drawDetectorOverlay(payload) {
+  clearDetectorOverlay();
+  const results = payload.results || {};
+  const colors = { vpd: "#5ec26a", lpd: "#ffd24a", lpr: "#6aa6ff" };
+  const nw = Number(payload.frame?.width) || 1920;
+  const nh = Number(payload.frame?.height) || 1080;
+  for (const [target, result] of Object.entries(results || {})) {
+    for (const [i, box] of (result.boxes || []).entries()) {
+      const b = detectorBoxFrom(box.bbox);
+      if (!b) continue;
+      const x1 = Math.max(0, Math.min(nw, Math.min(b.x1, b.x2)));
+      const x2 = Math.max(0, Math.min(nw, Math.max(b.x1, b.x2)));
+      const y1 = Math.max(0, Math.min(nh, Math.min(b.y1, b.y2)));
+      const y2 = Math.max(0, Math.min(nh, Math.max(b.y1, b.y2)));
+      if (x2 <= x1 || y2 <= y1) continue;
+      const el = document.createElement("div");
+      const color = colors[target] || "#6aa6ff";
+      el.className = "det-box";
+      el.style.left = (x1 / nw * 100) + "%";
+      el.style.top = (y1 / nh * 100) + "%";
+      el.style.width = ((x2 - x1) / nw * 100) + "%";
+      el.style.height = ((y2 - y1) / nh * 100) + "%";
+      el.style.borderColor = color;
+      el.style.background = color + "22";
+      const label = document.createElement("span");
+      label.className = "det-label";
+      label.style.borderLeft = "2px solid " + color;
+      const conf = Number(box.confidence);
+      label.textContent = `${target.toUpperCase()} #${i + 1}` +
+        (box.className ? ` ${box.className}` : "") +
+        (Number.isFinite(conf) ? ` ${conf.toFixed(2)}` : "");
+      el.appendChild(label);
+      detectorOverlays.appendChild(el);
+    }
+  }
+}
+
+function renderDetectorResults(payload) {
+  detTestResults.replaceChildren();
+  const entries = Object.entries(payload.results || {});
+  if (!entries.length) {
+    detTestResults.innerHTML = '<span class="hint">결과 없음</span>';
+    applyI18n(detTestResults);
+    return;
+  }
+  for (const [target, result] of entries) {
+    const wrap = document.createElement("div");
+    wrap.className = "det-result";
+    const head = document.createElement("div");
+    head.className = "det-result-head";
+    const title = document.createElement("b");
+    title.textContent = target.toUpperCase();
+    const meta = document.createElement("span");
+    meta.className = "det-count";
+    meta.textContent = result.ok
+      ? t("HTTP {s} · {c}개 · {ms}ms", { s: result.status, c: result.count || 0, ms: Math.round(result.latencyMs || 0) })
+      : t("실패 · {ms}ms", { ms: Math.round(result.latencyMs || 0) });
+    head.append(title, meta);
+    wrap.appendChild(head);
+
+    const lines = document.createElement("div");
+    lines.className = "det-lines";
+    if (!result.ok) {
+      const line = document.createElement("div");
+      line.className = "det-line";
+      line.textContent = result.error || "unreachable";
+      lines.appendChild(line);
+    } else if ((result.boxes || []).length) {
+      for (const [i, box] of result.boxes.slice(0, 8).entries()) {
+        const b = detectorBoxFrom(box.bbox);
+        const conf = Number(box.confidence);
+        const line = document.createElement("div");
+        line.className = "det-line";
+        line.textContent = `#${i + 1} ${box.className || "object"} ` +
+          (Number.isFinite(conf) ? `${conf.toFixed(2)} ` : "") +
+          (b ? `[${Math.round(b.x1)},${Math.round(b.y1)},${Math.round(b.x2)},${Math.round(b.y2)}]` : "");
+        lines.appendChild(line);
+      }
+    } else if ((result.texts || []).length) {
+      for (const text of result.texts.slice(0, 8)) {
+        const line = document.createElement("div");
+        line.className = "det-line";
+        line.textContent = text;
+        lines.appendChild(line);
+      }
+    } else {
+      const line = document.createElement("div");
+      line.className = "det-line";
+      line.textContent = t("응답은 정상이나 검출 항목은 없습니다.");
+      lines.appendChild(line);
+    }
+    wrap.appendChild(lines);
+    if (result.preview) {
+      const pre = document.createElement("pre");
+      pre.className = "det-json";
+      pre.textContent = result.preview;
+      wrap.appendChild(pre);
+    }
+    detTestResults.appendChild(wrap);
+  }
+  applyI18n(detTestResults);
+}
+
+async function runDetectorTest(targets) {
+  clearDetectorOverlay();
+  detTestResults.replaceChildren();
+  setDetectorTestBusy(true, t("{x} 테스트 중…", { x: targets.map((t) => t.toUpperCase()).join("/") }));
+  try {
+    const payload = await postJson(api("/cctv/detector-test"), { targets });
+    renderDetectorResults(payload);
+    drawDetectorOverlay(payload);
+    const ok = Object.values(payload.results || {}).filter((r) => r.ok).length;
+    const total = Object.keys(payload.results || {}).length;
+    detTestStatus.textContent = t("테스트 완료: {ok}/{total} 응답 · 영상 위 박스 {n}개", { ok, total, n: detectorOverlays.children.length });
+    log(t("Detector 테스트 완료: {ok}/{total} 응답, 박스 {n}개", { ok, total, n: detectorOverlays.children.length }));
+  } catch (e) {
+    detTestStatus.textContent = t("테스트 실패") + ": " + e.message;
+    log(t("Detector 테스트 실패") + ": " + e.message);
+  } finally {
+    detTestButtons.forEach((btn) => { btn.disabled = false; });
+  }
+}
+
+document.getElementById("det-test-vpd").addEventListener("click", () => runDetectorTest(["vpd"]));
+document.getElementById("det-test-lpd").addEventListener("click", () => runDetectorTest(["lpd"]));
+document.getElementById("det-test-lpr").addEventListener("click", () => runDetectorTest(["lpr"]));
+document.getElementById("det-test-all").addEventListener("click", () => runDetectorTest(["vpd", "lpd", "lpr"]));
+
+
+// 지난번 선택이 "켬"이었을 때만 자동 시작한다. 첫 방문/모르면 꺼진 채로 열고,
+// 영상은 시작 버튼으로 켠다 — 페이지를 여는 것이 곧 카메라 점유가 되지 않게.
+if (readPreviewWanted()) startControlPreview();
+else renderControlPreviewState(t("정지됨 — 시작을 누르세요"));
+loopPtz();
+
+// 화면 이탈(페이지 전환/새로고침) 시 스트림 즉시 종료 — 브라우저가 스트리밍 fetch 를
+// 살려두어(bfcache 등) sim MJPEG 연결이 누적되는 것을 막는다.
+window.addEventListener("pagehide", () => { controlPreview.stop(); });
+</script>
+</body>
+</html>

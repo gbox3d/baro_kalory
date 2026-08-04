@@ -1,0 +1,9 @@
+# 이 저장소는 단일 패키지다 — 이 파일은 workspace 를 만들려는 게 아니라 pnpm 설정을 두려고
+# 존재한다(pnpm 11 은 allowBuilds 를 package.json 이 아니라 여기서 읽는다).
+packages: []
+
+# @tailwindcss/cli 전이 의존 @parcel/watcher(--watch 전용 네이티브 워처).
+# 네이티브 컴파일을 스킵(false 로 승인)해 어떤 머신에서도 `pnpm install` 이 안전히 통과한다.
+# build:css(1회성)엔 불필요. watch:css 를 쓰려면 true 로 바꿔 워처를 빌드하면 된다.
+allowBuilds:
+  '@parcel/watcher': false

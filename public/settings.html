@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>baro_calory · 설정</title>
+<link rel="icon" href="./favicon.ico" sizes="any" />
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("baro-theme")||"terminal"}catch(e){}</script>
+<link rel="stylesheet" href="./app.css" />
+<style>
+/* settings 전용 — 공유 base/컴포넌트/토큰은 /app.css 에서 온다. */
+  :root { color-scheme: dark; }
+  .dev-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--color-border); }
+  .dev-row.sel { border-color: var(--color-accent); background: #12160f; }
+</style>
+</head>
+<body>
+<header>
+  <h1>baro_calory · 설정</h1>
+  <span data-role="chrome" style="display:flex; align-items:center; gap:10px;"></span>
+</header>
+<main>
+  <div id="set-panel" style="display:flex; flex-direction:column; gap:14px; width:580px; max-width:100%;">
+    <div class="card">
+      <h2>서비스 상태</h2>
+      <div class="row" style="gap:16px; font-size:13px;">
+        <span id="st-backend">백엔드 …</span>
+        <span id="st-camera">카메라 …</span>
+        <span id="st-detector">검출기 …</span>
+        <span id="st-lpr">LPR …</span>
+      </div>
+      <div class="row" style="margin-top:8px;"><button id="set-refresh-status">상태 새로고침</button> <span class="hint">페이지를 열면 자동 확인합니다</span></div>
+    </div>
+    <div class="card">
+      <h2>현재 연결</h2>
+      <div id="set-current" class="hint">불러오는 중…</div>
+    </div>
+    <div class="card">
+      <h2>API 서버</h2>
+      <div class="row" style="gap:8px;">
+        <input id="apibase-input" data-i18n-skip type="text" style="flex:1; min-width:0;" />
+        <button id="apibase-test">연결 테스트</button>
+        <button id="apibase-save">저장</button>
+        <button id="apibase-clear">초기화</button>
+      </div>
+      <div id="apibase-status" class="hint" style="margin-top:6px;"></div>
+    </div>
+    <div class="card">
+      <h2>기기 (장치)</h2>
+      <div class="row" style="margin-bottom:6px;">
+        <label>활성 기기</label>
+        <select id="dev-active" style="width:auto; padding:5px; min-width:170px;"></select>
+        <button id="dev-add" style="margin-left:auto;">＋ 기기 추가</button>
+      </div>
+      <div id="dev-list" style="display:flex; flex-direction:column; gap:4px; margin:6px 0 10px;"></div>
+      <div style="border-top:1px solid #2a2f3a; margin:0 0 10px;"></div>
+      <div class="hint" id="dev-edit-title" style="margin-bottom:6px;">기기 편집</div>
+      <div class="row" style="margin-bottom:6px;">
+        <label>ID</label><input id="set-cam-id" style="width:110px" placeholder="cam-001" />
+        <label>이름</label><input id="dev-name" style="width:130px" placeholder="정문 CCTV" />
+        <label>타입</label><select id="dev-type" style="width:auto; padding:5px;"></select>
+      </div>
+      <div id="dev-host-fields">
+        <div class="row" style="margin-bottom:6px;">
+          <label>호스트</label><input id="set-cam-host" style="width:150px" placeholder="192.0.2.50" />
+          <label>포트</label><input id="set-cam-port" type="number" style="width:70px" placeholder="80" />
+        </div>
+        <div class="row" style="margin-bottom:8px;">
+          <label>계정</label><input id="set-cam-user" style="width:100px" placeholder="admin" />
+          <label>비밀번호</label><input id="set-cam-pass" type="password" style="width:130px" placeholder="비밀번호" />
+        </div>
+      </div>
+      <div class="row">
+        <button id="dev-apply">이 기기 적용</button>
+        <button id="set-probe">연결 테스트</button>
+        <button id="dev-del" style="margin-left:auto;">삭제</button>
+      </div>
+      <div class="row" style="margin-top:6px;"><span id="set-probe-out" class="hint"></span></div>
+    </div>
+    <div class="card">
+      <h2>검출기 (baro_detector_api)</h2>
+      <div class="row" style="margin-bottom:6px;"><label style="width:84px">검출기 URL</label><input id="set-detector" style="width:240px" placeholder="http://127.0.0.1:9080" /></div>
+      <div class="hint" style="margin-bottom:8px;">차량+번호판 통합 (vpd+lpd). 경로: /vpd/api/v2 · /lpd/api/v1</div>
+      <div class="row"><button id="set-probe-det">검출기 테스트</button> <span id="set-det-out" class="hint"></span></div>
+    </div>
+    <div class="card">
+      <h2>LPR 판독 (외부 OCR)</h2>
+      <div class="row" style="margin-bottom:6px;"><label style="width:84px">LPR URL</label><input id="set-lpr" style="width:300px" placeholder="http://&lt;LPR-호스트&gt;:8124/v1/plate-reader/" /></div>
+      <div class="hint" style="margin-bottom:8px;">번호판 문자 인식 — 검출기와 별개의 외부 서비스.</div>
+      <div class="row"><button id="set-probe-lpr">LPR 테스트</button> <span id="set-lpr-out" class="hint"></span></div>
+    </div>
+    <div class="card">
+      <h2>API 키 (VLM)</h2>
+      <div class="row" style="margin-bottom:6px;"><label style="width:96px">Anthropic</label><input id="set-key-anthropic" type="password" autocomplete="off" style="width:300px" placeholder="sk-ant-… (비우면 기존 유지)" /></div>
+      <div class="row" style="margin-bottom:6px;"><label style="width:96px">OpenAI</label><input id="set-key-openai" type="password" autocomplete="off" style="width:300px" placeholder="sk-… (비우면 기존 유지)" /></div>
+      <div class="hint" id="set-key-hint">…</div>
+    </div>
+    <div class="card">
+      <h2>카메라 캘리브레이션</h2>
+      <div class="hint">기기별 광학·조준 실측은 <a href="./calibration" data-i18n-skip class="navlink">캘리브레이션</a> 페이지로 분리되었습니다.</div>
+    </div>
+    <div class="card">
+      <div class="row"><button id="set-save">저장 + 즉시 적용 (무중단)</button> <span id="set-save-out" class="hint"></span></div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { getJson, postJson, api, API_BASE, API_BASE_EXPLICIT, API_BASE_KEY, cleanApiBase, stripApiParamFromUrl } from "./web/api.mjs";
+import { applyI18n, t } from "./web/i18n.mjs";
+import { initPageChrome } from "./web/page-chrome.mjs";
+
+initPageChrome({ page: "settings" });
+
+// ===================== API 서버 base =====================
+// 벽돌 방지 설계: 이 카드는 API 호출 없이 렌더된다(정적 파일은 base 와 무관하게 항상 뜸).
+// 저장 전 /api/version 프로브로 경고하되 강행은 허용(아직 안 뜬 backend 를 미리 지정하는
+// 경우). 탈출구는 주소창 ?api=reset — localStorage 를 지우고 동일 출처로 복귀한다.
+{
+  const input = document.getElementById("apibase-input");
+  const statusEl = document.getElementById("apibase-status");
+  // 입력칸은 **설정값만** 보여 준다. 추측한 주소나 현재 오리진을 채워 넣지 않는다 —
+  // 채워 넣으면 「초기화」를 눌러도 값이 남아 있는 것처럼 보여서, 지워졌는지 아닌지를
+  // 화면으로 구분할 수 없게 된다(실제 보고된 혼란: 초기화했는데 자기 호스트 주소가 남았다).
+  input.value = API_BASE_EXPLICIT ? API_BASE : "";
+  input.placeholder = "http://<백엔드호스트>:8080";
+  if (!API_BASE_EXPLICIT) {
+    statusEl.textContent = t("미설정 — 백엔드 주소를 지정해야 나머지 화면이 동작합니다");
+  } else {
+    // 프록시 뒤의 실제 backend 는 프록시만 안다(브라우저에는 프록시 주소로만 보인다).
+    // X-Baro-Upstream 이 있으면 그것까지 보여 준다 — 어느 backend 를 보는지가 제일 위험한 오해다.
+    (async () => {
+      try {
+        const r = await fetch(api("/version"), { signal: AbortSignal.timeout(4000) });
+        const upstream = r.headers.get("x-baro-upstream");
+        if (upstream) statusEl.textContent = `${t("연결됨")} · upstream ${upstream}`;
+      } catch { /* 연결 실패는 page-chrome 게이트와 '서비스 상태' 카드가 진단한다 */ }
+    })();
+  }
+  // 입력값 정규화. **테스트와 저장이 같은 규칙을 써야 한다** — 따로 두면 "테스트는 통과했는데
+  // 저장된 건 다른 주소" 라는 최악의 어긋남이 생긴다.
+  function typedBase() {
+    let raw = input.value.trim();
+    if (!raw) return "";
+    // 스킴 생략("192.0.2.10")은 fetch 가 상대경로로 해석해 벽돌이 된다 — http:// 보정.
+    if (!/^https?:\/\//i.test(raw)) raw = "http://" + raw;
+    // 끝슬래시 정규화 + http(s) 검증. 경로는 보존한다 — 마운트를 포함한 주소가 정상이다.
+    return cleanApiBase(raw);
+  }
+
+  // 프로브 — r.ok 와 **버전 필드까지** 본다. 엉뚱한 주소도 404 JSON 이 파싱은 되므로(캐치올)
+  // ok 검사 없이는 "확인됨: vundefined" 로 벽돌을 승인하게 된다.
+  async function probeBase(v) {
+    try {
+      const r = await fetch(`${v}/api/version`, { signal: AbortSignal.timeout(4000) });
+      let j = null;
+      try { j = await r.json(); } catch { /* JSON 이 아닌 응답 — 아래에서 실패로 다룬다 */ }
+      if (r.ok && j && (j.backendVersion || j.version)) {
+        return { ok: true, version: j.backendVersion || j.version, upstream: r.headers.get("x-baro-upstream") };
+      }
+      return { ok: false, kind: "not-baro", reason: (j && j.error) || `HTTP ${r.status}` };
+    } catch (e) {
+      // fetch 의 실패는 원인을 알려주지 않는다 — 네트워크 불가·CORS 차단·혼합 콘텐츠가 전부
+      // 같은 TypeError 다. 포트로 출처가 갈린 이 배포에서는 CORS 가 가장 흔한 원인이므로
+      // 문구가 그걸 짚어 줘야 사용자가 주소만 붙들고 헤매지 않는다.
+      const reason = String((e && e.message) || e);
+      return { ok: false, kind: /abort|timeout|signal/i.test(reason) ? "timeout" : "unreachable", reason };
+    }
+  }
+
+  function reportProbe(v, r) {
+    if (r.ok) {
+      statusEl.textContent = `${t("연결됨")}: backend v${r.version}` + (r.upstream ? ` · upstream ${r.upstream}` : "");
+    } else if (r.kind === "timeout") {
+      statusEl.textContent = `${t("응답 없음")} — ${t("백엔드가 떠 있는지, 주소·포트가 맞는지 확인하세요")} (${r.reason})`;
+    } else if (r.kind === "unreachable") {
+      statusEl.textContent = `${t("연결 실패")} — ${t("출처가 다르면 백엔드가 이 주소를 CORS 로 허용해야 합니다")} (${r.reason})`;
+    } else {
+      statusEl.textContent = `${v} ${t("는 baro backend 로 응답하지 않습니다")} (${r.reason})`;
+    }
+  }
+
+  document.getElementById("apibase-test").onclick = async () => {
+    const v = typedBase();
+    if (!v) { statusEl.textContent = t("주소 형식이 올바르지 않습니다") + ` (http:// ${t("또는")} https://)`; return; }
+    input.value = v;                       // 정규화 결과를 눈으로 확인시킨다
+    statusEl.textContent = t("확인 중") + "…";
+    reportProbe(v, await probeBase(v));    // 테스트는 저장하지 않는다 — 확인만 한다
+  };
+
+  document.getElementById("apibase-save").onclick = async () => {
+    if (!input.value.trim()) { document.getElementById("apibase-clear").onclick(); return; }
+    const v = typedBase();
+    if (!v) { statusEl.textContent = t("주소 형식이 올바르지 않습니다") + ` (http:// ${t("또는")} https://)`; return; }
+    input.value = v;
+    statusEl.textContent = t("확인 중") + "…";
+    const probe = await probeBase(v);
+    reportProbe(v, probe);
+    if (!probe.ok) {
+      const reason = probe.reason;
+      const go = confirm(`${v} ` + t("는 baro backend 로 응답하지 않습니다") + ` (${reason}).\n` +
+        t("그래도 저장할까요? 저장 후 화면이 멈추면 주소 뒤에 ?api=reset 을 붙여 여세요."));
+      if (!go) { statusEl.textContent = t("저장 취소"); return; }
+    }
+    try { localStorage.setItem(API_BASE_KEY, v); } catch {}
+    stripApiParamFromUrl(); // ?api= 잔류 쿼리가 방금 저장한 값을 덮거나 지우는 것 방지
+    location.reload();
+  };
+  document.getElementById("apibase-clear").onclick = () => {
+    try { localStorage.removeItem(API_BASE_KEY); } catch {}
+    stripApiParamFromUrl();
+    location.reload();
+  };
+}
+
+// ===================== 기기(장치) + 검출 API =====================
+// 여러 기기를 등록/선택하고 기기별 타입을 지정. 활성 기기 전환은 무중단(즉시) 적용.
+let devTypes = [];      // [{type,label,needsHost}] — 백엔드 레지스트리
+let devices = [];       // 작업 사본: [{id,name,type,host,port,username,hasPassword,password?}]
+let devActiveId = null; // 활성 기기 id
+let devSelId = null;    // 편집 중인 기기 id
+let devDraft = false;   // 편집기가 아직 미확정 '새 기기'를 들고 있는가
+
+function devTypeNeedsHost(type) {
+  const meta = devTypes.find((t) => t.type === type);
+  return meta ? meta.needsHost : true;
+}
+function devMsg(text) { document.getElementById("set-probe-out").textContent = text; }
+
+async function loadCctvSettings() {
+  try {
+    const cfg = await getJson(api("/cctv/config"));
+    devTypes = (cfg.deviceTypes && cfg.deviceTypes.length) ? cfg.deviceTypes
+      : [{ type: "hucoms", label: "Hucoms PTZ (실물)", needsHost: true }, { type: "reference", label: "Baro Reference CCTV", needsHost: false }];
+    document.getElementById("dev-type").innerHTML =
+      devTypes.map((dt) => `<option value="${dt.type}">${t(dt.label)}</option>`).join("");
+    const d = cfg.devices || { active: null, list: [] };
+    devices = (d.list || []).map((x) => ({ ...x }));
+    devActiveId = devices.some((x) => x.id === d.active) ? d.active : (devices[0] && devices[0].id) || null;
+    devDraft = false;
+    document.getElementById("set-detector").value = (cfg.detection && cfg.detection.detector && cfg.detection.detector.url) || "";
+    document.getElementById("set-lpr").value = (cfg.lpr && cfg.lpr.url) || "";
+    const ak = cfg.apikey || {}, ah = ak.anthropic || {}, oh = ak.openai || {};
+    document.getElementById("set-key-hint").textContent =
+      `Anthropic: ${ah.set ? t("등록됨") + " ···" + (ah.hint || "") : t("미등록")} · OpenAI: ${oh.set ? t("등록됨") + " ···" + (oh.hint || "") : t("미등록")}`;
+    document.getElementById("set-key-anthropic").value = "";
+    document.getElementById("set-key-openai").value = "";
+    renderDevices();
+    if (devActiveId) selectDevice(devActiveId); else clearEditor();
+    renderCurrent();
+    refreshStatus();
+  } catch (e) {
+    document.getElementById("set-current").textContent = t("설정 로드 실패") + ": " + e.message;
+  }
+}
+
+// 기기의 "어디에 있나" 표시. 접속 대상이 없는 타입(기준기)은 주소 대신 성격을 보여 준다.
+// 타입 이름을 하드코딩하지 않는다 — needsHost 는 서버의 기기 타입 표에서 온다.
+function deviceWhere(d) {
+  const meta = devTypes.find((dt) => dt.type === d.type);
+  const needsHost = meta ? meta.needsHost : true;
+  return needsHost ? `${d.host || "?"}:${d.port || 80}` : t("기준기 (무카메라)");
+}
+
+function renderCurrent() {
+  const act = devices.find((x) => x.id === devActiveId) || {};
+  const where = deviceWhere(act);
+  document.getElementById("set-current").innerHTML = act.id
+    ? `${t("활성")} <b>${act.name || act.id}</b> <span class="hint">(${act.id})</span> · ${t("타입")} <b>${act.type}</b> · ${where} <span class="hint">${t("— '연결 테스트'로 실물/시뮬·모델 확인")}</span>`
+    : `<span class="hint">${t("등록된 기기가 없습니다 — '＋ 기기 추가'로 등록하세요.")}</span>`;
+}
+
+function renderDevices() {
+  const sel = document.getElementById("dev-active");
+  sel.innerHTML = devices.map((x) => `<option value="${x.id}">${(x.name || x.id)} (${x.type})</option>`).join("");
+  if (devices.some((x) => x.id === devActiveId)) sel.value = devActiveId;
+  const list = document.getElementById("dev-list");
+  list.innerHTML = "";
+  if (!devices.length) { list.innerHTML = '<span class="hint">기기 없음</span>'; applyI18n(list); return; }
+  for (const x of devices) {
+    const row = document.createElement("div");
+    row.className = "dev-row" + (x.id === devSelId ? " sel" : "");
+    const star = x.id === devActiveId ? "⭐ " : "";
+    const where = deviceWhere(x);
+    const info = document.createElement("span");
+    info.innerHTML = `${star}<b>${x.name || x.id}</b> <span class="hint">${x.id} · ${x.type} · ${where}</span>`;
+    const btn = document.createElement("button");
+    btn.textContent = "편집"; btn.onclick = () => selectDevice(x.id);
+    row.append(info, btn);
+    list.appendChild(row);
+  }
+  applyI18n(list);
+}
+
+function fillEditor(d, idReadonly) {
+  document.getElementById("set-cam-id").value = d.id || "";
+  document.getElementById("set-cam-id").readOnly = idReadonly;
+  document.getElementById("dev-name").value = d.name || "";
+  document.getElementById("dev-type").value = d.type || "hucoms";
+  document.getElementById("set-cam-host").value = d.host || "";
+  document.getElementById("set-cam-port").value = d.port || 80;
+  document.getElementById("set-cam-user").value = d.username || "";
+  const pass = document.getElementById("set-cam-pass");
+  pass.value = ""; pass.placeholder = d.hasPassword ? t("(저장됨 · 변경 시에만 입력)") : t("비밀번호");
+  toggleHostFields(d.type || "hucoms");
+}
+function clearEditor() {
+  devSelId = null; devDraft = false;
+  fillEditor({ type: "hucoms", port: 80 }, false);
+  document.getElementById("dev-edit-title").textContent = t("기기 편집 (먼저 '편집' 또는 '＋ 기기 추가')");
+}
+function toggleHostFields(type) {
+  document.getElementById("dev-host-fields").style.display = devTypeNeedsHost(type) ? "" : "none";
+}
+
+function selectDevice(id) {
+  const d = devices.find((x) => x.id === id);
+  if (!d) return;
+  devSelId = id; devDraft = false;
+  fillEditor(d, true);  // id는 읽기전용 (rename = 기기별 저장데이터 고아화 방지)
+  document.getElementById("dev-edit-title").textContent = t("기기 편집: {id}", { id });
+  renderDevices();
+}
+
+function readEditor() {
+  const type = document.getElementById("dev-type").value;
+  const d = {
+    id: document.getElementById("set-cam-id").value.trim(),
+    name: document.getElementById("dev-name").value.trim(),
+    type,
+  };
+  if (devTypeNeedsHost(type)) {
+    d.host = document.getElementById("set-cam-host").value.trim();
+    d.port = Number(document.getElementById("set-cam-port").value) || 80;
+    d.username = document.getElementById("set-cam-user").value.trim();
+    const pw = document.getElementById("set-cam-pass").value;
+    if (pw) d.password = pw;  // 빈칸 => 백엔드가 기존 비밀번호 유지
+  }
+  return d;
+}
+
+// 편집기 내용을 devices 배열에 반영. 성공 시 true.
+function applyEditor() {
+  const d = readEditor();
+  if (!d.id) { devMsg(t("ID를 입력하세요")); return false; }
+  if (devTypeNeedsHost(d.type) && !d.host) { devMsg(t("host를 입력하세요")); return false; }
+  if (devDraft) {
+    if (devices.some((x) => x.id === d.id)) { devMsg(t("이미 있는 id: {id}", { id: d.id })); return false; }
+    d.hasPassword = !!d.password;
+    devices.push(d);
+    devSelId = d.id; devDraft = false;
+    if (!devActiveId) devActiveId = d.id;
+  } else {
+    const idx = devices.findIndex((x) => x.id === devSelId);
+    if (idx < 0) { devMsg(t("편집 중인 기기가 없습니다")); return false; }
+    d.hasPassword = d.password ? true : !!devices[idx].hasPassword;
+    // 폼에 없는 필드(mode, mjpegPort, scenePort, timeoutMs — sim 기기 연결 정보)를 통째
+    // 교체로 날리지 않게 병합한다. 안 보존하면 저장 시 sim 기기가 real 로 뒤집힌다.
+    devices[idx] = { ...devices[idx], ...d };
+  }
+  fillEditor(devices.find((x) => x.id === devSelId), true);
+  document.getElementById("dev-edit-title").textContent = t("기기 편집: {id}", { id: devSelId });
+  renderDevices(); renderCurrent();
+  return true;
+}
+
+function addDevice() {
+  const ids = new Set(devices.map((x) => x.id));
+  let n = devices.length + 1, id;
+  do { id = "cam-" + String(n).padStart(3, "0"); n++; } while (ids.has(id));
+  devDraft = true; devSelId = null;
+  fillEditor({ id, type: "hucoms", port: 80 }, false);
+  document.getElementById("dev-edit-title").textContent = t("새 기기 (ID·타입 지정 후 '이 기기 적용')");
+  renderDevices();
+}
+
+function deleteDevice() {
+  if (devDraft) { clearEditor(); renderDevices(); return; }
+  if (!devSelId) { devMsg(t("삭제할 기기를 먼저 선택하세요")); return; }
+  if (devices.length <= 1) { devMsg(t("최소 1개 기기는 있어야 합니다")); return; }
+  devices = devices.filter((x) => x.id !== devSelId);
+  if (devActiveId === devSelId) devActiveId = devices[0].id;
+  selectDevice(devices[0].id); renderCurrent();
+}
+
+document.getElementById("dev-add").addEventListener("click", addDevice);
+document.getElementById("dev-apply").addEventListener("click", () => { if (applyEditor()) devMsg(t("적용됨 — '저장'을 눌러야 반영됩니다")); });
+document.getElementById("dev-del").addEventListener("click", deleteDevice);
+document.getElementById("dev-type").addEventListener("change", (e) => toggleHostFields(e.target.value));
+// 활성 기기 드롭다운 = 즉시 무중단 라이브 전환 (서버가 ctx를 교체, 재시작 불필요).
+document.getElementById("dev-active").addEventListener("change", async (e) => {
+  const id = e.target.value, prev = devActiveId;
+  if (id === prev) return;
+  devMsg(t("'{id}'(으)로 전환 중…", { id }));
+  try {
+    await postJson(api("/cctv/active"), { id });
+    devActiveId = id;
+    selectDevice(id);   // 편집 폼·목록 하이라이트도 활성 기기에 동기화 (renderDevices 포함)
+    renderCurrent();
+    devMsg(t("✅ '{id}'(으)로 전환됨 (무중단)", { id }));
+  } catch (err) {
+    e.target.value = prev;  // 실패 시 드롭다운 되돌리기 (예: 발견작업 진행 중 409)
+    devMsg(t("전환 실패") + ": " + (err.message || err));
+  }
+});
+
+// 서비스 상태 자동 확인: 백엔드+카메라(/api/health), 검출기+LPR(probe-detection)
+async function refreshStatus() {
+  const set = (id, label, ok) => { const el = document.getElementById(id); if (el) el.textContent = `${label} ${ok ? "✅" : "❌"}`; };
+  try {
+    const h = await getJson(api("/health"));
+    set("st-backend", t("백엔드"), true);
+    set("st-camera", t("카메라"), !!h.ok);
+  } catch { set("st-backend", t("백엔드"), false); set("st-camera", t("카메라"), false); }
+  try {
+    const r = await postJson(api("/cctv/probe-detection"), {
+      detector: document.getElementById("set-detector").value.trim(),
+      lpr: document.getElementById("set-lpr").value.trim(),
+    });
+    set("st-detector", t("검출기"), !!(r.detector && r.detector.reachable));
+    set("st-lpr", "LPR", !!(r.lpr && r.lpr.reachable));
+  } catch { set("st-detector", t("검출기"), false); set("st-lpr", "LPR", false); }
+}
+function setCamFromForm() {  // 연결 테스트(프로브)용 — 편집기의 host 기기 필드만 사용
+  return {
+    host: document.getElementById("set-cam-host").value.trim(),
+    port: Number(document.getElementById("set-cam-port").value) || 80,
+    username: document.getElementById("set-cam-user").value.trim(),
+    password: document.getElementById("set-cam-pass").value,
+  };
+}
+document.getElementById("set-probe").addEventListener("click", async () => {
+  const out = document.getElementById("set-probe-out");
+  out.textContent = t("프로브 중…");
+  try {
+    const r = await postJson(api("/cctv/probe"), setCamFromForm());
+    out.innerHTML = r.reachable
+      ? t("✅ 응답 · 모델 {model} · FW {fw}", { model: `<b>${r.model || "?"}</b>`, fw: r.firmware || "?" }) + (r.ptz ? ` · PTZ ${r.ptz.panpos}/${r.ptz.tiltpos}/${r.ptz.zoompos}` : "")
+      : t("❌ 응답 없음") + ": " + (r.error || "unreachable");
+  } catch (e) { out.textContent = t("프로브 실패") + ": " + e.message; }
+});
+document.getElementById("set-probe-det").addEventListener("click", async () => {
+  const out = document.getElementById("set-det-out");
+  out.textContent = t("테스트 중…");
+  try {
+    const r = await postJson(api("/cctv/probe-detection"), { detector: document.getElementById("set-detector").value.trim(), lpr: "" });
+    out.innerHTML = (r.detector && r.detector.reachable) ? t("✅ 응답 (status {s})", { s: r.detector.status }) : `❌ ${(r.detector && r.detector.error) || "unreachable"}`;
+  } catch (e) { out.textContent = t("테스트 실패") + ": " + e.message; }
+});
+document.getElementById("set-probe-lpr").addEventListener("click", async () => {
+  const out = document.getElementById("set-lpr-out");
+  out.textContent = t("테스트 중…");
+  try {
+    const r = await postJson(api("/cctv/probe-detection"), { detector: "", lpr: document.getElementById("set-lpr").value.trim() });
+    out.innerHTML = (r.lpr && r.lpr.reachable) ? t("✅ 응답 (status {s})", { s: r.lpr.status }) : `❌ ${(r.lpr && r.lpr.error) || "unreachable"}`;
+  } catch (e) { out.textContent = t("테스트 실패") + ": " + e.message; }
+});
+document.getElementById("set-save").addEventListener("click", async () => {
+  const out = document.getElementById("set-save-out");
+  // 편집 중인 기기를 먼저 배열에 반영 (미확정/검증실패 시 저장 중단)
+  if (devDraft || devSelId) {
+    if (!applyEditor()) { out.textContent = t("편집 중인 기기 확인:") + " " + document.getElementById("set-probe-out").textContent; return; }
+  }
+  if (!devices.length) { out.textContent = t("기기를 최소 1개 등록하세요"); return; }
+  out.textContent = t("저장 중…");
+  try {
+    const list = devices.map((x) => {
+      const e = { id: x.id, name: x.name, type: x.type };
+      // 이 편집기가 다루지 않는 기기 속성도 그대로 되돌려보낸다 — 생략해도 서버가 기존 값을
+      // 보존하지만, 명시 전달이 안전하다 (mode 는 특히: 없으면 타입에서 재파생됨).
+      if (x.mode) e.mode = x.mode;
+      if (devTypeNeedsHost(x.type)) {
+        e.host = x.host; e.port = x.port; e.username = x.username;
+        if (x.mjpegPort !== undefined) e.mjpegPort = x.mjpegPort;
+        if (x.scenePort !== undefined) e.scenePort = x.scenePort;
+        if (x.timeoutMs !== undefined) e.timeoutMs = x.timeoutMs;
+        if (x.password) e.password = x.password;  // 빈칸이면 omit → 백엔드가 기존 비밀번호 유지
+      }
+      return e;
+    });
+    const payload = {
+      devices: { active: devActiveId, list },
+      detection: { detector: { url: document.getElementById("set-detector").value.trim() } },
+      lpr: { url: document.getElementById("set-lpr").value.trim() },
+    };
+    const keyA = document.getElementById("set-key-anthropic").value.trim();
+    const keyO = document.getElementById("set-key-openai").value.trim();
+    if (keyA || keyO) { payload.apikey = {}; if (keyA) payload.apikey.anthropic = keyA; if (keyO) payload.apikey.openai = keyO; }
+    await postJson(api("/cctv/config"), payload);
+    document.getElementById("set-key-anthropic").value = "";
+    document.getElementById("set-key-openai").value = "";
+    // 무중단 적용: 활성 기기를 방금 저장한 값으로 재빌드 (재시작 불필요).
+    try {
+      await postJson(api("/cctv/active"), { id: devActiveId, force: true });
+      out.innerHTML = t("✅ 저장 + 즉시 적용됨 (무중단).");
+    } catch (e2) {
+      out.innerHTML = t("✅ 저장됨 — 단, 활성 적용 실패:") + " " + (e2.message || e2);
+    }
+  } catch (e) { out.textContent = t("저장 실패") + ": " + e.message; }
+});
+document.getElementById("set-refresh-status").addEventListener("click", refreshStatus);
+
+window.addEventListener("langchange", () => { renderDevices(); renderCurrent(); });
+loadCctvSettings();
+</script>
+</body>
+</html>
