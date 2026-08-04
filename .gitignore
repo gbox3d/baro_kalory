@@ -7,7 +7,7 @@ public/app.css
 # 로컬 전용
 localfiles/
 .env
-.env.*
+
 *.log
 
 .DS_Store
