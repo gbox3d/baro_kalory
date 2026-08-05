@@ -668,35 +668,38 @@ function renderModeHint() {
     : t("시뮬레이터 페이지에는 나타나지 않습니다.");
 }
 
-// intrinsics 는 네 모양 중 하나다(백엔드 resolveIntrinsics): 없음 · 내장 프리셋 이름(문자열) ·
-// 조준 곡선만 담긴 배열(구형식) · 실측 객체. 어느 쪽인지가 곧 "이 값이 어디서 왔나"이므로
-// 화면은 그걸 구분해 말해야 한다 — 빌려온 값을 "이 카메라 실측"으로 보여 주면 안 된다.
+// intrinsics 는 이 백엔드의 **런타임 적용본**이다(진실의 출처는 발행본 문서다). 모양이
+// 넷이고, 어느 쪽인지가 곧 "이 값이 어디서 왔나"라 화면은 그걸 구분해 말해야 한다.
+// profileRevision 이 있으면 발행본에서 온 값이고 그 번호가 곧 근거다 — 발행 창구를 지나지
+// 않은 값(내장 프리셋·구형식)은 프로파일 목록에서 찾을 수 없으므로 그렇게 말한다.
 function describeIntrinsics(ins) {
   if (!ins) return t("보정 없음");
   if (typeof ins === "string") return t("내장 프리셋") + ` "${ins}"`;
   if (Array.isArray(ins)) return t("조준 곡선만 (구형식)");
-  if (ins.label) return String(ins.label);
-  if (ins.measuredAt) return t("이 카메라 실측") + ` (${new Date(ins.measuredAt).toLocaleDateString()})`;
+  if (ins.profileRevision) return `rev ${ins.profileRevision} ` + t("적용중");
+  if (ins.measuredAt) return t("실측값 (발행본 없음)") + ` (${new Date(ins.measuredAt).toLocaleDateString()})`;
   return t("지정됨");
 }
 
 function renderCalibHint(value, ins) {
   const hint = document.getElementById("dev-calib-hint");
-  if (value === "") hint.textContent = t("클릭 센터링이 보정 없이 동작합니다.");
+  if (value === "") hint.textContent = t("이 기기의 런타임 보정을 지웁니다 — 발행본은 그대로 남습니다.");
   else if (value === "__keep") hint.textContent = t("지금 값을 그대로 둡니다") + " — " + describeIntrinsics(ins);
-  else hint.textContent = t("다른 카메라의 실측값입니다 — 캘리브레이션은 개체마다 다르므로, 적용한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.");
+  else hint.textContent = t("이 기기 앞으로 새 리비전이 발행되고 바로 적용됩니다. 캘리브레이션은 개체마다 다르므로 '검증'으로 이 개체에 맞는지 확인하세요.");
 }
 
 function fillCalibSelect(ins) {
   const sel = document.getElementById("dev-calib");
   sel.replaceChildren();
   sel.appendChild(new Option(t("보정 없음"), ""));
-  // 지금 들고 있는 값은 목록에 없을 수 있다(내장 프리셋 이름이거나 이 카메라의 실측 객체).
+  // 지금 들고 있는 값은 목록에 없을 수 있다(내장 프리셋 이름이거나 발행 이전의 실측값).
   // 그래서 "건드리지 않는다"를 언제나 고를 수 있게 둔다 — 이걸 고르면 저장이 그 필드를
   // 아예 안 보내고, 백엔드가 기존 값을 그대로 보존한다.
   if (ins) sel.appendChild(new Option(t("유지") + " — " + describeIntrinsics(ins), "__keep"));
+  // 자기 자신은 복사 대상이 아니다 — 같은 기기로의 복사는 리비전만 하나 더 늘린다.
   for (const p of devProfiles) {
-    sel.appendChild(new Option(`${p.profileId} rev ${p.revision} ` + t("의 실측값 빌리기"), `profile:${p.profileId}`));
+    if (p.profileId === devSelId) continue;
+    sel.appendChild(new Option(`${p.profileId} rev ${p.revision} ` + t("에서 복사"), `profile:${p.profileId}`));
   }
   sel.value = ins ? "__keep" : "";
   renderCalibHint(sel.value, ins);
@@ -763,10 +766,11 @@ function readEditor() {
     putField(d, base, "streamIndex", numOrBlank("dev-streamindex"));
   }
   // 캘리브레이션. "__keep" 은 이 필드를 아예 싣지 않는다는 뜻이고(백엔드가 보존),
-  // "" 는 명시적 제거다. 빌려오기는 문서를 읽어야 하므로 표시만 남기고 stageEditor 가 푼다.
+  // "" 는 명시적 제거다. 가져오기는 설정 저장이 아니라 **발행 창구**를 지나므로 여기서는
+  // 표시만 남기고 saveEditor 가 기기 저장 뒤에 따로 부른다(아래 doCopyProfile).
   const calib = document.getElementById("dev-calib").value;
   if (calib === "") d.intrinsics = "";
-  else if (calib.startsWith("profile:")) d.borrowProfileFrom = calib.slice("profile:".length);
+  else if (calib.startsWith("profile:")) d.copyProfileFrom = calib.slice("profile:".length);
   return d;
 }
 
@@ -784,31 +788,12 @@ async function stageEditor() {
     const mm = d.virtualPtz.maxMag;
     if (mm !== undefined && !(mm > 1 && mm <= 64)) { devMsg(t("가상 PTZ 최대 배율은 1 초과 64 이하여야 합니다")); return null; }
   }
-  // 캘리브레이션 빌려오기 — 발행 문서의 곡선을 이 기기의 intrinsics 로 복사한다. 참조가
-  // 아니라 복사인 이유: 발행본은 불변이지만 기기 설정은 언제든 바뀌고, 참조로 두면 원본
-  // 기기를 지웠을 때 이 기기가 조용히 보정을 잃는다. 값을 복사하면 그런 일이 없다.
-  if (d.borrowProfileFrom) {
-    const from = d.borrowProfileFrom;
-    delete d.borrowProfileFrom;
-    devMsg(t("프로파일을 읽는 중…"));
-    try {
-      const doc = await getJson(api(`/profiles/camera/${encodeURIComponent(from)}`));
-      const o = doc.optics || {};
-      if (!Array.isArray(o.zoomHfov) || !o.zoomHfov.length) {
-        devMsg(t("그 프로파일에는 화각 곡선이 없습니다")); return null;
-      }
-      d.intrinsics = {
-        zoomHfov: o.zoomHfov,
-        ...(Array.isArray(o.centeringGain) && o.centeringGain.length ? { centeringGain: o.centeringGain } : {}),
-        // 빌려온 값이라는 사실을 값 안에 남긴다 — 안 남기면 measuredAt 만 보고 화면이
-        // "이 카메라에서 실측한 값"이라고 잘못 말한다.
-        label: `${doc.profileId} rev ${doc.revision} ` + t("에서 빌림"),
-        ...(doc.quality && doc.quality.measuredAt ? { measuredAt: doc.quality.measuredAt } : {}),
-      };
-    } catch (e) {
-      devMsg(t("프로파일을 읽지 못했습니다") + ": " + (e.message || e)); return null;
-    }
-  }
+  // 가져오기는 이 payload 에 실리지 않는다. 브라우저가 곡선을 읽어 intrinsics 에 직접 넣던
+  // 예전 방식은 **발행본 없는 보정**을 만들었다 — 설정에는 값이 있는데 프로파일 창구에는
+  // 그 기기가 없어서, 두 화면이 서로 다른 말을 했다. 지금은 백엔드의 복사 창구가 새 리비전을
+  // 발행하고 런타임까지 적용한다(provenance 에 원본과 최초 실측 기기가 남는다).
+  const copyFrom = d.copyProfileFrom;
+  delete d.copyProfileFrom;
   const list = devices.map((x) => ({ ...x }));
   if (devDraft) {
     if (list.some((x) => x.id === d.id)) { devMsg(t("이미 있는 id: {id}", { id: d.id })); return null; }
@@ -822,7 +807,20 @@ async function stageEditor() {
     // 표현하므로(putField), 없는 키는 여기서 기존 값이 그대로 살아 있어야 뜻이 맞는다.
     list[idx] = { ...list[idx], ...d };
   }
-  return { list, id: d.id, active: devActiveId || d.id };
+  return { list, id: d.id, active: devActiveId || d.id, copyFrom };
+}
+
+// 다른 카메라의 발행본을 이 기기로 복사한다. 백엔드가 새 리비전을 발행하고 런타임까지
+// 적용하므로 브라우저는 곡선을 만지지 않는다 — 복사 창구는 광학만 옮기고 device 블록
+// (줌축 범위 같은 프로토콜의 성질)은 대상 기기 등록정보로 다시 찍는다. 그래서 이 호출은
+// **기기가 이미 등록된 뒤에야** 성립한다(미등록이면 422 unknown_device).
+async function doCopyProfile(toId, fromId) {
+  devMsg(t("프로파일 복사 중…"));
+  const res = await postJson(api(`/profiles/camera/${encodeURIComponent(toId)}/copy`), { from: fromId });
+  const rev = res && res.published ? res.published.revision : null;
+  // 발행본이 늘었으므로 목록을 다시 읽는다 — 안 그러면 방금 만든 리비전이 드롭다운에 없다.
+  try { devProfiles = (await getJson(api("/profiles"))).camera || []; } catch { /* 목록은 다음 로드에서 */ }
+  return rev === null ? t("복사됨") : t("복사됨 — rev {rev} 발행", { rev });
 }
 
 // 추가와 수정이 같은 버튼이다 — 둘 다 "이 폼의 내용을 그 기기의 값으로 만든다"는 한 가지
@@ -834,12 +832,28 @@ async function saveEditor() {
   try {
     // 캘리브레이션이 바뀌면 활성 기기는 반드시 다시 만들어야 한다 — 조준 곡선은 드라이버가
     // 생성 시점에 들고 가는 값이라, 재빌드 없이는 저장만 되고 조준은 옛 곡선으로 남는다.
-    const warn = await commitDevices(staged.list, staged.active, { rebuildActive: staged.id === staged.active });
+    let warn = await commitDevices(staged.list, staged.active, { rebuildActive: staged.id === staged.active });
+    let copied = "";
+    if (staged.copyFrom) {
+      // 기기 저장이 먼저다(복사 창구가 등록된 기기만 받는다). 복사가 실패해도 기기 저장은
+      // 이미 성립했으므로 되돌리지 않는다 — 두 사실을 따로 말한다.
+      try {
+        copied = " · " + await doCopyProfile(staged.id, staged.copyFrom);
+        if (staged.id === staged.active) {
+          warn = await commitDevices(devices, devActiveId, { rebuildActive: true });
+        }
+      } catch (e) { copied = " · " + t("프로파일 복사 실패") + ": " + (e.message || e); }
+      // 복사가 config 의 intrinsics 를 바꿨다 — 서버가 진실이므로 다시 읽는다.
+      try {
+        const cfg = await getJson(api("/cctv/config"));
+        devices = (cfg.devices.list || []).map((x) => ({ ...x }));
+      } catch { /* 다음 로드에서 맞춰진다 */ }
+    }
     devSelId = staged.id; devDraft = false;
     fillEditor(devices.find((x) => x.id === devSelId), true);
     document.getElementById("dev-edit-title").textContent = t("기기 편집: {id}", { id: devSelId });
     renderDevices(); renderCurrent();
-    devMsg(t("저장됨") + warn);
+    devMsg(t("저장됨") + warn + copied);
   } catch (e) { devMsg(t("저장 실패") + ": " + (e.message || e)); }
 }
 

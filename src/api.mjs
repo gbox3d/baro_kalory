@@ -121,6 +121,10 @@ export async function reqJson(method, url, data) {
     // 구분해야 하는데, 메시지 문자열을 파싱하게 두면 조용히 어긋난다.
     const err = new Error(j.error || ("HTTP " + r.status));
     err.status = r.status;
+    // 본문도 그대로 넘긴다. 거절이 언제나 문장 하나인 것은 아니다 — 발행 게이트는
+    // code·failures[]·noisyAnchors[] 를 실어 "어느 줌이 튀었는지"까지 말해 주는데,
+    // 여기서 message 만 뽑으면 그 답이 사라지고 화면에 남는 선택지는 20분 재측정뿐이다.
+    err.body = j;
     throw err;
   }
   return j;

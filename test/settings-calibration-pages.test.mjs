@@ -137,6 +137,58 @@ test("캘리브레이션 페이지 — 발행된 프로파일 가시화", async 
   assert.match(html, /e\.status === 404/, "발행 전(404)은 장애가 아니라 정상 상태로 안내해야 한다");
 });
 
+test("캘리브레이션 페이지 — 발행 창구 계약 (게이트·출처·리비전)", async () => {
+  const html = await read("../public/calibration.html");
+  // 발행의 정식 이름은 mint 다. /save 는 하위호환 별칭이라 언제 사라져도 이상하지 않다.
+  assert.match(html, /api\("\/calibration\/mint"\)/, "발행은 mint 라우트로 가야 한다");
+  assert.doesNotMatch(html, /calibration\/save/, "옛 별칭에 매달리지 않는다");
+
+  // 게이트 거절은 문장 하나가 아니다. code·failures[]·noisyAnchors[] 를 alert 로 접으면
+  // "어느 줌이 튀었는지"가 사라지고, 사람에게 남는 선택지가 20분 재측정뿐이 된다.
+  assert.match(html, /g\.code !== "quality_gate"/, "발행 게이트 거절을 다른 실패와 갈라야 한다");
+  assert.match(html, /g\.failures/, "미달 사유를 그대로 보여야 한다");
+  assert.match(html, /noisyAnchors/, "튀는 앵커를 보여야 한다 — 없으면 재측정 범위를 알 수 없다");
+  // 우회는 막지 않되, 문서에 영구히 남는다는 사실을 누르기 전에 말한다.
+  assert.match(html, /mintResult\(box, true\)/, "우회 발행 경로가 있어야 한다");
+  assert.match(html, /confirm\(t\("미달 사유가 발행 문서에 영구히 기록됩니다/, "우회는 확인을 받아야 한다");
+
+  // 출처는 문서만이 안다. 곡선만 보면 잰 것과 베낀 것을 구분할 수 없고, 적용본의 measuredAt
+  // 은 복사본일 때 **원본 카메라**가 잰 시각이라 그대로 읽으면 거짓말이 된다.
+  assert.match(html, /function provenanceText\(/, "발행본의 출처를 말해야 한다");
+  assert.match(html, /p\.method === "copy"/, "복사본을 실측과 구분해야 한다");
+  assert.match(html, /p\.method === "import"/, "수입본(측정 없음)을 실측과 구분해야 한다");
+  assert.match(html, /q\.forced/, "게이트를 우회한 문서는 그 사실을 드러내야 한다");
+
+  // 적용본과 발행본은 갈릴 수 있다 — 그 사실이 이 숫자를 보여 주는 이유다.
+  assert.match(html, /ins\.profileRevision/, "지금 도는 리비전을 적용본에서 읽어야 한다");
+  assert.match(html, /latest\.revision === appliedRevision/, "발행본이 앞서 있으면 말해야 한다");
+  // 되돌리기는 새 발행이 아니라 옛 리비전의 재적용이다.
+  assert.match(html, /\/apply`\), \{ revision: r\.revision \}/, "이력에서 리비전을 적용할 수 있어야 한다");
+});
+
+test("설정 — 캘리브레이션은 발행 창구를 지난다 (브라우저가 곡선을 만들지 않는다)", async () => {
+  const html = await read("../public/settings.html");
+  // 브라우저가 발행본을 읽어 intrinsics 에 직접 써 넣던 우회로는 **발행본 없는 보정**을
+  // 만들었다: 설정에는 값이 있는데 프로파일 창구에는 그 기기가 없어 두 화면이 다른 말을 했다.
+  assert.match(html, /\/copy`\), \{ from: fromId \}/, "복사는 백엔드 발행 창구로 가야 한다");
+  assert.doesNotMatch(html, /d\.intrinsics = \{/, "브라우저가 곡선을 조립해 설정에 심지 않는다");
+  assert.doesNotMatch(html, /borrowProfileFrom/, "옛 우회로의 잔재가 남으면 안 된다");
+  // 복사 창구는 등록된 기기만 받는다(422 unknown_device) — 그래서 기기 저장이 먼저다.
+  assert.match(html, /commitDevices\(staged\.list[\s\S]{0,400}staged\.copyFrom/,
+    "기기를 저장한 뒤에 복사를 불러야 한다");
+  // 적용본의 근거는 리비전 번호다. label 을 지어 붙이던 옛 표시는 발행본과 이어지지 않았다.
+  assert.match(html, /ins\.profileRevision/, "적용 중인 리비전으로 말해야 한다");
+  assert.doesNotMatch(html, /ins\.label/, "임의로 지어낸 표식에 기대지 않는다");
+});
+
+test("API 오류는 본문을 잃지 않는다", async () => {
+  const src = await readFile(new URL("../src/api.mjs", import.meta.url), "utf8");
+  // 거절이 언제나 문장 하나인 것은 아니다 — 발행 게이트는 왜·어디를 구조로 준다.
+  // 여기서 message 만 뽑으면 화면은 그걸 되살릴 방법이 없다.
+  assert.match(src, /err\.body = j/, "오류 응답 본문을 호출부까지 넘겨야 한다");
+  assert.match(src, /err\.status = r\.status/, "상태코드도 함께 넘겨야 한다");
+});
+
 test("프로파일 차트 — 한 그림에 축은 하나", async () => {
   const src = await readFile(new URL("../src/profile-chart.mjs", import.meta.url), "utf8");
   assert.match(src, /export function miniChart/);

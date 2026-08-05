@@ -2,6 +2,6 @@
   "cctv": "0.6.11",
   "discovery": "0.1.10",
   "simulator": "0.5.11",
-  "settings": "0.2.8",
-  "calibration": "0.2.1"
+  "settings": "0.3.0",
+  "calibration": "0.3.0"
 }
