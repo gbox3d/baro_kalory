@@ -675,7 +675,11 @@ function describeIntrinsics(ins) {
   if (!ins) return t("보정 없음");
   if (typeof ins === "string") return t("내장 프리셋") + ` "${ins}"`;
   if (Array.isArray(ins)) return t("조준 곡선만 (구형식)");
-  if (ins.label) return String(ins.label);
+  if (ins.label) return String(ins.label);   // 옛 브라우저측 빌려오기가 남긴 표시
+  // 창구를 지나 깔린 값은 어느 리비전인지가 config 에 남는다. 그 리비전이 실측인지 복사인지는
+  // 발행 문서가 아는 사실이라 여기서 추측하지 않는다 — 캘리브레이션 화면이 출처를 말한다.
+  // (measuredAt 만 보고 "이 카메라 실측"이라 하면 복사본에 대해 거짓말이 된다.)
+  if (Number.isFinite(ins.profileRevision)) return t("발행본 rev {rev} 적용", { rev: ins.profileRevision });
   if (ins.measuredAt) return t("이 카메라 실측") + ` (${new Date(ins.measuredAt).toLocaleDateString()})`;
   return t("지정됨");
 }
@@ -784,31 +788,17 @@ async function stageEditor() {
     const mm = d.virtualPtz.maxMag;
     if (mm !== undefined && !(mm > 1 && mm <= 64)) { devMsg(t("가상 PTZ 최대 배율은 1 초과 64 이하여야 합니다")); return null; }
   }
-  // 캘리브레이션 빌려오기 — 발행 문서의 곡선을 이 기기의 intrinsics 로 복사한다. 참조가
-  // 아니라 복사인 이유: 발행본은 불변이지만 기기 설정은 언제든 바뀌고, 참조로 두면 원본
-  // 기기를 지웠을 때 이 기기가 조용히 보정을 잃는다. 값을 복사하면 그런 일이 없다.
-  if (d.borrowProfileFrom) {
-    const from = d.borrowProfileFrom;
-    delete d.borrowProfileFrom;
-    devMsg(t("프로파일을 읽는 중…"));
-    try {
-      const doc = await getJson(api(`/profiles/camera/${encodeURIComponent(from)}`));
-      const o = doc.optics || {};
-      if (!Array.isArray(o.zoomHfov) || !o.zoomHfov.length) {
-        devMsg(t("그 프로파일에는 화각 곡선이 없습니다")); return null;
-      }
-      d.intrinsics = {
-        zoomHfov: o.zoomHfov,
-        ...(Array.isArray(o.centeringGain) && o.centeringGain.length ? { centeringGain: o.centeringGain } : {}),
-        // 빌려온 값이라는 사실을 값 안에 남긴다 — 안 남기면 measuredAt 만 보고 화면이
-        // "이 카메라에서 실측한 값"이라고 잘못 말한다.
-        label: `${doc.profileId} rev ${doc.revision} ` + t("에서 빌림"),
-        ...(doc.quality && doc.quality.measuredAt ? { measuredAt: doc.quality.measuredAt } : {}),
-      };
-    } catch (e) {
-      devMsg(t("프로파일을 읽지 못했습니다") + ": " + (e.message || e)); return null;
-    }
-  }
+  // 캘리브레이션 빌려오기는 **저장이 끝난 뒤** 백엔드 창구가 한다(saveEditor).
+  //
+  // 한때 여기서 브라우저가 발행 문서를 읽어 곡선을 intrinsics 로 직접 복사했다. 그러면 값이
+  // config 한 곳에만 들어가고 대상 카메라에는 발행본이 없어, 설정 화면은 "보정됨"이라 하고
+  // 캘리브레이션 화면은 같은 카메라에 "발행된 프로파일이 없습니다"라고 말했다 — 게다가
+  // 리비전·해시·출처가 없어 외부 소비자에게는 아예 보이지 않았다. 지금은 백엔드의
+  // POST /profiles/camera/:id/copy 하나가 두 곳을 함께 쓰고 출처를 문서에 남긴다.
+  //
+  // 저장 뒤인 이유: 새 기기는 아직 등록 전이라 창구가 422(unknown_device)로 막는다.
+  const borrowFrom = d.borrowProfileFrom;
+  delete d.borrowProfileFrom;
   const list = devices.map((x) => ({ ...x }));
   if (devDraft) {
     if (list.some((x) => x.id === d.id)) { devMsg(t("이미 있는 id: {id}", { id: d.id })); return null; }
@@ -822,7 +812,7 @@ async function stageEditor() {
     // 표현하므로(putField), 없는 키는 여기서 기존 값이 그대로 살아 있어야 뜻이 맞는다.
     list[idx] = { ...list[idx], ...d };
   }
-  return { list, id: d.id, active: devActiveId || d.id };
+  return { list, id: d.id, active: devActiveId || d.id, borrowFrom };
 }
 
 // 추가와 수정이 같은 버튼이다 — 둘 다 "이 폼의 내용을 그 기기의 값으로 만든다"는 한 가지
@@ -834,7 +824,20 @@ async function saveEditor() {
   try {
     // 캘리브레이션이 바뀌면 활성 기기는 반드시 다시 만들어야 한다 — 조준 곡선은 드라이버가
     // 생성 시점에 들고 가는 값이라, 재빌드 없이는 저장만 되고 조준은 옛 곡선으로 남는다.
-    const warn = await commitDevices(staged.list, staged.active, { rebuildActive: staged.id === staged.active });
+    let warn = await commitDevices(staged.list, staged.active, { rebuildActive: staged.id === staged.active });
+    // 빌려오기는 기기가 등록된 뒤에야 성립한다. 실패해도 기기 저장 자체는 이미 끝났으므로
+    // 되돌리지 않고 무엇이 안 됐는지만 말한다 — 조용히 삼키면 "빌렸다고 생각하는" 상태가 남는다.
+    if (staged.borrowFrom) {
+      devMsg(t("프로파일을 읽는 중…"));
+      try {
+        const res = await postJson(api(`/profiles/camera/${encodeURIComponent(staged.id)}/copy`), { from: staged.borrowFrom });
+        // 창구가 발행과 런타임 적용을 함께 했다 — 화면의 사본도 새로 읽어야 뜻이 맞는다.
+        await loadCctvSettings();
+        warn += " — " + t("{from} 에서 복사해 rev {rev} 발행", { from: staged.borrowFrom, rev: res.published.revision });
+      } catch (e) {
+        warn += " — " + t("프로파일 복사 실패") + ": " + ((e.body && e.body.error) || e.message || e);
+      }
+    }
     devSelId = staged.id; devDraft = false;
     fillEditor(devices.find((x) => x.id === devSelId), true);
     document.getElementById("dev-edit-title").textContent = t("기기 편집: {id}", { id: devSelId });

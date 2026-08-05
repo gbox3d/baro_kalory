@@ -121,6 +121,9 @@ export async function reqJson(method, url, data) {
     // 구분해야 하는데, 메시지 문자열을 파싱하게 두면 조용히 어긋난다.
     const err = new Error(j.error || ("HTTP " + r.status));
     err.status = r.status;
+    // 본문 전체도 실어 보낸다 — 백엔드는 error 말고도 code(quality_gate·unknown_device…)와
+    // hint 로 "그래서 뭘 해야 하나"를 말하는데, error 문자열만 꺼내면 그 안내가 버려진다.
+    err.body = j;
     throw err;
   }
   return j;
