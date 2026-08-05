@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>baro_calory · 카메라 캘리브레이션</title>
+<title>Baro Calory · 카메라 캘리브레이션</title>
 <link rel="icon" href="./favicon.ico" sizes="any" />
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("baro-theme")||"terminal"}catch(e){}</script>
 <link rel="stylesheet" href="./app.css" />
@@ -13,11 +13,12 @@
 </head>
 <body>
 <header>
-  <h1>baro_calory · 캘리브레이션 <label class="header-camera">CCTV <select id="header-camera-select" data-i18n-skip title="CCTV 선택" disabled><option>불러오는 중…</option></select></label></h1>
+  <h1>Baro Calory · 캘리브레이션 <label class="header-camera">CCTV <select id="header-camera-select" data-i18n-skip title="CCTV 선택" disabled><option>불러오는 중…</option></select></label></h1>
   <span data-role="chrome" style="display:flex; align-items:center; gap:10px;"></span>
 </header>
 <main>
-  <div style="display:flex; flex-direction:column; gap:14px; width:580px; max-width:100%; padding:14px;">
+  <!-- 720px: 프로파일 카드의 측정점 표가 줄바꿈 없이 들어가는 최소 폭. -->
+  <div style="display:flex; flex-direction:column; gap:14px; width:720px; max-width:100%; padding:14px;">
     <div class="card" id="calib-card">
       <h2>카메라 캘리브레이션</h2>
       <div id="calib-desc" class="hint" style="margin-bottom:8px; line-height:1.5;">
@@ -44,6 +45,15 @@
       </div>
       <div id="calib-result" style="display:none; margin-top:10px;"></div>
     </div>
+    <!-- 발행된 프로파일 — 캘리브레이션의 산출물은 config 안의 필드가 아니라 발행 후 불변인
+         문서다. 그 문서가 무엇을 담고 있는지 화면으로 볼 수 있어야 "지금 이 카메라가 어떤
+         곡선으로 조준하는가"를 파일을 열지 않고도 답할 수 있다. -->
+    <div class="card" id="profile-card">
+      <h2>발행된 프로파일</h2>
+      <div id="profile-meta" class="hint">불러오는 중…</div>
+      <div id="profile-charts" style="margin-top:10px;"></div>
+      <div id="profile-points"></div>
+    </div>
   </div>
 </main>
 
@@ -51,6 +61,7 @@
 import { getJson, postJson, api } from "./web/api.mjs";
 import { initPageChrome } from "./web/page-chrome.mjs";
 import { createCameraSelect } from "./web/camera-select.mjs";
+import { chartFigure } from "./web/profile-chart.mjs";
 
 initPageChrome({ page: "calibration" });
 
@@ -140,14 +151,22 @@ function renderCalibStatus(st) {
          <td style="text-align:right; padding:2px 8px;">${r.centeringGain[i].k}</td>
          <td style="text-align:right; padding:2px 8px;">${r.residual.byZoom[h.z]}px</td></tr>`).join("")}
      </table>
-     <button id="calib-save">이 기기에 저장</button>
-     <span class="hint" style="margin-left:8px;">저장 후 백엔드 재시작이 필요합니다</span>`;
+     <div class="row" style="gap:8px;">
+       <input id="calib-note" style="width:300px" placeholder="이 측정에 붙일 이름·메모 (선택)" />
+       <button id="calib-save">이 기기에 저장</button>
+     </div>
+     <div class="hint" style="margin-top:6px;">저장하면 리비전 문서로 발행됩니다 — 메모는 그 문서에 함께 남아 나중에 "어떤 조건에서 잰 값인지"를 구분해 줍니다. 적용에는 백엔드 재시작이 필요합니다.</div>`;
 
   calibEl("calib-save").onclick = async () => {
+    // 메모는 발행 문서(quality.note)에 남는다. 리비전은 발행 후 불변이라 나중에 고칠 수
+    // 없다 — 지금 적어 두지 않으면 그 측정이 무엇이었는지 영영 알 수 없다.
+    const note = calibEl("calib-note").value.trim();
     try {
-      await postJson(api("/calibration/save"), {});
-      box.innerHTML = '<div style="color:var(--color-accent,#4a4);">저장했습니다. 백엔드를 재시작하면 적용됩니다 (pm2 restart baro-backend).</div>';
+      const res = await postJson(api("/calibration/save"), note ? { note } : {});
+      const rev = res && res.minted ? ` (rev ${res.minted.revision} 발행)` : "";
+      box.innerHTML = `<div style="color:var(--color-accent,#4a4);">저장했습니다${rev}. 백엔드를 재시작하면 적용됩니다 (pm2 restart baro-backend).</div>`;
       loadCalibInstalled();
+      loadProfile();
     } catch (e) {
       alert("저장 실패: " + e.message);
     }
@@ -185,6 +204,17 @@ async function loadCalibInstalled() {
       el.innerHTML = '현재 이 기기에는 <b>캘리브레이션이 없습니다</b> — 클릭 센터링이 보정 없이 동작합니다.';
     } else if (typeof ins === "string") {
       el.innerHTML = `현재 <b>내장 프리셋 “${ins}”</b>를 쓰고 있습니다 (다른 카메라에서 실측한 값). 이 개체에 맞는지 <b>검증</b>으로 확인하세요.`;
+    } else if (ins.label) {
+      // 빌려온 값이다. measuredAt 이 함께 있어도 그건 **원본 카메라**가 잰 시각이므로,
+      // 아래 분기로 흘려보내면 "이 카메라에서 실측한 값"이라고 거짓말을 하게 된다.
+      el.replaceChildren();
+      const lead = document.createElement("span");
+      lead.textContent = "현재 ";
+      const who = document.createElement("b");
+      who.textContent = String(ins.label);   // 서버가 준 문자열 — textContent 로
+      const tail = document.createElement("span");
+      tail.textContent = " 을 쓰고 있습니다 (다른 카메라의 실측값). 이 개체에 맞는지 검증으로 확인하세요.";
+      el.append(lead, who, tail);
     } else if (ins.measuredAt) {
       el.innerHTML = `현재 <b>이 카메라에서 실측한 값</b>을 쓰고 있습니다 (${new Date(ins.measuredAt).toLocaleString()}).`;
     } else {
@@ -235,6 +265,7 @@ async function initCalibCard() {
     return;
   }
   loadCalibInstalled();
+  loadProfile();
 
   calibEl("calib-start").onclick = async () => {
     if (!confirm("전체 캘리브레이션을 시작합니다.\n\n약 20분간 카메라가 자동으로 움직이며 그동안 다른 조작은 막힙니다.\n끝나면 원래 위치로 돌아갑니다. 계속할까요?")) return;
@@ -249,6 +280,130 @@ async function initCalibCard() {
     try { await postJson(api("/calibration/stop"), {}); }
     catch (e) { alert("중지 실패: " + e.message); }
   };
+}
+
+// ── 발행된 프로파일 ──────────────────────────────────────────────────────────
+// 캘리브레이션의 산출물은 config 안의 필드가 아니라 **발행 후 불변인 리비전 문서**다
+// (정정 = 새 리비전). 화면은 최신 리비전을 보여 준다 — 그게 곧 지금 쓰는 값이다.
+const num = (v, d) => (Number.isFinite(v) ? v.toFixed(d) : "—");
+function fmtWhen(iso) {
+  try { return new Date(iso).toLocaleString(); } catch { return iso || "—"; }
+}
+
+// 서버가 준 값은 전부 textContent 로 넣는다 — 이름·메모는 사람이 적은 문자열이라
+// innerHTML 에 이으면 그대로 마크업이 된다.
+function metaRow(label, value, strong) {
+  const div = document.createElement("div");
+  const l = document.createElement("span");
+  l.style.opacity = ".7";
+  l.textContent = label ? label + " " : "";
+  div.appendChild(l);
+  const v = document.createElement(strong ? "b" : "span");
+  v.textContent = value;
+  div.appendChild(v);
+  return div;
+}
+
+function renderProfile(doc) {
+  const meta = calibEl("profile-meta");
+  const charts = calibEl("profile-charts");
+  const points = calibEl("profile-points");
+  meta.replaceChildren();
+  charts.replaceChildren();
+  points.replaceChildren();
+
+  const q = doc.quality || {};
+  const res = q.residual || {};
+  const issuer = doc.issuer || {};
+  const samples = q.samples || {};
+  meta.appendChild(metaRow("", `${doc.profileId} · rev ${doc.revision}${doc.supersedes ? ` (이전 rev ${doc.supersedes})` : ""}`, true));
+  meta.appendChild(metaRow("발행", `${fmtWhen(doc.issuedAt)} · ${issuer.tool || "?"}@${issuer.version || "?"}`));
+  meta.appendChild(metaRow("메모", q.note || "— (없음)", !!q.note));
+  meta.appendChild(metaRow("측정", `${fmtWhen(q.measuredAt)} · ${q.method || "?"} · 샘플 ${samples.usable ?? "?"}/${samples.of ?? "?"}`));
+  if (res.beforePx !== undefined) {
+    meta.appendChild(metaRow("오차", `보정 전 최악 ${res.beforePx}px · 피팅 ${res.fitRmsPx}px`));
+  }
+  meta.appendChild(metaRow("용도", (doc.capabilities || []).join(", ") || "—"));
+  // 문서 무결성은 파일 옆 .sha256 사이드카가 기준이다. 앞 12자리만 보여도 눈으로 대조된다.
+  meta.appendChild(metaRow("무결성", String(doc._hash || "—").replace(/^sha256:/, "sha256:").slice(0, 19) + "…"));
+
+  const optics = doc.optics || {};
+  const byZoom = (q.residual && q.residual.byZoom) || {};
+  const figs = [
+    chartFigure({
+      title: "줌 → 실측 화각 (가로, 도)",
+      points: (optics.zoomHfov || []).map((p) => ({ x: p.z, y: p.h })),
+      xLabel: "zoom", fmtX: (v) => String(Math.round(v)), fmtY: (v) => v.toFixed(1) + "°",
+    }),
+    chartFigure({
+      title: "줌 → 조준 게인 (배율) — 1 보다 작으면 펌웨어가 과하게 돈다",
+      points: (optics.centeringGain || []).map((p) => ({ x: p.z, y: p.k })),
+      xLabel: "zoom", fmtX: (v) => String(Math.round(v)), fmtY: (v) => v.toFixed(3),
+    }),
+    chartFigure({
+      title: "줌별 보정 전 오차 (px) — 클수록 이 카메라가 많이 빗나가던 구간",
+      kind: "bar", yZero: true,
+      points: Object.entries(byZoom).map(([z, px]) => ({ x: Number(z), y: Number(px) })),
+      xLabel: "zoom", fmtX: (v) => String(Math.round(v)), fmtY: (v) => v.toFixed(0),
+    }),
+  ].filter(Boolean);
+  for (const f of figs) charts.appendChild(f);
+
+  const rows = (doc.diagnostics && doc.diagnostics.byZoom) || [];
+  if (!rows.length) return;
+  const det = document.createElement("details");
+  const sum = document.createElement("summary");
+  sum.className = "hint";
+  sum.style.cursor = "pointer";
+  sum.textContent = `측정점 ${rows.length}개 — 표로 보기`;
+  det.appendChild(sum);
+  const table = document.createElement("table");
+  table.style.cssText = "font-size:12px; border-collapse:collapse; margin-top:6px;";
+  const head = document.createElement("tr");
+  for (const h of ["zoom", "화각", "게인", "잔차", "피팅오차", "샘플"]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    th.style.cssText = "text-align:right; padding:2px 8px;";
+    head.appendChild(th);
+  }
+  table.appendChild(head);
+  for (const p of rows) {
+    const tr = document.createElement("tr");
+    for (const c of [p.zoom, num(p.hfov, 2) + "°", num(p.gain, 3), num(p.residualPx, 1) + "px",
+                     num(p.fitRmsPx, 1) + "px", `${p.samples ?? "?"}/${p.of ?? "?"}`]) {
+      const td = document.createElement("td");
+      td.textContent = String(c);
+      td.style.cssText = "text-align:right; padding:2px 8px;";
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+  det.appendChild(table);
+  points.appendChild(det);
+}
+
+async function loadProfile() {
+  const meta = calibEl("profile-meta");
+  const charts = calibEl("profile-charts");
+  const points = calibEl("profile-points");
+  charts.replaceChildren();
+  points.replaceChildren();
+  let id = cam.activeId();
+  if (!id) {
+    // 첫 로드에서는 셀렉터가 아직 목록을 받기 전이다 — 그 순간엔 서버에 직접 묻는다.
+    try { id = ((await getJson(api("/cctv/config"))).devices || {}).active || null; } catch { id = null; }
+  }
+  if (!id) { meta.textContent = "활성 기기를 알 수 없습니다."; return; }
+  meta.textContent = "불러오는 중…";
+  try {
+    renderProfile(await getJson(api(`/profiles/camera/${encodeURIComponent(id)}`)));
+  } catch (e) {
+    // 404 는 장애가 아니라 "아직 한 번도 발행하지 않았다"는 정상 상태다 — 그렇게 말한다.
+    meta.replaceChildren();
+    meta.appendChild(metaRow("", e.status === 404
+      ? `${id} 에 발행된 프로파일이 없습니다 — 전체 캘리브레이션을 완료하고 저장하면 rev 1 이 발행됩니다.`
+      : "프로파일을 읽지 못했습니다: " + (e.message || e)));
+  }
 }
 
 // 카메라 전환 → 카드 재구성 (실기 ↔ 시뮬 검증전용). renderCalibStatus 가 cam 을 참조하므로

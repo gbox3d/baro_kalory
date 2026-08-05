@@ -10,7 +10,7 @@
 
 const LANGS = ["ko", "en", "vi"];
 const STORE_KEY = "baro_lang";
-const TITLE_KEY = typeof document === "undefined" ? "baro_calrory · CCTV 제어" : document.title;
+const TITLE_KEY = typeof document === "undefined" ? "Baro Calory · CCTV 제어" : document.title;
 
 // ko source -> { en, vi }. ko is the key itself (returned as-is for lang "ko").
 const DICT = {
@@ -40,10 +40,10 @@ const DICT = {
   "출처가 다르면 백엔드가 이 주소를 CORS 로 허용해야 합니다":
     { en: "If the origin differs, the backend must allow this origin via CORS",
       vi: "Nếu khác origin, backend phải cho phép origin này qua CORS" },
-  "baro_calrory · CCTV 제어": { en: "baro_calrory · CCTV Control", vi: "baro_calrory · Điều khiển CCTV" },
-  "baro_calory · 시뮬레이터 셋업": { en: "baro_calory · Simulator Setup", vi: "baro_calory · Thiết lập mô phỏng" },
-  "baro_calory · 설정": { en: "baro_calory · Settings", vi: "baro_calory · Cài đặt" },
-  "baro_calory · 주차면 탐색": { en: "baro_calory · Spot Discovery", vi: "baro_calory · Khám phá chỗ đỗ" },
+  "Baro Calory · CCTV 제어": { en: "Baro Calory · CCTV Control", vi: "Baro Calory · Điều khiển CCTV" },
+  "Baro Calory · 시뮬레이터 셋업": { en: "Baro Calory · Simulator Setup", vi: "Baro Calory · Thiết lập mô phỏng" },
+  "Baro Calory · 설정": { en: "Baro Calory · Settings", vi: "Baro Calory · Cài đặt" },
+  "Baro Calory · 주차면 탐색": { en: "Baro Calory · Spot Discovery", vi: "Baro Calory · Khám phá chỗ đỗ" },
   "스크린샷": { en: "Screenshot", vi: "Ảnh màn hình" },
   "스크린샷 다운로드 — 원본은 카메라에서 새로 받고, 화면은 지금 보이는 프레임 그대로":
     { en: "Download a screenshot — 'original' pulls a fresh full-resolution frame from the camera, 'screen' saves exactly what you see",
@@ -51,7 +51,7 @@ const DICT = {
   "스크린샷 해상도": { en: "Screenshot resolution", vi: "Độ phân giải ảnh chụp" },
   "원본 해상도": { en: "Full resolution", vi: "Độ phân giải gốc" },
   "화면 해상도": { en: "Screen resolution", vi: "Độ phân giải màn hình" },
-  "baro_calory · 카메라 캘리브레이션": { en: "baro_calory · Camera Calibration", vi: "baro_calory · Hiệu chuẩn camera" },
+  "Baro Calory · 카메라 캘리브레이션": { en: "Baro Calory · Camera Calibration", vi: "Baro Calory · Hiệu chuẩn camera" },
   // landing / gate (대문)
   "주차장 CCTV 관제 시스템": { en: "Parking CCTV Control System", vi: "Hệ thống điều khiển CCTV bãi đỗ" },
   "CCTV 제어 앱": { en: "CCTV Control App", vi: "Ứng dụng điều khiển CCTV" },
@@ -64,7 +64,6 @@ const DICT = {
   "캡처 화질 비교 · 톤 보정 레퍼런스": { en: "Capture quality comparison · tone reference", vi: "So sánh chất lượng chụp · tham chiếu tông màu" },
 
   // header / tabs
-  "baro_calrory · CCTV 제어": { en: "baro_calrory · CCTV Control", vi: "baro_calrory · Điều khiển CCTV" },
   "화면을 클릭하면 그 지점이 가운데로 옵니다": { en: "Click the view to bring that point to the center", vi: "Nhấp vào màn hình để đưa điểm đó vào giữa" },
   "제어 · 모니터링": { en: "Control · Monitoring", vi: "Điều khiển · Giám sát" },
   "주차면 탐색": { en: "Spot Discovery", vi: "Khám phá chỗ đỗ" },
@@ -190,9 +189,13 @@ const DICT = {
   "포트": { en: "Port", vi: "Cổng" },
   "계정": { en: "Account", vi: "Tài khoản" },
   "비밀번호": { en: "Password", vi: "Mật khẩu" },
-  "이 기기 적용": { en: "Apply this device", vi: "Áp dụng thiết bị này" },
   "연결 테스트": { en: "Test connection", vi: "Kiểm tra kết nối" },
   "삭제": { en: "Delete", vi: "Xóa" },
+  "＋ 추가": { en: "＋ Add", vi: "＋ Thêm" },
+  "취소": { en: "Cancel", vi: "Hủy" },
+  // 설정 화면 탭
+  "서버": { en: "Server", vi: "Máy chủ" },
+  "검출·판독": { en: "Detection & LPR", vi: "Phát hiện & LPR" },
   "검출기 (baro_detector_api)": { en: "Detector (baro_detector_api)", vi: "Detector (baro_detector_api)" },
   "검출기 URL": { en: "Detector URL", vi: "URL Detector" },
   "차량+번호판 통합 (vpd+lpd). 경로: /vpd/api/v2 · /lpd/api/v1": { en: "Vehicle+plate unified (vpd+lpd). Paths: /vpd/api/v2 · /lpd/api/v1", vi: "Gộp xe+biển số (vpd+lpd). Đường dẫn: /vpd/api/v2 · /lpd/api/v1" },
@@ -203,7 +206,7 @@ const DICT = {
   "sk-ant-… (비우면 기존 유지)": { en: "sk-ant-… (leave blank to keep current)", vi: "sk-ant-… (để trống để giữ nguyên)" },
   "sk-… (비우면 기존 유지)": { en: "sk-… (leave blank to keep current)", vi: "sk-… (để trống để giữ nguyên)" },
   "번호판 호밍": { en: "Plate Homing", vi: "Dò biển số" },
-  "저장 + 즉시 적용 (무중단)": { en: "Save + apply now (no restart)", vi: "Lưu + áp dụng ngay (không gián đoạn)" },
+  "이 탭 저장 + 즉시 적용 (무중단)": { en: "Save this tab + apply now (no restart)", vi: "Lưu tab này + áp dụng ngay (không gián đoạn)" },
 
   // ── dynamic: shared / control ──
   "카메라 이동 중…": { en: "Moving camera…", vi: "Đang di chuyển camera…" },
@@ -260,20 +263,102 @@ const DICT = {
   "등록됨": { en: "registered", vi: "đã đăng ký" },
   "미등록": { en: "not set", vi: "chưa đặt" },
   "설정 로드 실패": { en: "Config load failed", vi: "Tải cấu hình thất bại" },
-  "등록된 기기가 없습니다 — '＋ 기기 추가'로 등록하세요.": { en: "No devices — add one with '＋ Add device'.", vi: "Không có thiết bị — thêm bằng '＋ Thêm thiết bị'." },
+  "등록된 기기가 없습니다 — '＋ 추가'로 등록하세요.": { en: "No devices — add one with '＋ Add'.", vi: "Không có thiết bị — thêm bằng '＋ Thêm'." },
   "기기 없음": { en: "No devices", vi: "Không có thiết bị" },
   "편집": { en: "Edit", vi: "Sửa" },
   "(저장됨 · 변경 시에만 입력)": { en: "(saved · enter only to change)", vi: "(đã lưu · chỉ nhập khi đổi)" },
-  "기기 편집 (먼저 '편집' 또는 '＋ 기기 추가')": { en: "Edit device (first '편집' or '＋ Add device')", vi: "Sửa thiết bị (trước hết 'Sửa' hoặc '＋ Thêm thiết bị')" },
   "기기 편집: {id}": { en: "Edit device: {id}", vi: "Sửa thiết bị: {id}" },
   "ID를 입력하세요": { en: "Enter an ID", vi: "Nhập ID" },
   "host를 입력하세요": { en: "Enter a host", vi: "Nhập host" },
   "이미 있는 id: {id}": { en: "id already exists: {id}", vi: "id đã tồn tại: {id}" },
   "편집 중인 기기가 없습니다": { en: "No device being edited", vi: "Không có thiết bị đang sửa" },
-  "새 기기 (ID·타입 지정 후 '이 기기 적용')": { en: "New device (set ID·type, then 'Apply this device')", vi: "Thiết bị mới (đặt ID·loại rồi 'Áp dụng thiết bị này')" },
+  "새 기기": { en: "New device", vi: "Thiết bị mới" },
   "삭제할 기기를 먼저 선택하세요": { en: "Select a device to delete first", vi: "Hãy chọn thiết bị cần xóa trước" },
   "최소 1개 기기는 있어야 합니다": { en: "At least one device is required", vi: "Cần ít nhất một thiết bị" },
-  "적용됨 — '저장'을 눌러야 반영됩니다": { en: "Applied — press 'Save' to commit", vi: "Đã áp dụng — nhấn 'Lưu' để ghi nhận" },
+  "기기 '{id}' 를 삭제합니다. 되돌릴 수 없습니다.": { en: "Delete device '{id}'. This cannot be undone.", vi: "Xóa thiết bị '{id}'. Không thể hoàn tác." },
+  "저장됨": { en: "Saved", vi: "Đã lưu" },
+  "행을 눌러 오른쪽에서 편집하고, 끌어서 순서를 바꿉니다.":
+    { en: "Click a row to edit it on the right; drag to reorder.",
+      vi: "Nhấp một hàng để sửa bên phải; kéo để đổi thứ tự." },
+  "기기 속성": { en: "Device properties", vi: "Thuộc tính thiết bị" },
+  // 용도(mode) — 타입과 다른 축이다. 시뮬레이터 페이지가 이 값으로 기기를 고른다.
+  "용도": { en: "Role", vi: "Vai trò" },
+  "실기 — 실제 카메라": { en: "Real — physical camera", vi: "Thật — camera vật lý" },
+  "시뮬레이터 페이지의 카메라 목록에 나타납니다.":
+    { en: "Appears in the Simulator page's camera list.",
+      vi: "Xuất hiện trong danh sách camera của trang Mô phỏng." },
+  "시뮬레이터 페이지에는 나타나지 않습니다.":
+    { en: "Does not appear on the Simulator page.",
+      vi: "Không xuất hiện trên trang Mô phỏng." },
+  // 접속 상세 — "붙긴 붙는데 화면이 안 나온다"를 푸는 값들.
+  "스킴": { en: "Scheme", vi: "Giao thức" },
+  "자동 (드라이버 기본)": { en: "Auto (driver default)", vi: "Tự động (mặc định driver)" },
+  "프리뷰·전송 상세": { en: "Preview & transport details", vi: "Chi tiết xem trước & truyền" },
+  "RTSP 경로": { en: "RTSP path", vi: "Đường dẫn RTSP" },
+  "RTSP 포트": { en: "RTSP port", vi: "Cổng RTSP" },
+  "프리뷰 fps": { en: "Preview fps", vi: "fps xem trước" },
+  "상한 없음": { en: "no cap", vi: "không giới hạn" },
+  "비우면 스냅샷 폴링으로 내려갑니다. 경로는 벤더 규약이고 번호가 무슨 코덱인지는 기기 설정이 정합니다 — ffprobe 로 확인한 값을 넣으세요. fps 는 기기 실제 fps 를 넣으면 중복 프레임이 사라집니다.":
+    { en: "Leave blank to fall back to snapshot polling. The path is a vendor convention and which codec a number maps to is decided by the device — put in what ffprobe reports. Setting fps to the device's real rate removes duplicate frames.",
+      vi: "Để trống sẽ quay về lấy ảnh tĩnh. Đường dẫn là quy ước của hãng và số nào ứng với codec nào do thiết bị quyết định — hãy nhập giá trị ffprobe báo. Đặt fps đúng tốc độ thật sẽ hết khung trùng." },
+  "타임아웃": { en: "Timeout", vi: "Hết giờ" },
+  "없음": { en: "none", vi: "không có" },
+  "MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 씬 포트는 시뮬레이터의 주차·차량 배치 제어 창구입니다.":
+    { en: "With an MJPEG port set, that port is proxied directly instead of RTSP. The scene port is the simulator's parking/vehicle placement control.",
+      vi: "Nếu có cổng MJPEG, cổng đó được chuyển tiếp trực tiếp thay cho RTSP. Cổng cảnh điều khiển bố trí bãi/xe của mô phỏng." },
+  "TLS 인증서 검증 안 함": { en: "Skip TLS certificate verification", vi: "Bỏ qua xác minh chứng chỉ TLS" },
+  "공장 자체서명 인증서를 쓰는 HTTPS 기기에만. 이 기기 하나에만 적용됩니다.":
+    { en: "Only for HTTPS devices with a factory self-signed certificate. Applies to this device alone.",
+      vi: "Chỉ cho thiết bị HTTPS dùng chứng chỉ tự ký của hãng. Chỉ áp dụng cho thiết bị này." },
+  "모듈": { en: "Module", vi: "Mô-đun" },
+  "영상 채널": { en: "Video ch.", vi: "Kênh hình" },
+  "PTZ 채널": { en: "PTZ ch.", vi: "Kênh PTZ" },
+  "한 서버가 여러 카메라를 무는 기기에서 몇 번 채널인지. 비우면 0번으로 붙습니다 — 3번 카메라를 등록했는데 1번 화면이 나오면 이 값입니다.":
+    { en: "Which channel, on devices where one server carries several cameras. Blank connects to channel 0 — if you registered camera 3 but see camera 1, this is the field.",
+      vi: "Kênh số mấy, với thiết bị mà một máy chủ mang nhiều camera. Để trống sẽ nối kênh 0 — nếu đăng ký camera 3 mà thấy camera 1, đây là ô cần sửa." },
+  // 가상 PTZ — 고정형 소스 위의 소프트웨어 팬틸트줌.
+  "가상 PTZ (고정형 카메라)": { en: "Virtual PTZ (fixed camera)", vi: "PTZ ảo (camera cố định)" },
+  "사용": { en: "Enable", vi: "Bật" },
+  "소스 화각": { en: "Source HFOV", vi: "HFOV nguồn" },
+  "최대 배율": { en: "Max zoom", vi: "Phóng tối đa" },
+  "소스 폭": { en: "Source width", vi: "Rộng nguồn" },
+  "소스 높이": { en: "Source height", vi: "Cao nguồn" },
+  "소스 화각(수평, 0~180)만 있으면 켜집니다. 해상도는 첫 스냅샷의 실측값으로 자동 갱신되고, 최대 배율은 1 초과 64 이하입니다.":
+    { en: "A source HFOV (horizontal, 0–180) is all it needs. Resolution is refreshed from the first snapshot; max zoom is above 1 and up to 64.",
+      vi: "Chỉ cần HFOV nguồn (ngang, 0–180). Độ phân giải được cập nhật từ ảnh chụp đầu tiên; phóng tối đa lớn hơn 1 và tối đa 64." },
+  "가상 PTZ 소스 화각은 0~180 사이여야 합니다":
+    { en: "Virtual PTZ source HFOV must be between 0 and 180",
+      vi: "HFOV nguồn của PTZ ảo phải trong khoảng 0–180" },
+  "가상 PTZ 최대 배율은 1 초과 64 이하여야 합니다":
+    { en: "Virtual PTZ max zoom must be above 1 and at most 64",
+      vi: "Phóng tối đa của PTZ ảo phải lớn hơn 1 và tối đa 64" },
+  "Hucoms CGI 를 평문 HTTP 로 확인한 결과입니다 — 다른 규약의 기기는 이 결과와 무관하게 스킴·RTSP 경로가 맞아야 화면이 나옵니다.":
+    { en: "This checked a Hucoms CGI over plain HTTP — for devices on another protocol the scheme and RTSP path still have to be right before any picture appears.",
+      vi: "Phép thử này gọi CGI Hucoms qua HTTP thường — với thiết bị dùng giao thức khác, vẫn phải đúng scheme và đường dẫn RTSP thì mới có hình." },
+  "순서 저장 중…": { en: "Saving order…", vi: "Đang lưu thứ tự…" },
+  "순서 저장됨": { en: "Order saved", vi: "Đã lưu thứ tự" },
+  "순서 저장 실패": { en: "Failed to save order", vi: "Lưu thứ tự thất bại" },
+  // 캘리브레이션 재사용 — 발행된 프로파일을 다른 기기에 빌려 붙인다.
+  "캘리브레이션": { en: "Calibration", vi: "Hiệu chuẩn" },
+  "보정 없음": { en: "No calibration", vi: "Không hiệu chuẩn" },
+  "내장 프리셋": { en: "built-in preset", vi: "cài đặt sẵn" },
+  "조준 곡선만 (구형식)": { en: "aiming curve only (legacy)", vi: "chỉ đường cong ngắm (cũ)" },
+  "이 카메라 실측": { en: "measured on this camera", vi: "đo trên camera này" },
+  "지정됨": { en: "set", vi: "đã đặt" },
+  "유지": { en: "Keep", vi: "Giữ" },
+  "의 실측값 빌리기": { en: "— borrow its measurements", vi: "— mượn số đo của nó" },
+  "에서 빌림": { en: "borrowed", vi: "đã mượn" },
+  "클릭 센터링이 보정 없이 동작합니다.": { en: "Click-to-center runs uncorrected.", vi: "Nhấp căn giữa chạy không hiệu chỉnh." },
+  "지금 값을 그대로 둡니다": { en: "Leaves the current value untouched", vi: "Giữ nguyên giá trị hiện tại" },
+  "다른 카메라의 실측값입니다 — 캘리브레이션은 개체마다 다르므로, 적용한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.":
+    { en: "These are another camera's measurements. Calibration differs per unit — after applying, run 'Verify' to confirm it fits this one.",
+      vi: "Đây là số đo của camera khác. Hiệu chuẩn khác nhau theo từng máy — sau khi áp dụng, hãy chạy 'Kiểm tra'." },
+  "프로파일을 읽는 중…": { en: "Reading profile…", vi: "Đang đọc hồ sơ…" },
+  "그 프로파일에는 화각 곡선이 없습니다": { en: "That profile has no FOV curve", vi: "Hồ sơ đó không có đường cong FOV" },
+  "프로파일을 읽지 못했습니다": { en: "Could not read the profile", vi: "Không đọc được hồ sơ" },
+  "취소됨": { en: "Cancelled", vi: "Đã hủy" },
+  "삭제됨: {id}": { en: "Deleted: {id}", vi: "Đã xóa: {id}" },
+  "활성 적용 실패:": { en: "active apply failed:", vi: "áp dụng thiết bị đang dùng thất bại:" },
   "'{id}'(으)로 전환 중…": { en: "Switching to '{id}'…", vi: "Đang chuyển sang '{id}'…" },
   "✅ '{id}'(으)로 전환됨 (무중단)": { en: "✅ Switched to '{id}' (no restart)", vi: "✅ Đã chuyển sang '{id}' (không gián đoạn)" },
   "전환 실패": { en: "Switch failed", vi: "Chuyển thất bại" },
@@ -285,9 +370,8 @@ const DICT = {
   "❌ 응답 없음": { en: "❌ No response", vi: "❌ Không phản hồi" },
   "프로브 실패": { en: "Probe failed", vi: "Dò thất bại" },
   "✅ 응답 (status {s})": { en: "✅ Responded (status {s})", vi: "✅ Có phản hồi (status {s})" },
-  "편집 중인 기기 확인:": { en: "Check the device being edited:", vi: "Kiểm tra thiết bị đang sửa:" },
-  "기기를 최소 1개 등록하세요": { en: "Register at least one device", vi: "Hãy đăng ký ít nhất một thiết bị" },
   "저장 중…": { en: "Saving…", vi: "Đang lưu…" },
+  "✅ 저장됨.": { en: "✅ Saved.", vi: "✅ Đã lưu." },
   "✅ 저장 + 즉시 적용됨 (무중단).": { en: "✅ Saved + applied now (no restart).", vi: "✅ Đã lưu + áp dụng ngay (không gián đoạn)." },
   "✅ 저장됨 — 단, 활성 적용 실패:": { en: "✅ Saved — but active apply failed:", vi: "✅ Đã lưu — nhưng áp dụng thiết bị đang dùng thất bại:" },
   "저장 실패": { en: "Save failed", vi: "Lưu thất bại" },

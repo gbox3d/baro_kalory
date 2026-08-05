@@ -1,15 +1,10 @@
-// 페이지 공통 크롬 — 헤더 우측(내비·테마·언어·버전 배지·원격 API 배지)을 채우고
-// i18n/테마를 초기화한다. 각 페이지가 헤더에 <span data-role="chrome"></span> 하나만 두면
-// 나머지는 여기서 주입된다. 페이지가 늘 때 기존 페이지들의 nav 를 손으로 고치다 한 곳을
-// 빠뜨리는 사고(발견 불가능한 페이지)를 없애기 위한 모듈 — 링크 목록의 출처는 pages.mjs 하나다.
+// 페이지 공통 크롬 — 헤더 우측(홈 바로가기·테마·언어·버전)을 채우고 i18n/테마를 초기화한다.
+// 각 페이지가 헤더에 <span data-role="chrome"></span> 하나만 두면 나머지는 여기서 주입된다.
+// 화면 사이 이동은 대문의 카드가 맡는다 — 헤더에 전 페이지를 늘어놓지 않는다.
 import { api, API_BASE, API_BASE_EXPLICIT } from "./api.mjs";
 import { initI18n, setLang, getLang, t } from "./i18n.mjs";
 import { initTheme } from "./theme.mjs";
 import { PAGES, getPage, pageHref } from "./pages.mjs";
-
-// 백엔드 없이 열려도 되는 페이지 — 대문(정적 카드뿐)과 설정(백엔드 주소를 정하는 곳).
-// 나머지는 백엔드가 없으면 할 수 있는 일이 없으므로 게이트가 잠근다.
-const OFFLINE_OK = new Set(["home", "settings"]);
 
 // 프런트 버전의 출처는 페이지와 함께 배포되는 app-versions.json 이다(backend 가 아니라 —
 // 프런트만 따로 배포하면 backend 가 아는 값은 브라우저가 실제로 도는 버전과 어긋난다).
@@ -28,6 +23,51 @@ export async function fillAppVersions(root = document) {
   for (const el of root.querySelectorAll("[data-version-key]")) {
     const page = PAGES.find((p) => p.versionKey === el.dataset.versionKey);
     if (page) el.textContent = `${page.badge} v${own[page.versionKey] || "—"}`;
+  }
+}
+
+// 헤더 좌측: 홈(집 아이콘) | 제품·페이지 이름 | 설정. 이 둘만 두는 이유는, 전 페이지를
+// 늘어놓으면 화면마다 링크가 대여섯 개씩 붙어 정작 그 페이지의 것(카메라 셀렉터·버전)을
+// 밀어내기 때문이다. 나머지 화면으로 가는 길은 대문의 카드가 맡는다.
+// 아이콘은 인라인 SVG — currentColor 를 쓰므로 테마와 링크 색을 그대로 따라간다.
+const HOME_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M2.2 7.2 8 2.4l5.8 4.8V14H2.2z"/></svg>';
+
+function headerSep() {
+  const s = document.createElement("span");
+  s.setAttribute("data-i18n-skip", "");
+  s.style.cssText = "margin:0 8px; color:var(--color-muted); font-weight:400;";
+  s.textContent = "|";
+  return s;
+}
+
+// 링크는 h1 안에 들어가므로 제목의 굵기를 상속받지 않게 눌러 준다.
+function fillHeaderNav(page) {
+  const h1 = document.querySelector("header h1");
+  if (!h1) return;
+  if (page !== "home") {
+    const home = document.createElement("a");
+    home.className = "navlink";
+    home.setAttribute("data-i18n-skip", "");   // 아이콘 마크업을 i18n 워커에 노출하지 않는다
+    home.href = pageHref("home");
+    home.title = "홈";
+    home.setAttribute("aria-label", "홈");
+    home.innerHTML = HOME_ICON;
+    home.style.cssText = "font-weight:400; display:inline-flex; align-items:center; vertical-align:-2px;";
+    h1.insertBefore(headerSep(), h1.firstChild);
+    h1.insertBefore(home, h1.firstChild);
+  }
+  // 대문에는 설정 링크를 두지 않는다 — 화면 안의 카드가 이미 그 자리로 데려간다.
+  if (page !== "settings" && page !== "home") {
+    const set = document.createElement("a");
+    set.className = "navlink";
+    set.href = pageHref("settings");
+    set.textContent = "설정";   // 한국어 원문 — applyI18n 이 현재 언어로 바꾼다(skip 아님)
+    set.style.cssText = "font-weight:400;";
+    // 카메라 셀렉터가 있으면 그 앞에 넣는다 — 이름 바로 뒤가 제자리다(셀렉터는 h1 끝에 온다).
+    // 셀렉터가 없는 페이지에서는 insertBefore(…, null) 이 곧 append 다.
+    const cam = h1.querySelector(".header-camera");
+    h1.insertBefore(headerSep(), cam);
+    h1.insertBefore(set, cam);
   }
 }
 
@@ -82,11 +122,10 @@ function showBackendGate({ page, explicit, base, detail }) {
 
   document.body.insertBefore(bar, document.body.firstChild);
 
-  // 헤더 nav + 대문 카드 잠금 — 설정과 대문만 남긴다.
+  // 대문 카드 잠금 — 백엔드 없이 열 수 있는 것은 대문(정적 카드뿐)과 설정(주소를 정하는
+  // 곳)뿐이다. 나머지는 열어 봐야 할 수 있는 일이 없다. 헤더는 홈 링크만 두므로 잠글 것이
+  // 없다(홈은 언제나 열려 있어야 하는 탈출구다).
   const reason = `${headline} — ${guide}`;
-  for (const a of document.querySelectorAll('header [data-role="chrome"] a.navlink')) {
-    if (a.dataset.pageId && !OFFLINE_OK.has(a.dataset.pageId)) lockLink(a, reason);
-  }
   const settingsHref = pageHref("settings");
   for (const a of document.querySelectorAll("a.home-card")) {
     if (a.getAttribute("href") !== settingsHref) lockLink(a, reason);
@@ -97,17 +136,8 @@ function showBackendGate({ page, explicit, base, detail }) {
 export function initPageChrome({ page }) {
   const current = getPage(page);
   const mount = document.querySelector('header [data-role="chrome"]');
+  fillHeaderNav(page);   // 바로가기는 헤더 좌측(이름 양옆), 우측은 테마·언어·버전만
   if (mount) {
-    for (const p of PAGES) {
-      if (p.id === page || p.id === "home" && page === "home") continue;
-      const a = document.createElement("a");
-      a.className = "navlink";
-      a.setAttribute("data-i18n-skip", "");
-      a.dataset.pageId = p.id;              // 게이트가 어떤 링크를 잠글지 판정하는 근거
-      a.href = pageHref(p.id);
-      a.textContent = p.label;
-      mount.appendChild(a);
-    }
     const theme = document.createElement("select");
     theme.setAttribute("data-role", "theme");     // initTheme() 가 이 속성으로 찾아 채운다
     theme.setAttribute("data-i18n-skip", "");
@@ -128,12 +158,6 @@ export function initPageChrome({ page }) {
     ver.className = "ver";
     ver.textContent = "v—";
     mount.appendChild(ver);
-    const badge = document.createElement("span");
-    badge.id = "apibase-badge";
-    badge.setAttribute("data-i18n-skip", "");
-    badge.style.cssText = "display:none; margin-left:10px; padding:2px 7px; border:1px solid var(--color-warn,#ca4); color:var(--color-warn,#ca4); font:11px var(--font-mono);";
-    badge.title = "이 UI 가 동일 출처가 아닌 원격 backend 를 보고 있습니다 (설정에서 변경)";
-    mount.appendChild(badge);
   }
 
   const langSel = document.getElementById("lang-select");
@@ -164,12 +188,6 @@ export function initPageChrome({ page }) {
         detail: String((e && e.message) || e).slice(0, 60),
       });
     });
-
-  // 원격 base 배지 — 남의 backend 를 보고 있는데 모르는 상태가 제일 위험하다. 동일 출처일 땐 숨김.
-  if (API_BASE) {
-    const badge = document.getElementById("apibase-badge");
-    if (badge) { badge.textContent = `API ${API_BASE}`; badge.style.display = "inline-block"; }
-  }
 
   return { versionEl };
 }

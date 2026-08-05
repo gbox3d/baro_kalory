@@ -3,105 +3,277 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>baro_calory · 설정</title>
+<title>Baro Calory · 설정</title>
 <link rel="icon" href="./favicon.ico" sizes="any" />
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("baro-theme")||"terminal"}catch(e){}</script>
 <link rel="stylesheet" href="./app.css" />
 <style>
 /* settings 전용 — 공유 base/컴포넌트/토큰은 /app.css 에서 온다. */
   :root { color-scheme: dark; }
-  .dev-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--color-border); }
+  /* 기기 목록 — 행 자체가 선택 버튼이다(행마다 붙어 있던 '편집' 버튼을 없앴다: 이름이 길면
+     줄바꿈이 나면서 버튼이 세로로 찌그러졌고, 선택과 편집이 다른 조작인 것처럼 보였다).
+     이름·식별자·주소를 세 줄로 나눠 행 높이를 일정하게 만든다. */
+  /* 목록은 높이를 고정하고 넘치면 스크롤한다 — 기기가 늘어도 아래의 조작 줄과 편집 폼이
+     화면 밖으로 밀리지 않게. 테두리를 둬서 어디까지가 목록인지 보이게 한다(없으면 잘린
+     마지막 행이 조작 줄에 붙어 깨진 것처럼 읽힌다). */
+  #dev-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto;
+              border: 1px solid var(--color-border); padding: 4px; }
+  .dev-row { display: block; width: 100%; text-align: left; padding: 6px 8px; font: inherit;
+             color: inherit; background: none; border: 1px solid var(--color-border); cursor: pointer; }
+  .dev-row:hover { border-color: var(--color-accent); }
   .dev-row.sel { border-color: var(--color-accent); background: #12160f; }
+  .dev-row .dev-name { display: block; font-weight: bold; }
+  .dev-row .dev-meta { display: block; font-size: 12px; opacity: .7; }
+  /* 끌어서 순서 바꾸기 — 끌고 있는 행은 흐리게, 놓을 자리는 파선으로 표시한다. */
+  .dev-row.dragging { opacity: .45; }
+  .dev-row.drop-into { border-style: dashed; border-color: var(--color-accent); }
+  /* 탭 — 설정 항목을 한 줄로 늘어놓으면 무엇이 어디 있는지 찾는 데 스크롤이 필요해진다.
+     선택 표시는 기기 목록의 선택된 행과 같은 시각 언어를 쓴다(테두리 + 강조색). */
+  .tabs { display: flex; gap: 6px; }
+  .tab { padding: 6px 14px; font: inherit; color: inherit; background: none;
+         border: 1px solid var(--color-border); cursor: pointer; }
+  .tab:hover { border-color: var(--color-accent); }
+  .tab.sel { border-color: var(--color-accent); color: var(--color-accent); background: #12160f; }
+  /* 탭 줄은 화면에 고정하고, 그 아래 패널이 뷰포트 하단까지 차지하며 자기 안에서 스크롤한다.
+     페이지 전체가 늘어나던 때는 아래를 보려고 스크롤하면 탭 줄이 위로 사라져서, 탭을
+     바꾸려면 매번 맨 위로 되돌아가야 했다. 게이트 배너가 body 첫 자식으로 끼어들어도
+     같은 세로 흐름에 들어가므로 패널이 그만큼 줄어든다. */
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  main { flex: 1 1 auto; min-height: 0; display: flex; }
+  #set-panel { min-height: 0; }
+  #set-panel > .tabs { flex: 0 0 auto; }
+  /* min-height:0 이 없으면 flex 아이템의 기본 min-height:auto 가 내용 높이를 바닥으로 잡아
+     넘치는 만큼 그대로 커지고, overflow 가 걸릴 자리가 생기지 않는다. */
+  #set-panel > section { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+
+  /* 기기 탭만 2단이다. 목록에서 고르고 오른쪽에서 고친다 — 한 줄로 세워 두면 목록을 보려면
+     폼 위로, 고치려면 아래로 오가야 하고, 접속 상세가 붙은 지금은 그 거리가 화면 하나를 넘는다.
+     스크롤은 단마다 따로 흐른다: 목록을 훑는 동안 편집 중인 폼이 함께 밀려 올라가면 안 된다. */
+  section[data-panel="devices"] { display: flex; flex-direction: row; gap: 14px; overflow: hidden; padding-right: 0; }
+  .dev-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
+  /* min-width:0 이 없으면 flex 아이템의 기본 min-width:auto 가 내용의 최소 폭을 바닥으로 잡아
+     basis 를 무시하고 벌어진다 — 목록이 300px 로 서지 않고 편집 단의 폭을 빼앗아 간다. */
+  .dev-col-list { flex: 0 0 300px; }
+  /* 목록 카드가 왼쪽 단의 남은 높이를 전부 먹고, 스크롤은 목록 안에서만 일어난다. 카드까지
+     함께 스크롤시키면 스크롤 막대가 둘 겹쳐 어느 것이 목록의 것인지 알 수 없게 된다. */
+  .dev-card-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .dev-card-list #dev-list { flex: 1 1 auto; max-height: none; }
+  .dev-col-edit { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding-right: 4px; }
+  /* 다른 탭은 여전히 한 단이다 — 폭이 넓어졌다고 입력칸을 화면 끝까지 늘일 이유는 없다. */
+  section[data-panel="server"] > .card, section[data-panel="detect"] > .card { max-width: 720px; }
+  /* 좁은 화면에서는 2단이 성립하지 않는다. 다시 한 줄로 세우고 스크롤도 하나로 되돌린다. */
+  @media (max-width: 900px) {
+    section[data-panel="devices"] { flex-direction: column; overflow-y: auto; padding-right: 4px; }
+    .dev-col { flex: 0 0 auto; }
+    .dev-col-edit { overflow: visible; }
+    .dev-card-list #dev-list { flex: 0 0 auto; max-height: 260px; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>baro_calory · 설정</h1>
+  <h1>Baro Calory · 설정</h1>
   <span data-role="chrome" style="display:flex; align-items:center; gap:10px;"></span>
 </header>
 <main>
-  <div id="set-panel" style="display:flex; flex-direction:column; gap:14px; width:580px; max-width:100%;">
-    <div class="card">
-      <h2>서비스 상태</h2>
-      <div class="row" style="gap:16px; font-size:13px;">
-        <span id="st-backend">백엔드 …</span>
-        <span id="st-camera">카메라 …</span>
-        <span id="st-detector">검출기 …</span>
-        <span id="st-lpr">LPR …</span>
-      </div>
-      <div class="row" style="margin-top:8px;"><button id="set-refresh-status">상태 새로고침</button> <span class="hint">페이지를 열면 자동 확인합니다</span></div>
-    </div>
-    <div class="card">
-      <h2>현재 연결</h2>
-      <div id="set-current" class="hint">불러오는 중…</div>
-    </div>
-    <div class="card">
-      <h2>API 서버</h2>
-      <div class="row" style="gap:8px;">
-        <input id="apibase-input" data-i18n-skip type="text" style="flex:1; min-width:0;" />
-        <button id="apibase-test">연결 테스트</button>
-        <button id="apibase-save">저장</button>
-        <button id="apibase-clear">초기화</button>
-      </div>
-      <div id="apibase-status" class="hint" style="margin-top:6px;"></div>
-    </div>
-    <div class="card">
-      <h2>기기 (장치)</h2>
-      <div class="row" style="margin-bottom:6px;">
-        <label>활성 기기</label>
-        <select id="dev-active" style="width:auto; padding:5px; min-width:170px;"></select>
-        <button id="dev-add" style="margin-left:auto;">＋ 기기 추가</button>
-      </div>
-      <div id="dev-list" style="display:flex; flex-direction:column; gap:4px; margin:6px 0 10px;"></div>
-      <div style="border-top:1px solid #2a2f3a; margin:0 0 10px;"></div>
-      <div class="hint" id="dev-edit-title" style="margin-bottom:6px;">기기 편집</div>
-      <div class="row" style="margin-bottom:6px;">
-        <label>ID</label><input id="set-cam-id" style="width:110px" placeholder="cam-001" />
-        <label>이름</label><input id="dev-name" style="width:130px" placeholder="정문 CCTV" />
-        <label>타입</label><select id="dev-type" style="width:auto; padding:5px;"></select>
-      </div>
-      <div id="dev-host-fields">
-        <div class="row" style="margin-bottom:6px;">
-          <label>호스트</label><input id="set-cam-host" style="width:150px" placeholder="192.0.2.50" />
-          <label>포트</label><input id="set-cam-port" type="number" style="width:70px" placeholder="80" />
+  <!-- 기기 탭이 2단(목록 300px + 편집)이 되면서 폭이 늘었다. 편집 단은 720px 는 있어야
+       ID·이름·타입이 한 줄에 들어간다 — 580px 이던 때는 타입 셀렉트가 다음 줄로 밀려 폼이
+       깨져 보였고, 2단에서 같은 일이 벌어지지 않게 그만큼을 오른쪽 단에 남긴다. -->
+  <div id="set-panel" style="display:flex; flex-direction:column; gap:14px; width:1040px; max-width:100%;">
+    <nav class="tabs" role="tablist">
+      <button class="tab" data-tab="devices" role="tab">기기</button>
+      <button class="tab" data-tab="server" role="tab">서버</button>
+      <button class="tab" data-tab="detect" role="tab">검출·판독</button>
+    </nav>
+
+    <!-- 이 패널만 배치를 CSS 로 넘긴다 — 인라인 flex-direction 은 스타일시트의 2단 규칙과
+         미디어쿼리를 모두 이겨 버려서, 좁은 화면 대응이 아예 걸리지 않는다. -->
+    <section data-panel="devices">
+      <div class="dev-col dev-col-list">
+        <div class="card">
+          <h2>현재 연결</h2>
+          <div id="set-current" class="hint">불러오는 중…</div>
         </div>
-        <div class="row" style="margin-bottom:8px;">
-          <label>계정</label><input id="set-cam-user" style="width:100px" placeholder="admin" />
-          <label>비밀번호</label><input id="set-cam-pass" type="password" style="width:130px" placeholder="비밀번호" />
+        <div class="card dev-card-list">
+          <h2>기기 (장치)</h2>
+          <div class="row" style="margin-bottom:8px;">
+            <label>활성 기기</label>
+            <select id="dev-active" title="활성 기기" style="width:auto; padding:5px; min-width:150px;"></select>
+          </div>
+          <div id="dev-list"></div>
+          <div class="hint" style="margin-top:6px;">행을 눌러 오른쪽에서 편집하고, 끌어서 순서를 바꿉니다.</div>
         </div>
       </div>
-      <div class="row">
-        <button id="dev-apply">이 기기 적용</button>
-        <button id="set-probe">연결 테스트</button>
-        <button id="dev-del" style="margin-left:auto;">삭제</button>
+      <div class="dev-col dev-col-edit">
+      <div class="card">
+        <h2>기기 속성</h2>
+        <!-- 기기를 다루는 조작은 전부 이 한 줄에 모은다. 예전에는 '추가'가 카드 맨 위,
+             '삭제'가 폼 아래에 흩어져 있어 무엇이 목록을 바꾸는 조작인지 보이지 않았다. -->
+        <div class="row" style="margin:0 0 10px;">
+          <button id="dev-add">＋ 추가</button>
+          <button id="dev-save">저장</button>
+          <button id="dev-del">삭제</button>
+          <button id="dev-cancel">취소</button>
+          <button id="set-probe" style="margin-left:auto;">연결 테스트</button>
+        </div>
+        <div id="dev-editor">
+          <div class="hint" id="dev-edit-title" style="margin-bottom:6px;">기기 편집</div>
+          <div class="row" style="margin-bottom:6px;">
+            <label>ID</label><input id="set-cam-id" style="width:110px" placeholder="cam-001" />
+            <label>이름</label><input id="dev-name" style="width:130px" placeholder="정문 CCTV" />
+            <label>타입</label><select id="dev-type" style="width:auto; padding:5px;"></select>
+          </div>
+          <!-- 용도는 타입과 다른 축이다. 타입은 "어느 규약으로 말하나"(hucoms·idis…)이고
+               용도는 "실제 카메라인가 시뮬레이터인가"다 — UE 시뮬은 hucoms 규약을 그대로
+               쓰므로 타입만으로는 구분되지 않는다. 시뮬레이터 페이지가 이 값으로 기기를
+               고르므로, 여기서 정하지 못하면 새로 등록한 시뮬 카메라가 그 화면에 안 뜬다. -->
+          <div class="row" style="margin-bottom:6px;">
+            <label>용도</label>
+            <select id="dev-mode" title="용도" style="width:auto; padding:5px;">
+              <option value="real">실기 — 실제 카메라</option>
+              <option value="sim">시뮬레이터</option>
+            </select>
+            <span class="hint" id="dev-mode-hint"></span>
+          </div>
+          <!-- 캘리브레이션은 카메라 **개체**의 성질이지 모델의 성질이 아니다. 그래서 남의
+               값을 빌려 쓰는 것은 임시 방편이고, 반드시 검증으로 확인해야 한다. -->
+          <div class="row" style="margin-bottom:6px;">
+            <label>캘리브레이션</label>
+            <select id="dev-calib" title="캘리브레이션" style="width:auto; padding:5px; min-width:260px;"></select>
+          </div>
+          <div class="hint" id="dev-calib-hint" style="margin-bottom:8px;"></div>
+          <div id="dev-host-fields">
+            <div class="row" style="margin-bottom:6px;">
+              <label>호스트</label><input id="set-cam-host" style="width:150px" placeholder="192.0.2.50" />
+              <label>포트</label><input id="set-cam-port" type="number" style="width:70px" placeholder="80" />
+              <!-- 스킴은 기기가 정한다. 드라이버마다 기본값이 달라(IDIS 는 https) 평문 HTTP 만
+                   여는 기기는 설정이 그렇게 말해 줘야 하고, 아니면 TLS 핸드셰이크가 평문 포트에
+                   부딪혀 스냅샷이 통째로 실패한다. 호스트에 http:// 를 적어도 백엔드가 여기로
+                   쪼개 넣으므로, 주소 칸이 아니라 이 칸이 스킴의 자리다. -->
+              <label>스킴</label>
+              <select id="dev-scheme" title="스킴" style="width:auto; padding:5px;">
+                <option value="">자동 (드라이버 기본)</option>
+                <option value="http">http</option>
+                <option value="https">https</option>
+              </select>
+            </div>
+            <div class="row" style="margin-bottom:8px;">
+              <label>계정</label><input id="set-cam-user" style="width:100px" placeholder="admin" />
+              <label>비밀번호</label><input id="set-cam-pass" type="password" style="width:170px" placeholder="비밀번호" />
+            </div>
+            <!-- 접었다 펴는 이유: 이 값들은 기기를 처음 등록할 때가 아니라 "붙긴 붙는데 화면이
+                 안 나온다"를 풀 때 쓴다. 늘 펴 두면 일상적인 등록 화면이 그만큼 길어진다. -->
+            <details id="dev-advanced" style="margin-bottom:8px;">
+              <summary style="cursor:pointer;">프리뷰·전송 상세</summary>
+              <div style="padding:8px 0 0 4px;">
+                <div class="row" style="margin-bottom:6px;">
+                  <label>RTSP 경로</label><input id="dev-rtsp-path" style="width:140px" placeholder="stream1 · trackID=1" />
+                  <label>RTSP 포트</label><input id="dev-rtsp-port" type="number" style="width:70px" placeholder="554" />
+                  <label>프리뷰 fps</label><input id="dev-stream-fps" type="number" style="width:85px" placeholder="상한 없음" />
+                </div>
+                <div class="hint" style="margin-bottom:8px;">비우면 스냅샷 폴링으로 내려갑니다. 경로는 벤더 규약이고 번호가 무슨 코덱인지는 기기 설정이 정합니다 — ffprobe 로 확인한 값을 넣으세요. fps 는 기기 실제 fps 를 넣으면 중복 프레임이 사라집니다.</div>
+                <div class="row" style="margin-bottom:6px;">
+                  <label>MJPEG 포트</label><input id="dev-mjpeg-port" type="number" style="width:70px" placeholder="없음" />
+                  <label>씬 포트</label><input id="dev-scene-port" type="number" style="width:70px" placeholder="없음" />
+                  <label>타임아웃</label><input id="dev-timeout" type="number" style="width:70px" placeholder="ms" />
+                </div>
+                <div class="hint" style="margin-bottom:8px;">MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 씬 포트는 시뮬레이터의 주차·차량 배치 제어 창구입니다.</div>
+                <div class="row" style="margin-bottom:6px;">
+                  <label style="width:auto;"><input id="dev-insecure-tls" type="checkbox" /> TLS 인증서 검증 안 함</label>
+                </div>
+                <div class="hint" style="margin-bottom:8px;">공장 자체서명 인증서를 쓰는 HTTPS 기기에만. 이 기기 하나에만 적용됩니다.</div>
+                <!-- 채널 지정. 타입으로 가리지 않는다 — 백엔드도 이 네 필드를 host 기기 전체에
+                     대해 똑같이 정규화한다. 어느 벤더가 다채널인지를 화면이 따로 알 이유가 없다. -->
+                <div class="row" style="margin-bottom:6px;">
+                  <label>모듈</label><input id="dev-fwmodid" type="number" style="width:60px" placeholder="fwModId" />
+                  <label>영상 채널</label><input id="dev-portid" type="number" style="width:60px" placeholder="portId" />
+                  <label>PTZ 채널</label><input id="dev-ptzportid" type="number" style="width:60px" placeholder="ptzPortId" />
+                  <label>스트림</label><input id="dev-streamindex" type="number" style="width:60px" placeholder="streamIndex" />
+                </div>
+                <div class="hint">한 서버가 여러 카메라를 무는 기기에서 몇 번 채널인지. 비우면 0번으로 붙습니다 — 3번 카메라를 등록했는데 1번 화면이 나오면 이 값입니다.</div>
+              </div>
+            </details>
+          </div>
+          <!-- 가상 PTZ: 스냅샷만 내는 고정형 카메라 위에 소프트웨어 팬틸트줌을 씌운다.
+               host 필드 바깥에 있는 이유는 백엔드가 이 값을 **타입과 무관하게** 읽기 때문이다
+               (기준기의 고정형 변형이 그렇게 서 있다). host 필드 안에 두면 접속 대상이 없는
+               타입에서 통째로 숨어 편집할 길이 사라진다. -->
+          <details id="dev-vptz" style="margin-bottom:8px;">
+            <summary style="cursor:pointer;">가상 PTZ (고정형 카메라)</summary>
+            <div style="padding:8px 0 0 4px;">
+              <div class="row" style="margin-bottom:6px;">
+                <label style="width:auto;"><input id="dev-vptz-on" type="checkbox" /> 사용</label>
+                <label>소스 화각</label><input id="dev-vptz-hfov" type="number" step="0.1" style="width:70px" placeholder="90" />
+                <label>최대 배율</label><input id="dev-vptz-maxmag" type="number" step="0.1" style="width:70px" placeholder="8" />
+              </div>
+              <div class="row" style="margin-bottom:6px;">
+                <label>소스 폭</label><input id="dev-vptz-w" type="number" style="width:80px" placeholder="1920" />
+                <label>소스 높이</label><input id="dev-vptz-h" type="number" style="width:80px" placeholder="1080" />
+              </div>
+              <div class="hint" style="margin-bottom:4px;">소스 화각(수평, 0~180)만 있으면 켜집니다. 해상도는 첫 스냅샷의 실측값으로 자동 갱신되고, 최대 배율은 1 초과 64 이하입니다.</div>
+            </div>
+          </details>
+        </div>
+        <!-- 기기 조작 결과와 연결 테스트 결과는 서로 다른 사실이다. 한 칸을 공유하던 때는
+             연결 테스트 결과를 읽는 중에 저장을 누르면 그 결과가 지워졌다. -->
+        <div class="row" style="margin-top:6px;"><span id="dev-msg" class="hint"></span></div>
+        <div class="row" style="margin-top:4px;"><span id="set-probe-out" class="hint"></span></div>
       </div>
-      <div class="row" style="margin-top:6px;"><span id="set-probe-out" class="hint"></span></div>
-    </div>
-    <div class="card">
-      <h2>검출기 (baro_detector_api)</h2>
-      <div class="row" style="margin-bottom:6px;"><label style="width:84px">검출기 URL</label><input id="set-detector" style="width:240px" placeholder="http://127.0.0.1:9080" /></div>
-      <div class="hint" style="margin-bottom:8px;">차량+번호판 통합 (vpd+lpd). 경로: /vpd/api/v2 · /lpd/api/v1</div>
-      <div class="row"><button id="set-probe-det">검출기 테스트</button> <span id="set-det-out" class="hint"></span></div>
-    </div>
-    <div class="card">
-      <h2>LPR 판독 (외부 OCR)</h2>
-      <div class="row" style="margin-bottom:6px;"><label style="width:84px">LPR URL</label><input id="set-lpr" style="width:300px" placeholder="http://&lt;LPR-호스트&gt;:8124/v1/plate-reader/" /></div>
-      <div class="hint" style="margin-bottom:8px;">번호판 문자 인식 — 검출기와 별개의 외부 서비스.</div>
-      <div class="row"><button id="set-probe-lpr">LPR 테스트</button> <span id="set-lpr-out" class="hint"></span></div>
-    </div>
-    <div class="card">
-      <h2>API 키 (VLM)</h2>
-      <div class="row" style="margin-bottom:6px;"><label style="width:96px">Anthropic</label><input id="set-key-anthropic" type="password" autocomplete="off" style="width:300px" placeholder="sk-ant-… (비우면 기존 유지)" /></div>
-      <div class="row" style="margin-bottom:6px;"><label style="width:96px">OpenAI</label><input id="set-key-openai" type="password" autocomplete="off" style="width:300px" placeholder="sk-… (비우면 기존 유지)" /></div>
-      <div class="hint" id="set-key-hint">…</div>
-    </div>
-    <div class="card">
-      <h2>카메라 캘리브레이션</h2>
-      <div class="hint">기기별 광학·조준 실측은 <a href="./calibration" data-i18n-skip class="navlink">캘리브레이션</a> 페이지로 분리되었습니다.</div>
-    </div>
-    <div class="card">
-      <div class="row"><button id="set-save">저장 + 즉시 적용 (무중단)</button> <span id="set-save-out" class="hint"></span></div>
-    </div>
+      <div class="card">
+        <h2>카메라 캘리브레이션</h2>
+        <div class="hint">기기별 광학·조준 실측은 <a href="./calibration" data-i18n-skip class="navlink">캘리브레이션</a> 페이지로 분리되었습니다.</div>
+      </div>
+      </div>
+    </section>
+
+    <section data-panel="server" style="display:flex; flex-direction:column; gap:14px;">
+      <div class="card">
+        <h2>API 서버</h2>
+        <div class="row" style="gap:8px;">
+          <input id="apibase-input" data-i18n-skip type="text" style="flex:1; min-width:0;" />
+          <button id="apibase-test">연결 테스트</button>
+          <button id="apibase-save">저장</button>
+          <button id="apibase-clear">초기화</button>
+        </div>
+        <div id="apibase-status" class="hint" style="margin-top:6px;"></div>
+      </div>
+      <div class="card">
+        <h2>서비스 상태</h2>
+        <div class="row" style="gap:16px; font-size:13px;">
+          <span id="st-backend">백엔드 …</span>
+          <span id="st-camera">카메라 …</span>
+          <span id="st-detector">검출기 …</span>
+          <span id="st-lpr">LPR …</span>
+        </div>
+        <div class="row" style="margin-top:8px;"><button id="set-refresh-status">상태 새로고침</button> <span class="hint">페이지를 열면 자동 확인합니다</span></div>
+      </div>
+    </section>
+
+    <section data-panel="detect" style="display:flex; flex-direction:column; gap:14px;">
+      <div class="card">
+        <h2>검출기 (baro_detector_api)</h2>
+        <div class="row" style="margin-bottom:6px;"><label style="width:84px">검출기 URL</label><input id="set-detector" style="width:240px" placeholder="http://127.0.0.1:9080" /></div>
+        <div class="hint" style="margin-bottom:8px;">차량+번호판 통합 (vpd+lpd). 경로: /vpd/api/v2 · /lpd/api/v1</div>
+        <div class="row"><button id="set-probe-det">검출기 테스트</button> <span id="set-det-out" class="hint"></span></div>
+      </div>
+      <div class="card">
+        <h2>LPR 판독 (외부 OCR)</h2>
+        <div class="row" style="margin-bottom:6px;"><label style="width:84px">LPR URL</label><input id="set-lpr" style="width:300px" placeholder="http://&lt;LPR-호스트&gt;:8124/v1/plate-reader/" /></div>
+        <div class="hint" style="margin-bottom:8px;">번호판 문자 인식 — 검출기와 별개의 외부 서비스.</div>
+        <div class="row"><button id="set-probe-lpr">LPR 테스트</button> <span id="set-lpr-out" class="hint"></span></div>
+      </div>
+      <div class="card">
+        <h2>API 키 (VLM)</h2>
+        <div class="row" style="margin-bottom:6px;"><label style="width:96px">Anthropic</label><input id="set-key-anthropic" type="password" autocomplete="off" style="width:300px" placeholder="sk-ant-… (비우면 기존 유지)" /></div>
+        <div class="row" style="margin-bottom:6px;"><label style="width:96px">OpenAI</label><input id="set-key-openai" type="password" autocomplete="off" style="width:300px" placeholder="sk-… (비우면 기존 유지)" /></div>
+        <div class="hint" id="set-key-hint">…</div>
+      </div>
+      <div class="card">
+        <!-- 이 버튼은 이 탭의 값만 저장한다. 기기는 각자의 조작이 즉시 반영하므로 여기 없다. -->
+        <div class="row"><button id="set-save">이 탭 저장 + 즉시 적용 (무중단)</button> <span id="set-save-out" class="hint"></span></div>
+      </div>
+    </section>
   </div>
 </main>
 
@@ -220,12 +392,70 @@ let devices = [];       // 작업 사본: [{id,name,type,host,port,username,hasP
 let devActiveId = null; // 활성 기기 id
 let devSelId = null;    // 편집 중인 기기 id
 let devDraft = false;   // 편집기가 아직 미확정 '새 기기'를 들고 있는가
+// 발행된 카메라 프로파일 — 다른 기기에 빌려줄 수 있는 후보다. 캘리브레이션은 카메라 개체의
+// 성질이라 빌린 값이 맞다는 보장은 없지만, 같은 모델을 여러 대 들일 때 20분짜리 스윕을
+// 매번 돌리는 대신 일단 붙여 놓고 3분짜리 검증으로 확인하는 경로가 실제로 필요하다.
+let devProfiles = [];
 
 function devTypeNeedsHost(type) {
   const meta = devTypes.find((t) => t.type === type);
   return meta ? meta.needsHost : true;
 }
-function devMsg(text) { document.getElementById("set-probe-out").textContent = text; }
+// 기기 조작 결과 전용 칸. 연결 테스트 출력(set-probe-out)과 나눠 쓴다 — 한 칸을 공유하던
+// 때는 나중 것이 앞의 것을 지워서, 방금 읽던 테스트 결과가 저장 한 번에 사라졌다.
+function devMsg(text) { document.getElementById("dev-msg").textContent = text; }
+
+// 접속 상세 — host 기기에만 의미가 있는 필드들. 백엔드가 정규화하는 이름 그대로 쓴다.
+const DEV_CONN_KEYS = ["scheme", "mjpegPort", "scenePort", "timeoutMs",
+                       "rtspPath", "rtspPort", "streamFps", "insecureTls",
+                       "fwModId", "portId", "ptzPortId", "streamIndex"];
+
+// 저장 payload 한 건. 편집기가 아는 필드는 전부 명시로 되돌려보낸다 — 백엔드는 **안 보낸**
+// 필드를 보존하고 빈 문자열을 제거로 읽으므로, 이 함수가 흘리는 필드는 조용히 옛 값에 묶인다.
+function toSaveEntry(x) {
+  const e = { id: x.id, name: x.name, type: x.type };
+  if (x.mode) e.mode = x.mode;
+  // 캘리브레이션은 편집기가 바꿀 수 있는 값이 되었으므로 명시로 되돌려보낸다. GET 이 준
+  // 모양 그대로라 왕복이 성립하고, "" 는 백엔드가 **제거**로 읽는다(보정 없음).
+  if (x.intrinsics !== undefined) e.intrinsics = x.intrinsics;
+  // 가상 PTZ 는 타입과 무관하다 — 접속 대상이 없는 기기도 이 값을 가진다.
+  if (x.virtualPtz !== undefined) e.virtualPtz = x.virtualPtz;
+  if (devTypeNeedsHost(x.type)) {
+    e.host = x.host; e.port = x.port; e.username = x.username;
+    for (const k of DEV_CONN_KEYS) if (x[k] !== undefined) e[k] = x[k];
+    if (x.password) e.password = x.password;  // 빈칸이면 omit → 백엔드가 기존 비밀번호 유지
+  }
+  return e;
+}
+
+// 빈칸의 뜻은 둘로 갈린다: "지운다"와 "나는 이 값을 모른다".
+// 백엔드는 안 보낸 필드를 보존하고 "" 를 제거로 읽으므로, 화면이 **보지도 못한** 값을
+// 빈칸이라는 이유로 지우면 안 된다 — 그래서 원래 그 필드가 있었을 때만 "" 를 보낸다.
+// (백엔드가 아직 그 필드를 GET 으로 돌려주지 않는 동안에도 이 규칙이면 안전하다: 화면은
+//  빈칸이고, 저장해도 아무 일도 일어나지 않는다.)
+function putField(out, base, key, value) {
+  if (value !== "" && value !== undefined && value !== null) out[key] = value;
+  else if (base && base[key] !== undefined && base[key] !== "") out[key] = "";
+}
+const numOrBlank = (id) => {
+  const v = document.getElementById(id).value.trim();
+  return v === "" ? "" : Number(v);
+};
+
+// 기기 변경을 **즉시** 서버에 반영한다. 예전에는 편집기가 브라우저 배열만 고치고 카드 밖
+// 맨 아래의 '저장'을 따로 눌러야 반영됐다 — 바로 옆 활성 기기 드롭다운은 즉시 반영이라
+// 한 카드 안에 두 규칙이 섞였고, 확정 버튼 이름이 '적용'이라 눌렀으면 저장된 줄 알았다.
+// 백엔드의 config 저장은 항목별 부분 갱신이라(body.devices 만 보내면 검출기·LPR·키는 그대로)
+// 기기만 따로 보낼 수 있다. 실패하면 서버가 진실이므로 로컬 배열도 바꾸지 않는다.
+async function commitDevices(nextList, nextActive, { rebuildActive = false } = {}) {
+  await postJson(api("/cctv/config"), { devices: { active: nextActive, list: nextList.map(toSaveEntry) } });
+  devices = nextList;
+  devActiveId = nextActive;
+  if (!rebuildActive) return "";
+  // 활성 기기의 접속 정보가 바뀌었으면 서버가 클라이언트를 다시 만들어야 실제로 반영된다.
+  try { await postJson(api("/cctv/active"), { id: nextActive, force: true }); return ""; }
+  catch (e) { return " — " + t("활성 적용 실패:") + " " + (e.message || e); }
+}
 
 async function loadCctvSettings() {
   try {
@@ -234,6 +464,8 @@ async function loadCctvSettings() {
       : [{ type: "hucoms", label: "Hucoms PTZ (실물)", needsHost: true }, { type: "reference", label: "Baro Reference CCTV", needsHost: false }];
     document.getElementById("dev-type").innerHTML =
       devTypes.map((dt) => `<option value="${dt.type}">${t(dt.label)}</option>`).join("");
+    // 발행된 프로파일 목록 — 없거나 못 읽어도 설정 화면 자체는 열려야 한다.
+    try { devProfiles = (await getJson(api("/profiles"))).camera || []; } catch { devProfiles = []; }
     const d = cfg.devices || { active: null, list: [] };
     devices = (d.list || []).map((x) => ({ ...x }));
     devActiveId = devices.some((x) => x.id === d.active) ? d.active : (devices[0] && devices[0].id) || null;
@@ -267,7 +499,7 @@ function renderCurrent() {
   const where = deviceWhere(act);
   document.getElementById("set-current").innerHTML = act.id
     ? `${t("활성")} <b>${act.name || act.id}</b> <span class="hint">(${act.id})</span> · ${t("타입")} <b>${act.type}</b> · ${where} <span class="hint">${t("— '연결 테스트'로 실물/시뮬·모델 확인")}</span>`
-    : `<span class="hint">${t("등록된 기기가 없습니다 — '＋ 기기 추가'로 등록하세요.")}</span>`;
+    : `<span class="hint">${t("등록된 기기가 없습니다 — '＋ 추가'로 등록하세요.")}</span>`;
 }
 
 function renderDevices() {
@@ -276,38 +508,204 @@ function renderDevices() {
   if (devices.some((x) => x.id === devActiveId)) sel.value = devActiveId;
   const list = document.getElementById("dev-list");
   list.innerHTML = "";
-  if (!devices.length) { list.innerHTML = '<span class="hint">기기 없음</span>'; applyI18n(list); return; }
+  if (!devices.length) { list.innerHTML = '<span class="hint">기기 없음</span>'; applyI18n(list); renderDevButtons(); return; }
   for (const x of devices) {
-    const row = document.createElement("div");
+    // 행 하나가 곧 선택 버튼이다. 이름 / 식별자·타입 / 주소를 세 줄로 나눈다 — 한 줄에
+    // 몰아 넣던 때는 이름이 길면 줄바꿈이 나면서 행마다 높이가 달라지고 오른쪽 편집
+    // 버튼이 세로로 찌그러졌다.
+    const row = document.createElement("button");
+    row.type = "button";
     row.className = "dev-row" + (x.id === devSelId ? " sel" : "");
-    const star = x.id === devActiveId ? "⭐ " : "";
-    const where = deviceWhere(x);
-    const info = document.createElement("span");
-    info.innerHTML = `${star}<b>${x.name || x.id}</b> <span class="hint">${x.id} · ${x.type} · ${where}</span>`;
-    const btn = document.createElement("button");
-    btn.textContent = "편집"; btn.onclick = () => selectDevice(x.id);
-    row.append(info, btn);
+    row.draggable = true;          // 순서는 사용자가 정한다 (아래 목록 드래그 배선)
+    row.dataset.id = x.id;
+    row.onclick = () => selectDevice(x.id);
+    const name = document.createElement("span");
+    name.className = "dev-name";
+    name.textContent = x.name || x.id;
+    const ident = document.createElement("span");
+    ident.className = "dev-meta";
+    ident.textContent = `${x.id} · ${x.type}` + (x.id === devActiveId ? ` · ${t("활성")}` : "");
+    const where = document.createElement("span");
+    where.className = "dev-meta";
+    where.textContent = deviceWhere(x);
+    row.append(name, ident, where);
     list.appendChild(row);
   }
   applyI18n(list);
+  // 선택된 기기가 목록의 보이는 범위 밖이면 끌어온다. 목록이 스크롤되는 이상 선택 표시가
+  // 화면 밖에 남을 수 있고, 그러면 "골랐는데 아무 반응이 없다"로 보인다(브라우저가 새로고침
+  // 때 이전 스크롤 위치를 복원하는 경우에도 같은 일이 벌어진다).
+  // scrollIntoView 는 조건이 맞으면 페이지까지 함께 굴린다 — 목록 안에서만 움직이도록
+  // 컨테이너의 scrollTop 을 직접 조정한다(페이지를 건드리지 않는다).
+  const selRow = list.querySelector(".dev-row.sel");
+  if (selRow) {
+    const box = list.getBoundingClientRect(), row = selRow.getBoundingClientRect();
+    if (row.top < box.top) list.scrollTop += row.top - box.top;
+    else if (row.bottom > box.bottom) list.scrollTop += row.bottom - box.bottom;
+  }
+  renderDevButtons();
 }
+
+// 지금 할 수 있는 일이 버튼 자체로 보여야 한다 — 고른 것도 없는데 '삭제'가 눌리면
+// 누른 뒤에야 "먼저 선택하세요"를 읽게 된다. 편집 폼도 대상이 있을 때만 편다.
+function renderDevButtons() {
+  const open = devDraft || !!devSelId;
+  document.getElementById("dev-save").disabled = !open;
+  document.getElementById("dev-cancel").disabled = !open;
+  document.getElementById("set-probe").disabled = !open;
+  document.getElementById("dev-del").disabled = !devSelId || devices.length <= 1;
+  document.getElementById("dev-editor").style.display = open ? "" : "none";
+}
+
+// ── 목록 순서 바꾸기 (끌어 놓기) ─────────────────────────────────────────────
+// 순서는 사용자가 정한다. 백엔드는 기기 배열을 정렬하지 않고 받은 차례 그대로 저장하므로
+// (resolveDevices 는 map 만 한다), 화면에서 끌어 놓은 차례가 곧 저장되는 차례다.
+let dragFromId = null;
+
+function clearDropMarks() {
+  for (const r of document.querySelectorAll("#dev-list .dev-row")) r.classList.remove("drop-into", "dragging");
+}
+
+async function moveDevice(fromId, toId) {
+  const list = devices.map((x) => ({ ...x }));
+  const from = list.findIndex((x) => x.id === fromId);
+  const to = list.findIndex((x) => x.id === toId);
+  if (from < 0 || to < 0 || from === to) return;
+  const [moved] = list.splice(from, 1);
+  list.splice(to, 0, moved);   // from<to 면 대상 뒤, from>to 면 대상 앞 — 끌어 놓은 그대로
+  devMsg(t("순서 저장 중…"));
+  try {
+    // 순서만 바뀌었다 — 접속 정보는 그대로이므로 활성 기기를 다시 만들 필요가 없다.
+    await commitDevices(list, devActiveId);
+    renderDevices(); renderCurrent();
+    devMsg(t("순서 저장됨"));
+  } catch (e) {
+    devMsg(t("순서 저장 실패") + ": " + (e.message || e));
+    renderDevices();   // 서버가 거부했으면 화면도 원래 순서로 되돌린다(서버가 진실이다)
+  }
+}
+
+{
+  // 행은 매번 다시 그려지므로 목록 컨테이너에 위임한다.
+  const listEl = document.getElementById("dev-list");
+  listEl.addEventListener("dragstart", (e) => {
+    const row = e.target.closest(".dev-row");
+    if (!row) return;
+    dragFromId = row.dataset.id;
+    e.dataTransfer.effectAllowed = "move";
+    // Firefox 는 setData 가 없으면 드래그를 시작조차 하지 않는다.
+    try { e.dataTransfer.setData("text/plain", dragFromId); } catch { /* 무시 */ }
+    row.classList.add("dragging");
+  });
+  listEl.addEventListener("dragover", (e) => {
+    if (!dragFromId) return;
+    e.preventDefault();                 // 이게 없으면 drop 이 아예 발생하지 않는다
+    e.dataTransfer.dropEffect = "move";
+    const row = e.target.closest(".dev-row");
+    for (const r of listEl.querySelectorAll(".dev-row")) {
+      r.classList.toggle("drop-into", r === row && r.dataset.id !== dragFromId);
+    }
+  });
+  listEl.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const row = e.target.closest(".dev-row");
+    const from = dragFromId;
+    dragFromId = null;
+    clearDropMarks();
+    if (row && from && row.dataset.id !== from) moveDevice(from, row.dataset.id);
+  });
+  listEl.addEventListener("dragend", () => { dragFromId = null; clearDropMarks(); });
+}
+
+const setVal = (id, v) => { document.getElementById(id).value = v === undefined || v === null ? "" : String(v); };
 
 function fillEditor(d, idReadonly) {
   document.getElementById("set-cam-id").value = d.id || "";
   document.getElementById("set-cam-id").readOnly = idReadonly;
   document.getElementById("dev-name").value = d.name || "";
   document.getElementById("dev-type").value = d.type || "hucoms";
+  // 새 기기의 기본 용도는 타입이 정한다 — 백엔드의 재파생 규칙과 같은 값이라야 화면이
+  // 보여 주는 것과 저장되는 것이 어긋나지 않는다(기준기는 sim, 그 외는 real).
+  document.getElementById("dev-mode").value = d.mode || (devTypeNeedsHost(d.type) ? "real" : "sim");
   document.getElementById("set-cam-host").value = d.host || "";
   document.getElementById("set-cam-port").value = d.port || 80;
+  document.getElementById("dev-scheme").value = d.scheme === "http" || d.scheme === "https" ? d.scheme : "";
   document.getElementById("set-cam-user").value = d.username || "";
   const pass = document.getElementById("set-cam-pass");
   pass.value = ""; pass.placeholder = d.hasPassword ? t("(저장됨 · 변경 시에만 입력)") : t("비밀번호");
+  setVal("dev-rtsp-path", d.rtspPath);
+  setVal("dev-rtsp-port", d.rtspPort);
+  setVal("dev-stream-fps", d.streamFps);
+  setVal("dev-mjpeg-port", d.mjpegPort);
+  setVal("dev-scene-port", d.scenePort);
+  setVal("dev-timeout", d.timeoutMs);
+  document.getElementById("dev-insecure-tls").checked = d.insecureTls === true;
+  setVal("dev-fwmodid", d.fwModId);
+  setVal("dev-portid", d.portId);
+  setVal("dev-ptzportid", d.ptzPortId);
+  setVal("dev-streamindex", d.streamIndex);
+  const vp = d.virtualPtz && typeof d.virtualPtz === "object" ? d.virtualPtz : null;
+  document.getElementById("dev-vptz-on").checked = !!vp;
+  setVal("dev-vptz-hfov", vp && vp.hfovDeg);
+  setVal("dev-vptz-maxmag", vp && vp.maxMag);
+  setVal("dev-vptz-w", vp && vp.width);
+  setVal("dev-vptz-h", vp && vp.height);
+  // 손댈 값이 들어 있는 서랍은 열어 둔다 — 접힌 채로는 "왜 이 기기만 다르게 도나"의 답이
+  // 화면에 있으면서 안 보인다.
+  document.getElementById("dev-advanced").open =
+    DEV_CONN_KEYS.some((k) => k !== "scheme" && d[k] !== undefined && d[k] !== "");
+  document.getElementById("dev-vptz").open = !!vp;
   toggleHostFields(d.type || "hucoms");
+  renderModeHint();
+  fillCalibSelect(d.intrinsics);
+}
+
+// 용도는 화면 하나를 통째로 가른다 — 시뮬레이터 페이지의 카메라 목록은 이 값으로 고른다.
+function renderModeHint() {
+  const sim = document.getElementById("dev-mode").value === "sim";
+  document.getElementById("dev-mode-hint").textContent = sim
+    ? t("시뮬레이터 페이지의 카메라 목록에 나타납니다.")
+    : t("시뮬레이터 페이지에는 나타나지 않습니다.");
+}
+
+// intrinsics 는 네 모양 중 하나다(백엔드 resolveIntrinsics): 없음 · 내장 프리셋 이름(문자열) ·
+// 조준 곡선만 담긴 배열(구형식) · 실측 객체. 어느 쪽인지가 곧 "이 값이 어디서 왔나"이므로
+// 화면은 그걸 구분해 말해야 한다 — 빌려온 값을 "이 카메라 실측"으로 보여 주면 안 된다.
+function describeIntrinsics(ins) {
+  if (!ins) return t("보정 없음");
+  if (typeof ins === "string") return t("내장 프리셋") + ` "${ins}"`;
+  if (Array.isArray(ins)) return t("조준 곡선만 (구형식)");
+  if (ins.label) return String(ins.label);
+  if (ins.measuredAt) return t("이 카메라 실측") + ` (${new Date(ins.measuredAt).toLocaleDateString()})`;
+  return t("지정됨");
+}
+
+function renderCalibHint(value, ins) {
+  const hint = document.getElementById("dev-calib-hint");
+  if (value === "") hint.textContent = t("클릭 센터링이 보정 없이 동작합니다.");
+  else if (value === "__keep") hint.textContent = t("지금 값을 그대로 둡니다") + " — " + describeIntrinsics(ins);
+  else hint.textContent = t("다른 카메라의 실측값입니다 — 캘리브레이션은 개체마다 다르므로, 적용한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.");
+}
+
+function fillCalibSelect(ins) {
+  const sel = document.getElementById("dev-calib");
+  sel.replaceChildren();
+  sel.appendChild(new Option(t("보정 없음"), ""));
+  // 지금 들고 있는 값은 목록에 없을 수 있다(내장 프리셋 이름이거나 이 카메라의 실측 객체).
+  // 그래서 "건드리지 않는다"를 언제나 고를 수 있게 둔다 — 이걸 고르면 저장이 그 필드를
+  // 아예 안 보내고, 백엔드가 기존 값을 그대로 보존한다.
+  if (ins) sel.appendChild(new Option(t("유지") + " — " + describeIntrinsics(ins), "__keep"));
+  for (const p of devProfiles) {
+    sel.appendChild(new Option(`${p.profileId} rev ${p.revision} ` + t("의 실측값 빌리기"), `profile:${p.profileId}`));
+  }
+  sel.value = ins ? "__keep" : "";
+  renderCalibHint(sel.value, ins);
 }
 function clearEditor() {
   devSelId = null; devDraft = false;
-  fillEditor({ type: "hucoms", port: 80 }, false);
-  document.getElementById("dev-edit-title").textContent = t("기기 편집 (먼저 '편집' 또는 '＋ 기기 추가')");
+  fillEditor({ type: (devTypes[0] && devTypes[0].type) || "hucoms", port: 80 }, false);
+  document.getElementById("dev-edit-title").textContent = t("기기 편집");
+  renderDevButtons();
 }
 function toggleHostFields(type) {
   document.getElementById("dev-host-fields").style.display = devTypeNeedsHost(type) ? "" : "none";
@@ -319,49 +717,130 @@ function selectDevice(id) {
   devSelId = id; devDraft = false;
   fillEditor(d, true);  // id는 읽기전용 (rename = 기기별 저장데이터 고아화 방지)
   document.getElementById("dev-edit-title").textContent = t("기기 편집: {id}", { id });
+  devMsg("");
+  document.getElementById("set-probe-out").textContent = "";  // 이전 기기의 테스트 결과다
   renderDevices();
 }
 
 function readEditor() {
   const type = document.getElementById("dev-type").value;
+  // 빈칸이 "지운다"인지 "모른다"인지는 지금 편집 중인 기기가 원래 무엇을 들고 있었나로
+  // 갈린다(putField). 새 기기는 들고 있던 것이 없으므로 빈칸은 전부 "없음"이다.
+  const base = (!devDraft && devices.find((x) => x.id === devSelId)) || null;
   const d = {
     id: document.getElementById("set-cam-id").value.trim(),
     name: document.getElementById("dev-name").value.trim(),
     type,
+    mode: document.getElementById("dev-mode").value === "sim" ? "sim" : "real",
   };
+  // 가상 PTZ 는 타입 바깥이다. 끄면 "" 를 보내 제거한다 — 백엔드가 그렇게 읽는다.
+  const vptzOn = document.getElementById("dev-vptz-on").checked;
+  if (vptzOn) {
+    const vp = { hfovDeg: Number(document.getElementById("dev-vptz-hfov").value) };
+    for (const [id, key] of [["dev-vptz-w", "width"], ["dev-vptz-h", "height"], ["dev-vptz-maxmag", "maxMag"]]) {
+      const v = document.getElementById(id).value.trim();
+      if (v !== "") vp[key] = Number(v);
+    }
+    d.virtualPtz = vp;
+  } else putField(d, base, "virtualPtz", "");
   if (devTypeNeedsHost(type)) {
     d.host = document.getElementById("set-cam-host").value.trim();
     d.port = Number(document.getElementById("set-cam-port").value) || 80;
     d.username = document.getElementById("set-cam-user").value.trim();
     const pw = document.getElementById("set-cam-pass").value;
     if (pw) d.password = pw;  // 빈칸 => 백엔드가 기존 비밀번호 유지
+    putField(d, base, "scheme", document.getElementById("dev-scheme").value);
+    putField(d, base, "rtspPath", document.getElementById("dev-rtsp-path").value.trim());
+    putField(d, base, "rtspPort", numOrBlank("dev-rtsp-port"));
+    putField(d, base, "streamFps", numOrBlank("dev-stream-fps"));
+    putField(d, base, "mjpegPort", numOrBlank("dev-mjpeg-port"));
+    putField(d, base, "scenePort", numOrBlank("dev-scene-port"));
+    putField(d, base, "timeoutMs", numOrBlank("dev-timeout"));
+    putField(d, base, "insecureTls", document.getElementById("dev-insecure-tls").checked ? true : "");
+    putField(d, base, "fwModId", numOrBlank("dev-fwmodid"));
+    putField(d, base, "portId", numOrBlank("dev-portid"));
+    putField(d, base, "ptzPortId", numOrBlank("dev-ptzportid"));
+    putField(d, base, "streamIndex", numOrBlank("dev-streamindex"));
   }
+  // 캘리브레이션. "__keep" 은 이 필드를 아예 싣지 않는다는 뜻이고(백엔드가 보존),
+  // "" 는 명시적 제거다. 빌려오기는 문서를 읽어야 하므로 표시만 남기고 stageEditor 가 푼다.
+  const calib = document.getElementById("dev-calib").value;
+  if (calib === "") d.intrinsics = "";
+  else if (calib.startsWith("profile:")) d.borrowProfileFrom = calib.slice("profile:".length);
   return d;
 }
 
-// 편집기 내용을 devices 배열에 반영. 성공 시 true.
-function applyEditor() {
+// 편집기 내용을 검증해 '저장하면 이렇게 될 목록'을 만든다. 서버에 보내기 전 단계이므로
+// 실패해도 현재 상태는 그대로다(devices 를 직접 고치지 않고 사본을 만든다).
+async function stageEditor() {
   const d = readEditor();
-  if (!d.id) { devMsg(t("ID를 입력하세요")); return false; }
-  if (devTypeNeedsHost(d.type) && !d.host) { devMsg(t("host를 입력하세요")); return false; }
-  if (devDraft) {
-    if (devices.some((x) => x.id === d.id)) { devMsg(t("이미 있는 id: {id}", { id: d.id })); return false; }
-    d.hasPassword = !!d.password;
-    devices.push(d);
-    devSelId = d.id; devDraft = false;
-    if (!devActiveId) devActiveId = d.id;
-  } else {
-    const idx = devices.findIndex((x) => x.id === devSelId);
-    if (idx < 0) { devMsg(t("편집 중인 기기가 없습니다")); return false; }
-    d.hasPassword = d.password ? true : !!devices[idx].hasPassword;
-    // 폼에 없는 필드(mode, mjpegPort, scenePort, timeoutMs — sim 기기 연결 정보)를 통째
-    // 교체로 날리지 않게 병합한다. 안 보존하면 저장 시 sim 기기가 real 로 뒤집힌다.
-    devices[idx] = { ...devices[idx], ...d };
+  if (!d.id) { devMsg(t("ID를 입력하세요")); return null; }
+  if (devTypeNeedsHost(d.type) && !d.host) { devMsg(t("host를 입력하세요")); return null; }
+  // 가상 PTZ 는 백엔드가 400 으로 막지만, 그 전에 여기서 말해 주는 편이 낫다 — 빈 화각은
+  // Number("")=0 이 되어 "0~180 사이여야 합니다"라는, 입력한 적 없는 값에 대한 오류로 돌아온다.
+  if (d.virtualPtz && typeof d.virtualPtz === "object") {
+    const h = d.virtualPtz.hfovDeg;
+    if (!Number.isFinite(h) || h <= 0 || h >= 180) { devMsg(t("가상 PTZ 소스 화각은 0~180 사이여야 합니다")); return null; }
+    const mm = d.virtualPtz.maxMag;
+    if (mm !== undefined && !(mm > 1 && mm <= 64)) { devMsg(t("가상 PTZ 최대 배율은 1 초과 64 이하여야 합니다")); return null; }
   }
-  fillEditor(devices.find((x) => x.id === devSelId), true);
-  document.getElementById("dev-edit-title").textContent = t("기기 편집: {id}", { id: devSelId });
-  renderDevices(); renderCurrent();
-  return true;
+  // 캘리브레이션 빌려오기 — 발행 문서의 곡선을 이 기기의 intrinsics 로 복사한다. 참조가
+  // 아니라 복사인 이유: 발행본은 불변이지만 기기 설정은 언제든 바뀌고, 참조로 두면 원본
+  // 기기를 지웠을 때 이 기기가 조용히 보정을 잃는다. 값을 복사하면 그런 일이 없다.
+  if (d.borrowProfileFrom) {
+    const from = d.borrowProfileFrom;
+    delete d.borrowProfileFrom;
+    devMsg(t("프로파일을 읽는 중…"));
+    try {
+      const doc = await getJson(api(`/profiles/camera/${encodeURIComponent(from)}`));
+      const o = doc.optics || {};
+      if (!Array.isArray(o.zoomHfov) || !o.zoomHfov.length) {
+        devMsg(t("그 프로파일에는 화각 곡선이 없습니다")); return null;
+      }
+      d.intrinsics = {
+        zoomHfov: o.zoomHfov,
+        ...(Array.isArray(o.centeringGain) && o.centeringGain.length ? { centeringGain: o.centeringGain } : {}),
+        // 빌려온 값이라는 사실을 값 안에 남긴다 — 안 남기면 measuredAt 만 보고 화면이
+        // "이 카메라에서 실측한 값"이라고 잘못 말한다.
+        label: `${doc.profileId} rev ${doc.revision} ` + t("에서 빌림"),
+        ...(doc.quality && doc.quality.measuredAt ? { measuredAt: doc.quality.measuredAt } : {}),
+      };
+    } catch (e) {
+      devMsg(t("프로파일을 읽지 못했습니다") + ": " + (e.message || e)); return null;
+    }
+  }
+  const list = devices.map((x) => ({ ...x }));
+  if (devDraft) {
+    if (list.some((x) => x.id === d.id)) { devMsg(t("이미 있는 id: {id}", { id: d.id })); return null; }
+    d.hasPassword = !!d.password;
+    list.push(d);
+  } else {
+    const idx = list.findIndex((x) => x.id === devSelId);
+    if (idx < 0) { devMsg(t("편집 중인 기기가 없습니다")); return null; }
+    d.hasPassword = d.password ? true : !!list[idx].hasPassword;
+    // 통째 교체가 아니라 병합이다. readEditor 는 "바꾸지 않는다"를 **필드를 안 싣는 것**으로
+    // 표현하므로(putField), 없는 키는 여기서 기존 값이 그대로 살아 있어야 뜻이 맞는다.
+    list[idx] = { ...list[idx], ...d };
+  }
+  return { list, id: d.id, active: devActiveId || d.id };
+}
+
+// 추가와 수정이 같은 버튼이다 — 둘 다 "이 폼의 내용을 그 기기의 값으로 만든다"는 한 가지
+// 일이고, 새 기기인지는 폼이 이미 제목으로 말하고 있다.
+async function saveEditor() {
+  const staged = await stageEditor();
+  if (!staged) return;
+  devMsg(t("저장 중…"));
+  try {
+    // 캘리브레이션이 바뀌면 활성 기기는 반드시 다시 만들어야 한다 — 조준 곡선은 드라이버가
+    // 생성 시점에 들고 가는 값이라, 재빌드 없이는 저장만 되고 조준은 옛 곡선으로 남는다.
+    const warn = await commitDevices(staged.list, staged.active, { rebuildActive: staged.id === staged.active });
+    devSelId = staged.id; devDraft = false;
+    fillEditor(devices.find((x) => x.id === devSelId), true);
+    document.getElementById("dev-edit-title").textContent = t("기기 편집: {id}", { id: devSelId });
+    renderDevices(); renderCurrent();
+    devMsg(t("저장됨") + warn);
+  } catch (e) { devMsg(t("저장 실패") + ": " + (e.message || e)); }
 }
 
 function addDevice() {
@@ -369,24 +848,51 @@ function addDevice() {
   let n = devices.length + 1, id;
   do { id = "cam-" + String(n).padStart(3, "0"); n++; } while (ids.has(id));
   devDraft = true; devSelId = null;
-  fillEditor({ id, type: "hucoms", port: 80 }, false);
-  document.getElementById("dev-edit-title").textContent = t("새 기기 (ID·타입 지정 후 '이 기기 적용')");
+  fillEditor({ id, type: (devTypes[0] && devTypes[0].type) || "hucoms", port: 80 }, false);
+  document.getElementById("dev-edit-title").textContent = t("새 기기");
+  devMsg("");
+  document.getElementById("set-probe-out").textContent = "";
   renderDevices();
+  document.getElementById("set-cam-id").focus();
 }
 
-function deleteDevice() {
-  if (devDraft) { clearEditor(); renderDevices(); return; }
+// 작성 취소 / 편집 되돌리기. 예전에는 이 일을 '삭제' 버튼이 겸했다 — 새 기기를 만들다
+// 그만두려는 사람에게 누를 수 있는 것이 '삭제'뿐인 화면이었다.
+function cancelEditor() {
+  const back = devSelId || devActiveId;
+  devDraft = false;
+  if (back && devices.some((x) => x.id === back)) selectDevice(back);
+  else clearEditor();
+  devMsg(t("취소됨"));
+}
+
+async function deleteDevice() {
   if (!devSelId) { devMsg(t("삭제할 기기를 먼저 선택하세요")); return; }
   if (devices.length <= 1) { devMsg(t("최소 1개 기기는 있어야 합니다")); return; }
-  devices = devices.filter((x) => x.id !== devSelId);
-  if (devActiveId === devSelId) devActiveId = devices[0].id;
-  selectDevice(devices[0].id); renderCurrent();
+  // 삭제는 즉시 서버에 반영되고 되돌릴 수 없다 — 목록에서 사라지는 것만으로는 그 사실이
+  // 전달되지 않으므로 확인을 받는다.
+  if (!confirm(t("기기 '{id}' 를 삭제합니다. 되돌릴 수 없습니다.", { id: devSelId }))) return;
+  const gone = devSelId;
+  const list = devices.filter((x) => x.id !== gone);
+  const active = devActiveId === gone ? list[0].id : devActiveId;
+  devMsg(t("삭제 중…"));
+  try {
+    const warn = await commitDevices(list, active, { rebuildActive: devActiveId === gone });
+    selectDevice(active); renderCurrent();
+    devMsg(t("삭제됨: {id}", { id: gone }) + warn);
+  } catch (e) { devMsg(t("삭제 실패") + ": " + (e.message || e)); }
 }
 
 document.getElementById("dev-add").addEventListener("click", addDevice);
-document.getElementById("dev-apply").addEventListener("click", () => { if (applyEditor()) devMsg(t("적용됨 — '저장'을 눌러야 반영됩니다")); });
+document.getElementById("dev-save").addEventListener("click", saveEditor);
+document.getElementById("dev-cancel").addEventListener("click", cancelEditor);
 document.getElementById("dev-del").addEventListener("click", deleteDevice);
 document.getElementById("dev-type").addEventListener("change", (e) => toggleHostFields(e.target.value));
+document.getElementById("dev-mode").addEventListener("change", renderModeHint);
+document.getElementById("dev-calib").addEventListener("change", (e) => {
+  const cur = devices.find((x) => x.id === devSelId);
+  renderCalibHint(e.target.value, cur ? cur.intrinsics : null);
+});
 // 활성 기기 드롭다운 = 즉시 무중단 라이브 전환 (서버가 ctx를 교체, 재시작 불필요).
 document.getElementById("dev-active").addEventListener("change", async (e) => {
   const id = e.target.value, prev = devActiveId;
@@ -434,8 +940,13 @@ document.getElementById("set-probe").addEventListener("click", async () => {
   out.textContent = t("프로브 중…");
   try {
     const r = await postJson(api("/cctv/probe"), setCamFromForm());
+    // 이 프로브는 Hucoms CGI 를 평문 HTTP 로 두드린다 — 실제 드라이버가 쓰는 스킴·인증과
+    // 다르다. 그래서 "응답"만 보고 화면도 나올 거라고 읽으면 틀린다(IDIS 실기에서 그대로
+    // 겪었다: 테스트는 통과하는데 스냅샷은 평문 포트에 TLS 를 걸어 전부 실패). 통과했을 때
+    // 이 사실을 함께 말한다 — 실패했을 때는 오해할 여지가 없으므로 덧붙이지 않는다.
     out.innerHTML = r.reachable
       ? t("✅ 응답 · 모델 {model} · FW {fw}", { model: `<b>${r.model || "?"}</b>`, fw: r.firmware || "?" }) + (r.ptz ? ` · PTZ ${r.ptz.panpos}/${r.ptz.tiltpos}/${r.ptz.zoompos}` : "")
+        + `<br><span class="hint">${t("Hucoms CGI 를 평문 HTTP 로 확인한 결과입니다 — 다른 규약의 기기는 이 결과와 무관하게 스킴·RTSP 경로가 맞아야 화면이 나옵니다.")}</span>`
       : t("❌ 응답 없음") + ": " + (r.error || "unreachable");
   } catch (e) { out.textContent = t("프로브 실패") + ": " + e.message; }
 });
@@ -457,29 +968,11 @@ document.getElementById("set-probe-lpr").addEventListener("click", async () => {
 });
 document.getElementById("set-save").addEventListener("click", async () => {
   const out = document.getElementById("set-save-out");
-  // 편집 중인 기기를 먼저 배열에 반영 (미확정/검증실패 시 저장 중단)
-  if (devDraft || devSelId) {
-    if (!applyEditor()) { out.textContent = t("편집 중인 기기 확인:") + " " + document.getElementById("set-probe-out").textContent; return; }
-  }
-  if (!devices.length) { out.textContent = t("기기를 최소 1개 등록하세요"); return; }
   out.textContent = t("저장 중…");
   try {
-    const list = devices.map((x) => {
-      const e = { id: x.id, name: x.name, type: x.type };
-      // 이 편집기가 다루지 않는 기기 속성도 그대로 되돌려보낸다 — 생략해도 서버가 기존 값을
-      // 보존하지만, 명시 전달이 안전하다 (mode 는 특히: 없으면 타입에서 재파생됨).
-      if (x.mode) e.mode = x.mode;
-      if (devTypeNeedsHost(x.type)) {
-        e.host = x.host; e.port = x.port; e.username = x.username;
-        if (x.mjpegPort !== undefined) e.mjpegPort = x.mjpegPort;
-        if (x.scenePort !== undefined) e.scenePort = x.scenePort;
-        if (x.timeoutMs !== undefined) e.timeoutMs = x.timeoutMs;
-        if (x.password) e.password = x.password;  // 빈칸이면 omit → 백엔드가 기존 비밀번호 유지
-      }
-      return e;
-    });
+    // 기기는 여기서 저장하지 않는다 — 기기 탭의 추가·저장·삭제가 각자 즉시 반영한다.
+    // 백엔드의 config 저장이 항목별 부분 갱신이라 이 탭의 값만 보내면 기기는 그대로 남는다.
     const payload = {
-      devices: { active: devActiveId, list },
       detection: { detector: { url: document.getElementById("set-detector").value.trim() } },
       lpr: { url: document.getElementById("set-lpr").value.trim() },
     };
@@ -490,6 +983,8 @@ document.getElementById("set-save").addEventListener("click", async () => {
     document.getElementById("set-key-anthropic").value = "";
     document.getElementById("set-key-openai").value = "";
     // 무중단 적용: 활성 기기를 방금 저장한 값으로 재빌드 (재시작 불필요).
+    // 기기가 하나도 없으면 재빌드할 대상이 없다 — 저장만 하고 끝낸다.
+    if (!devActiveId) { out.innerHTML = t("✅ 저장됨."); return; }
     try {
       await postJson(api("/cctv/active"), { id: devActiveId, force: true });
       out.innerHTML = t("✅ 저장 + 즉시 적용됨 (무중단).");
@@ -499,6 +994,22 @@ document.getElementById("set-save").addEventListener("click", async () => {
   } catch (e) { out.textContent = t("저장 실패") + ": " + e.message; }
 });
 document.getElementById("set-refresh-status").addEventListener("click", refreshStatus);
+
+// 탭 — 항목을 한 줄로 늘어놓으면 필요한 것을 찾는 데 스크롤이 든다. 선택은 기억한다
+// (다른 화면에 다녀와도 보던 곳으로 돌아오도록).
+const TAB_KEY = "settings:tab.v1";
+function showTab(name) {
+  for (const b of document.querySelectorAll(".tab")) b.classList.toggle("sel", b.dataset.tab === name);
+  for (const s of document.querySelectorAll("[data-panel]")) s.style.display = s.dataset.panel === name ? "flex" : "none";
+  try { localStorage.setItem(TAB_KEY, name); } catch { /* 저장소 사용 불가 */ }
+}
+for (const b of document.querySelectorAll(".tab")) b.addEventListener("click", () => showTab(b.dataset.tab));
+let startTab = "devices";
+try {
+  const saved = localStorage.getItem(TAB_KEY);
+  if (saved && document.querySelector(`.tab[data-tab="${saved}"]`)) startTab = saved;
+} catch { /* 저장소 사용 불가 */ }
+showTab(startTab);
 
 window.addEventListener("langchange", () => { renderDevices(); renderCurrent(); });
 loadCctvSettings();
