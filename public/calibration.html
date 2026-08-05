@@ -289,7 +289,9 @@ function renderGateRefusal(box, body) {
   head.textContent = "이 스윕은 발행 기준에 미달합니다.";
   box.appendChild(head);
 
-  for (const line of body.failures || []) {
+  // failures 가 비어 오면 error 문장이라도 띄운다 — 안 그러면 "미달합니다"라는 제목만 남고
+  // **왜** 가 사라져, 사람에게 남는 선택지가 20분 재측정뿐이 된다.
+  for (const line of (body.failures && body.failures.length ? body.failures : [String(body.error || "")]).filter(Boolean)) {
     const d = document.createElement("div");
     d.className = "hint";
     d.textContent = line;              // 서버 문장 — textContent 로
@@ -614,7 +616,9 @@ async function loadDrift() {
 const PROV_LABEL = { sweep: "실측", import: "수입", copy: "복사" };
 
 function provText(p) {
-  if (!p) return t("실측");
+  // 출처를 **모르는** 문서를 "실측"이라 부르면 안 된다 — 그건 provenance 가 막으려던 바로 그
+  // 거짓말이다(재지 않은 값이 실측처럼 보이면 없느니만 못하다). 모르면 모른다고 한다.
+  if (!p || typeof p !== "object" || !p.method) return t("출처 미상");
   const base = PROV_LABEL[p.method] ? t(PROV_LABEL[p.method]) : p.method;
   if (p.method === "copy" && p.from) return `${base} ← ${p.from.profileId} rev ${p.from.revision}`;
   return base;
@@ -805,11 +809,19 @@ async function openCopyPanel(preselect) {
 
     const go = document.createElement("button");
     go.textContent = t("복사");
-    go.onclick = () => profileWrite(
-      () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/copy`),
-        { from: sel.value, ...(note.value.trim() ? { note: note.value.trim() } : {}) }),
-      (res) => t("{from} 에서 복사해 rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.", { from: sel.value, rev: res.published.revision }),
-    );
+    go.onclick = () => {
+      // 사람이 **본** 리비전을 못 박아 보낸다(fromRevision). from 만 보내면 서버가 그때의
+      // 최신을 집는데, 화면을 열어 둔 사이 원본이 새로 발행되면 보지도 않은 곡선이 복사된다.
+      const src = others.find((p) => p.profileId === sel.value);
+      return profileWrite(
+        () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/copy`), {
+          from: sel.value,
+          ...(src ? { fromRevision: src.revision } : {}),
+          ...(note.value.trim() ? { note: note.value.trim() } : {}),
+        }),
+        (res) => t("{from} 에서 복사해 rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.", { from: sel.value, rev: res.published.revision }),
+      );
+    };
     panel.appendChild(go);
   });
 }

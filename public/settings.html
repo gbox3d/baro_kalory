@@ -675,12 +675,16 @@ function describeIntrinsics(ins) {
   if (!ins) return t("보정 없음");
   if (typeof ins === "string") return t("내장 프리셋") + ` "${ins}"`;
   if (Array.isArray(ins)) return t("조준 곡선만 (구형식)");
-  if (ins.label) return String(ins.label);   // 옛 브라우저측 빌려오기가 남긴 표시
+  // label 분기는 두지 않는다. 그 값을 만들던 브라우저측 빌려오기는 사라졌고, 없는 과거를
+  // 위한 호환층은 스스로 다음 잔재가 된다 — 게다가 이 분기가 살아 있으면 아래 리비전 분기보다
+  // 먼저 걸려, 권위 있는 번호 대신 브라우저가 지어낸 옛 문구가 이긴다.
+  //
   // 창구를 지나 깔린 값은 어느 리비전인지가 config 에 남는다. 그 리비전이 실측인지 복사인지는
   // 발행 문서가 아는 사실이라 여기서 추측하지 않는다 — 캘리브레이션 화면이 출처를 말한다.
-  // (measuredAt 만 보고 "이 카메라 실측"이라 하면 복사본에 대해 거짓말이 된다.)
   if (Number.isFinite(ins.profileRevision)) return t("발행본 rev {rev} 적용", { rev: ins.profileRevision });
-  if (ins.measuredAt) return t("이 카메라 실측") + ` (${new Date(ins.measuredAt).toLocaleDateString()})`;
+  // 리비전 표기가 없는 실측 객체. "이 카메라 실측"이라 부르면 복사본에 대해 거짓말이 되고,
+  // "발행본 없음"이라 부르면 발행 저장소를 보지도 않고 부재를 단정하는 것이다. 둘 다 안 한다.
+  if (ins.measuredAt) return t("실측 객체 · 리비전 표기 없음") + ` (${new Date(ins.measuredAt).toLocaleDateString()})`;
   return t("지정됨");
 }
 
@@ -831,12 +835,17 @@ async function saveEditor() {
     // 빌려오기는 기기가 등록된 뒤에야 성립한다. 실패해도 기기 저장 자체는 이미 끝났으므로
     // 되돌리지 않고 무엇이 안 됐는지만 말한다 — 조용히 삼키면 "빌렸다고 생각하는" 상태가 남는다.
     if (staged.borrowFrom) {
-      devMsg(t("프로파일을 읽는 중…"));
+      devMsg(t("프로파일 복사 중…"));
       try {
         const res = await postJson(api(`/profiles/camera/${encodeURIComponent(staged.id)}/copy`), { from: staged.borrowFrom });
         // 창구가 발행과 런타임 적용을 함께 했다 — 화면의 사본도 새로 읽어야 뜻이 맞는다.
         await loadCctvSettings();
-        warn += " — " + t("{from} 에서 복사해 rev {rev} 발행", { from: staged.borrowFrom, rev: res.published.revision });
+        // published 가 없는 응답에서 무방비로 .revision 을 읽으면 TypeError 가 아래 catch 로
+        // 떨어져 **성공한 복사가 "복사 실패"로 표시된다.** 번호를 모르면 번호만 뺀다.
+        const rev = res && res.published ? res.published.revision : null;
+        warn += " — " + (rev === null
+          ? t("{from} 에서 복사 발행", { from: staged.borrowFrom })
+          : t("{from} 에서 복사해 rev {rev} 발행", { from: staged.borrowFrom, rev }));
       } catch (e) {
         warn += " — " + t("프로파일 복사 실패") + ": " + ((e.body && e.body.error) || e.message || e);
       }

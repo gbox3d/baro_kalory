@@ -345,14 +345,12 @@ const DICT = {
   "발행본 rev {rev} 적용": { en: "published rev {rev} applied", vi: "đã áp dụng rev {rev}" },
   "유지": { en: "Keep", vi: "Giữ" },
   "의 실측값 빌리기": { en: "— borrow its measurements", vi: "— mượn số đo của nó" },
-  "에서 빌림": { en: "borrowed", vi: "đã mượn" },
   "클릭 센터링이 보정 없이 동작합니다.": { en: "Click-to-center runs uncorrected.", vi: "Nhấp căn giữa chạy không hiệu chỉnh." },
   "지금 값을 그대로 둡니다": { en: "Leaves the current value untouched", vi: "Giữ nguyên giá trị hiện tại" },
   "다른 카메라의 실측값입니다 — 캘리브레이션은 개체마다 다르므로, 적용한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.":
     { en: "These are another camera's measurements. Calibration differs per unit — after applying, run 'Verify' to confirm it fits this one.",
       vi: "Đây là số đo của camera khác. Hiệu chuẩn khác nhau theo từng máy — sau khi áp dụng, hãy chạy 'Kiểm tra'." },
   "프로파일을 읽는 중…": { en: "Reading profile…", vi: "Đang đọc hồ sơ…" },
-  "그 프로파일에는 화각 곡선이 없습니다": { en: "That profile has no FOV curve", vi: "Hồ sơ đó không có đường cong FOV" },
   "프로파일을 읽지 못했습니다": { en: "Could not read the profile", vi: "Không đọc được hồ sơ" },
 
   // 프로파일 관리 창구(캘리브레이션 페이지) — 복사·수입·적용·퇴역.
@@ -368,7 +366,11 @@ const DICT = {
   "출처": { en: "Origin", vi: "Xuất xứ" },
   "앵커": { en: "Anchors", vi: "Điểm neo" },
   "실측": { en: "Measured", vi: "Đã đo" },
-  "적용중": { en: "in use", vi: "đang dùng" },
+  // 출처를 모르는 문서를 "실측"이라 부르지 않기 위한 값 — provenance 가 막으려던 거짓말이다.
+  "출처 미상": { en: "Provenance unknown", vi: "Không rõ nguồn gốc" },
+  // "in use" 는 같은 사전의 「사용 중」(Active/Đang dùng)과 겹치고, 「발행본 rev {rev} 적용」의
+  // en 이 applied 라 한 파일 안에서 두 말이 된다 — applied 로 통일한다.
+  "적용중": { en: "applied", vi: "đang áp dụng" },
   "게이트 우회": { en: "gate bypassed", vi: "đã bỏ qua cổng" },
   "처리 중…": { en: "Working…", vi: "Đang xử lý…" },
   "메모 (선택)": { en: "Note (optional)", vi: "Ghi chú (tùy chọn)" },
@@ -421,7 +423,16 @@ const DICT = {
   "JSON 을 읽지 못했습니다": { en: "Could not parse the JSON", vi: "Không đọc được JSON" },
   "{from} 에서 복사해 rev {rev} 발행":
     { en: "copied from {from}, published rev {rev}", vi: "sao từ {from}, phát hành rev {rev}" },
-  "프로파일 복사 실패": { en: "Profile copy failed", vi: "Sao hồ sơ thất bại" },
+  // vi 에서 "복사하다"는 sao chép — 사전의 다른 자리(「복사」)가 이미 그렇게 쓴다.
+  "프로파일 복사 실패": { en: "Profile copy failed", vi: "Sao chép hồ sơ thất bại" },
+  "프로파일 복사 중…": { en: "Copying profile…", vi: "Đang sao chép hồ sơ…" },
+  "{from} 에서 복사 발행": { en: "copied and published from {from}", vi: "đã sao chép và phát hành từ {from}" },
+  "실측 객체 · 리비전 표기 없음":
+    { en: "measured values, no revision stamp", vi: "giá trị đo, không có dấu bản" },
+  // 왼쪽 카탈로그
+  "목록을 읽지 못했습니다": { en: "Could not read the list", vi: "Không đọc được danh sách" },
+  "발행된 프로파일이 없습니다.": { en: "No published profiles.", vi: "Chưa có hồ sơ nào được phát hành." },
+  "(이 카메라)": { en: "(this camera)", vi: "(camera này)" },
   "취소됨": { en: "Cancelled", vi: "Đã hủy" },
   "삭제됨: {id}": { en: "Deleted: {id}", vi: "Đã xóa: {id}" },
   "활성 적용 실패:": { en: "active apply failed:", vi: "áp dụng thiết bị đang dùng thất bại:" },
