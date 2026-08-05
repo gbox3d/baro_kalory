@@ -335,41 +335,93 @@ const DICT = {
   "순서 저장 중…": { en: "Saving order…", vi: "Đang lưu thứ tự…" },
   "순서 저장됨": { en: "Order saved", vi: "Đã lưu thứ tự" },
   "순서 저장 실패": { en: "Failed to save order", vi: "Lưu thứ tự thất bại" },
-  // 캘리브레이션 — 발행본(프로파일) 창구를 지나는 조작들. 기기 설정에 곡선을 직접 쓰지 않는다.
+  // 캘리브레이션 재사용 — 발행된 프로파일을 다른 기기에 빌려 붙인다.
   "캘리브레이션": { en: "Calibration", vi: "Hiệu chuẩn" },
   "보정 없음": { en: "No calibration", vi: "Không hiệu chuẩn" },
   "내장 프리셋": { en: "built-in preset", vi: "cài đặt sẵn" },
   "조준 곡선만 (구형식)": { en: "aiming curve only (legacy)", vi: "chỉ đường cong ngắm (cũ)" },
-  "적용중": { en: "applied", vi: "đang áp dụng" },
-  "실측값 (발행본 없음)": { en: "measured, but never published", vi: "đã đo, chưa phát hành" },
+  "이 카메라 실측": { en: "measured on this camera", vi: "đo trên camera này" },
   "지정됨": { en: "set", vi: "đã đặt" },
+  "발행본 rev {rev} 적용": { en: "published rev {rev} applied", vi: "đã áp dụng rev {rev}" },
   "유지": { en: "Keep", vi: "Giữ" },
+  "의 실측값 빌리기": { en: "— borrow its measurements", vi: "— mượn số đo của nó" },
+  "에서 빌림": { en: "borrowed", vi: "đã mượn" },
+  "클릭 센터링이 보정 없이 동작합니다.": { en: "Click-to-center runs uncorrected.", vi: "Nhấp căn giữa chạy không hiệu chỉnh." },
   "지금 값을 그대로 둡니다": { en: "Leaves the current value untouched", vi: "Giữ nguyên giá trị hiện tại" },
-  "에서 복사": { en: "— copy from it", vi: "— sao chép từ đó" },
-  "이 기기의 런타임 보정을 지웁니다 — 발행본은 그대로 남습니다.":
-    { en: "Clears this device's runtime correction — published revisions are kept.",
-      vi: "Xóa hiệu chỉnh đang chạy của thiết bị này — các bản đã phát hành vẫn giữ nguyên." },
-  "이 기기 앞으로 새 리비전이 발행되고 바로 적용됩니다. 캘리브레이션은 개체마다 다르므로 '검증'으로 이 개체에 맞는지 확인하세요.":
-    { en: "A new revision is published for this device and applied at once. Calibration differs per unit — run 'Verify' to confirm it fits this one.",
-      vi: "Một bản mới được phát hành cho thiết bị này và áp dụng ngay. Hiệu chuẩn khác nhau theo từng máy — hãy chạy 'Kiểm tra'." },
-  "프로파일 복사 중…": { en: "Copying profile…", vi: "Đang sao chép hồ sơ…" },
-  "복사됨": { en: "Copied", vi: "Đã sao chép" },
-  "복사됨 — rev {rev} 발행": { en: "Copied — published rev {rev}", vi: "Đã sao chép — phát hành rev {rev}" },
-  "프로파일 복사 실패": { en: "Profile copy failed", vi: "Sao chép hồ sơ thất bại" },
-  // 발행(mint)과 그 게이트 — 거절은 문장 하나가 아니라 이유·위치·우회로 이루어진다.
-  "저장했습니다": { en: "Saved", vi: "Đã lưu" },
-  "백엔드를 재시작하면 적용됩니다.": { en: "It takes effect after the backend restarts.", vi: "Có hiệu lực sau khi backend khởi động lại." },
-  "튀는 앵커": { en: "Noisy anchors", vi: "Mốc nhiễu" },
-  "발행 기준 미달 — 아직 발행하지 않았습니다.":
-    { en: "Below the publish bar — nothing was published.",
-      vi: "Dưới ngưỡng phát hành — chưa phát hành gì cả." },
-  "재측정이 정석입니다 — 튀는 줌만 조건을 갖춰(조도·특징) 다시 돌리면 됩니다.":
-    { en: "Re-measuring is the right answer — re-shoot just the noisy zooms with better light and texture.",
-      vi: "Đo lại là cách đúng — chỉ cần chụp lại các mức zoom nhiễu với ánh sáng và kết cấu tốt hơn." },
-  "그래도 발행": { en: "Publish anyway", vi: "Vẫn phát hành" },
-  "미달 사유가 발행 문서에 영구히 기록됩니다. 그래도 발행할까요?":
-    { en: "The reason it fell short is recorded permanently in the published document. Publish anyway?",
-      vi: "Lý do không đạt sẽ được ghi vĩnh viễn vào tài liệu phát hành. Vẫn phát hành?" },
+  "다른 카메라의 실측값입니다 — 캘리브레이션은 개체마다 다르므로, 적용한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.":
+    { en: "These are another camera's measurements. Calibration differs per unit — after applying, run 'Verify' to confirm it fits this one.",
+      vi: "Đây là số đo của camera khác. Hiệu chuẩn khác nhau theo từng máy — sau khi áp dụng, hãy chạy 'Kiểm tra'." },
+  "프로파일을 읽는 중…": { en: "Reading profile…", vi: "Đang đọc hồ sơ…" },
+  "그 프로파일에는 화각 곡선이 없습니다": { en: "That profile has no FOV curve", vi: "Hồ sơ đó không có đường cong FOV" },
+  "프로파일을 읽지 못했습니다": { en: "Could not read the profile", vi: "Không đọc được hồ sơ" },
+
+  // 프로파일 관리 창구(캘리브레이션 페이지) — 복사·수입·적용·퇴역.
+  "복사": { en: "Copy", vi: "Sao chép" },
+  "수입": { en: "Import", vi: "Nhập" },
+  "적용": { en: "Apply", vi: "Áp dụng" },
+  "퇴역": { en: "Retire", vi: "Cho nghỉ" },
+  "발행": { en: "Publish", vi: "Phát hành" },
+  "닫기": { en: "Close", vi: "Đóng" },
+  "원본": { en: "Source", vi: "Nguồn" },
+  "리비전": { en: "Revision", vi: "Bản sửa" },
+  "메모": { en: "Note", vi: "Ghi chú" },
+  "출처": { en: "Origin", vi: "Xuất xứ" },
+  "앵커": { en: "Anchors", vi: "Điểm neo" },
+  "실측": { en: "Measured", vi: "Đã đo" },
+  "적용중": { en: "in use", vi: "đang dùng" },
+  "게이트 우회": { en: "gate bypassed", vi: "đã bỏ qua cổng" },
+  "처리 중…": { en: "Working…", vi: "Đang xử lý…" },
+  "메모 (선택)": { en: "Note (optional)", vi: "Ghi chú (tùy chọn)" },
+  "리비전 {n}개": { en: "{n} revisions", vi: "{n} bản sửa" },
+  "최초 실측 기기: {id}": { en: "First measured on: {id}", vi: "Đo lần đầu trên: {id}" },
+  "조준 게인 곡선 포함": { en: "includes the aiming-gain curve", vi: "gồm đường cong hệ số ngắm" },
+  "화각 곡선만 — 조준 보정 없음": { en: "FOV curve only — no aiming correction", vi: "chỉ đường cong FOV — không hiệu chỉnh ngắm" },
+  "다른 카메라의 발행본을 이 카메라의 새 리비전으로 복사합니다.":
+    { en: "Copies another camera's published profile into a new revision for this camera.",
+      vi: "Sao hồ sơ đã phát hành của camera khác thành bản sửa mới cho camera này." },
+  "복사할 수 있는 다른 카메라의 발행본이 없습니다.":
+    { en: "No other camera has a published profile to copy.",
+      vi: "Không có camera nào khác có hồ sơ để sao." },
+  "캘리브레이션은 카메라 개체마다 다릅니다 — 복사한 뒤 검증을 돌려 이 개체에 맞는지 확인하세요. 곡선만 옮겨지고 기기 규격(줌 눈금·배선)은 이 카메라 것으로 다시 기록됩니다.":
+    { en: "Calibration differs per unit — after copying, run Verify to confirm it fits this one. Only the curves move; the device spec (zoom scale, wiring) is re-stamped from this camera.",
+      vi: "Hiệu chuẩn khác nhau theo từng máy — sau khi sao, hãy chạy Kiểm tra. Chỉ đường cong được chuyển; thông số thiết bị được ghi lại theo camera này." },
+  "곡선을 직접 넣어 발행합니다. 스윕을 돌릴 수 없는 기기를 위한 문입니다.":
+    { en: "Publish curves you type in. This is the door for devices that cannot be swept.",
+      vi: "Phát hành đường cong bạn nhập. Đây là lối cho thiết bị không quét được." },
+  "이 값의 출처 (예: 제조사 매뉴얼) — 권장":
+    { en: "Where these numbers came from (e.g. vendor manual) — recommended",
+      vi: "Nguồn của các số này (vd: sổ tay hãng) — nên ghi" },
+  "zoomHfov 는 {z, h}(줌 눈금, 수평화각°) 를 z 오름차순으로 최소 2개. centeringGain 은 {z, k} 이며 없으면 조준 보정 없이 화각만 답합니다. 재지 않은 값이므로 문서에 '수입'으로 남고 잔차는 비어 있습니다.":
+    { en: "zoomHfov takes at least two {z, h} pairs (zoom scale, horizontal FOV°) in ascending z. centeringGain takes {z, k}; without it the camera reports FOV but aims uncorrected. Nothing was measured here, so the document records 'import' and leaves the residual empty.",
+      vi: "zoomHfov cần ít nhất hai cặp {z, h} theo z tăng dần. centeringGain là {z, k}; thiếu nó thì chỉ báo FOV mà không hiệu chỉnh ngắm. Không đo gì ở đây nên tài liệu ghi 'nhập' và bỏ trống phần dư." },
+  "발행된 리비전을 이 백엔드의 런타임에 깝니다. 옛 리비전을 고르면 되돌리기입니다.":
+    { en: "Loads a published revision into this backend's runtime. Pick an older one to roll back.",
+      vi: "Nạp bản sửa đã phát hành vào runtime. Chọn bản cũ để quay lui." },
+  "이 카메라에는 아직 발행본이 없습니다.":
+    { en: "This camera has no published profile yet.", vi: "Camera này chưa có hồ sơ phát hành." },
+  "발행본과 지금 쓰는 값이 다릅니다 — 조준과 화각이 발행본 기준으로 틀립니다.":
+    { en: "The published profile and the values in use disagree — aim and FOV are wrong relative to the published profile.",
+      vi: "Hồ sơ phát hành và giá trị đang dùng khác nhau — ngắm và FOV sai so với hồ sơ." },
+  "발행본 적용": { en: "Apply published", vi: "Áp dụng bản phát hành" },
+  "최신 발행본을 런타임에 깔아 이 차이를 없앱니다. 재측정은 필요 없습니다.":
+    { en: "Loads the latest published profile into the runtime and closes this gap. No re-measurement needed.",
+      vi: "Nạp hồ sơ mới nhất vào runtime để xóa chênh lệch. Không cần đo lại." },
+  "rev {rev} 을 적용했습니다 — 백엔드를 재시작하면 실제 조준에 반영됩니다 (pm2 restart baro-backend).":
+    { en: "Applied rev {rev} — restart the backend for aiming to actually use it (pm2 restart baro-backend).",
+      vi: "Đã áp dụng rev {rev} — khởi động lại backend để ngắm dùng giá trị này." },
+  "{from} 에서 복사해 rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.":
+    { en: "Copied from {from} and published rev {rev} — takes effect after a backend restart.",
+      vi: "Đã sao từ {from} và phát hành rev {rev} — có hiệu lực sau khi khởi động lại backend." },
+  "rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.":
+    { en: "Published rev {rev} — takes effect after a backend restart.",
+      vi: "Đã phát hành rev {rev} — có hiệu lực sau khi khởi động lại backend." },
+  "rev {revs} 를 퇴역시켰습니다. 지금 쓰는 값은 그대로입니다.":
+    { en: "Retired rev {revs}. The values in use are unchanged.",
+      vi: "Đã cho nghỉ rev {revs}. Giá trị đang dùng không đổi." },
+  "JSON 을 읽지 못했습니다": { en: "Could not parse the JSON", vi: "Không đọc được JSON" },
+  "{from} 에서 복사해 rev {rev} 발행":
+    { en: "copied from {from}, published rev {rev}", vi: "sao từ {from}, phát hành rev {rev}" },
+  "프로파일 복사 실패": { en: "Profile copy failed", vi: "Sao hồ sơ thất bại" },
   "취소됨": { en: "Cancelled", vi: "Đã hủy" },
   "삭제됨: {id}": { en: "Deleted: {id}", vi: "Đã xóa: {id}" },
   "활성 적용 실패:": { en: "active apply failed:", vi: "áp dụng thiết bị đang dùng thất bại:" },

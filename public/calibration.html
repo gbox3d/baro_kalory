@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="./app.css" />
 <style>
   :root { color-scheme: dark; }
-  /* 2단 — 왼쪽은 저장소에 있는 프로파일 전량, 오른쪽은 지금 고른 카메라의 작업면.
+  /* 2단 — 왼쪽은 저장소에 발행된 것 전량, 오른쪽은 지금 고른 카메라의 작업면.
      두 축이 다르다: 왼쪽은 "무엇이 발행돼 있나"(카메라와 무관한 카탈로그), 오른쪽은
      "이 카메라를 어떻게 할 것인가"(측정·발행·되돌리기). 한 단에 세로로 쌓으면 목록에서
      고른 것과 오른쪽에 뜬 것이 한 화면에 함께 보이지 않아 비교가 성립하지 않는다. */
@@ -28,17 +28,22 @@
   #profile-list { flex: 1 1 auto; min-height: 0; overflow-y: auto;
                   display: flex; flex-direction: column; gap: 4px;
                   border: 1px solid var(--color-border); padding: 4px; }
-  /* 행 자체가 선택이다(설정 화면의 기기 목록과 같은 시각 언어를 쓴다 — 같은 조작이 두 화면에서
+  /* 행 자체가 선택이다 — 설정 화면의 기기 목록과 같은 시각 언어를 쓴다(같은 조작이 두 화면에서
      다르게 보이면 매번 다시 배워야 한다). */
   .prof-row { display: block; width: 100%; text-align: left; padding: 6px 8px; font: inherit;
               color: inherit; background: none; border: 1px solid var(--color-border); cursor: pointer; }
   .prof-row:hover { border-color: var(--color-accent); }
-  .prof-row.sel { border-color: var(--color-accent); background: #12160f; }
   .prof-row .prof-id { display: block; font-weight: bold; }
   .prof-row .prof-meta { display: block; font-size: 12px; opacity: .7; }
-  /* 지금 카메라의 것은 한눈에 갈려야 한다 — 적용 버튼이 하는 일이 그 줄에서만 다르다. */
+  /* 지금 카메라의 것은 한눈에 갈려야 한다 — 눌렀을 때 열리는 창이 그 줄에서만 다르다
+     (남의 것 = 복사, 내 것 = 적용). */
   .prof-row.mine .prof-id { color: var(--color-accent); }
   .cal-col-detail { flex: 1 1 auto; overflow-y: auto; padding-right: 4px; }
+  /* 넓은 표(리비전 이력·측정점)는 **자기 상자 안에서** 가로로 스크롤한다. 안 그러면 표가
+     단 전체를 밀어내 카드 바깥에 가로 막대가 생기고, 세로로 읽던 다른 카드까지 함께 밀린다.
+     min-width:0 이 있어야 flex 자식이 내용 폭을 바닥으로 잡지 않는다. */
+  .cal-col-detail .card { min-width: 0; }
+  #profile-revisions, #profile-points { overflow-x: auto; }
   /* 좁은 화면에서는 2단이 성립하지 않는다 — 한 줄로 세우고 스크롤도 하나로 되돌린다. */
   @media (max-width: 900px) {
     #cal-split { flex-direction: column; overflow-y: auto; }
@@ -56,15 +61,13 @@
 <main>
   <div id="cal-split">
     <div class="cal-col cal-col-list">
-      <!-- 저장소에 발행돼 있는 것 전량. 캘리브레이션의 유일한 관리 창구가 이 목록이라,
-           "이 카메라에 무엇을 깔 수 있나"의 답이 여기 다 있다. -->
+      <!-- 저장소에 발행돼 있는 것 전량. 캘리브레이션의 유일한 관리 창구가 프로파일이라,
+           "이 카메라에 무엇을 깔 수 있나"의 답이 이 목록에 다 있다. 줄을 누르면 오른쪽
+           속성창이 그 줄에 맞춰 열린다 — 남의 것이면 복사, 이 카메라 것이면 적용. -->
       <div class="card cal-card-list">
         <h2>프로파일 목록</h2>
         <div id="profile-list"></div>
-        <div class="row" style="margin-top:8px;">
-          <button type="button" id="profile-apply" disabled>현재 카메라에 적용</button>
-        </div>
-        <div id="profile-list-msg" class="hint"></div>
+        <div class="hint" style="margin-top:6px;">줄을 누르면 오른쪽에 그 작업 창이 열립니다.</div>
       </div>
     </div>
     <div class="cal-col cal-col-detail">
@@ -98,21 +101,35 @@
          문서다. 그 문서가 무엇을 담고 있는지 화면으로 볼 수 있어야 "지금 이 카메라가 어떤
          곡선으로 조준하는가"를 파일을 열지 않고도 답할 수 있다. -->
     <div class="card" id="profile-card">
-      <h2>이 카메라의 발행 프로파일</h2>
+      <h2>발행된 프로파일</h2>
+      <!-- 발행본과 런타임이 갈렸을 때만 나타난다. 늘 떠 있는 경고는 아무도 안 읽는다.
+           이 상태는 증상이 없다 — 조준도 되고 화각도 답한다, 틀린 숫자로. 그래서 화면이
+           말해 주지 않으면 사람은 영영 모른다(부팅 로그는 아무도 안 본다). -->
+      <div id="profile-drift" style="display:none;"></div>
+      <!-- 액션은 목록 위 속성창에 모은다 — 목록은 상태만 보여 준다. -->
+      <div class="row" id="profile-actions" style="gap:8px; margin-bottom:8px;">
+        <button id="prof-act-copy" title="다른 카메라의 발행본을 이 카메라의 새 리비전으로 복사합니다. 같은 모델을 여러 대 들일 때 20분 스윕을 매번 돌리지 않아도 됩니다.">복사</button>
+        <button id="prof-act-import" title="곡선을 직접 넣어 발행합니다. 스윕을 돌릴 수 없는 기기(클릭 센터링이 없거나 실기 시간을 못 얻은 기기)를 위한 문입니다.">수입</button>
+        <button id="prof-act-apply" title="이미 발행된 리비전을 이 백엔드의 런타임에 깝니다. 옛 리비전을 고르면 되돌리기가 됩니다.">적용</button>
+        <button id="prof-act-retire" title="이 카메라의 발행본 전체를 퇴역시킵니다. 파일은 .trash 로 옮겨질 뿐 지워지지 않고, 런타임 값은 그대로 둡니다.">퇴역</button>
+      </div>
+      <div id="profile-panel" style="display:none; margin-bottom:10px;"></div>
+      <div id="profile-msg" class="hint" style="margin-bottom:8px;"></div>
       <div id="profile-meta" class="hint">불러오는 중…</div>
       <div id="profile-charts" style="margin-top:10px;"></div>
       <div id="profile-points"></div>
+      <div id="profile-revisions" style="margin-top:12px;"></div>
     </div>
     </div>
   </div>
 </main>
 
 <script type="module">
-import { getJson, postJson, api } from "./web/api.mjs";
+import { getJson, postJson, reqJson, api } from "./web/api.mjs";
 import { initPageChrome } from "./web/page-chrome.mjs";
 import { createCameraSelect } from "./web/camera-select.mjs";
 import { chartFigure } from "./web/profile-chart.mjs";
-import { t } from "./web/i18n.mjs";
+import { applyI18n, t } from "./web/i18n.mjs";
 
 initPageChrome({ page: "calibration" });
 
@@ -184,17 +201,9 @@ function renderCalibStatus(st) {
     return;
   }
 
-  // 적합 잔차는 두 숫자가 서로 다른 질문에 답한다. fitRmsPx 는 앵커별 **최댓값**이라 한 줌만
-  // 시끄러워도 혼자 치솟고, fitRmsMedianPx 는 보통 앵커가 어땠는지를 말한다. 발행 게이트가
-  // 보는 것은 중앙값 쪽이다 — "한 앵커가 시끄러웠다"와 "모델이 이 카메라를 설명하지 못한다"는
-  // 다른 사실이고, 최댓값으로 판정하면 전자가 후자로 둔갑해 멀쩡한 스윕이 막힌다.
-  const med = r.residual.fitRmsMedianPx;
-  const fitText = med === undefined || med === null
-    ? `피팅 오차 ${r.residual.fitRmsPx}px`
-    : `피팅 오차 중앙값 ${med}px · 최악 ${r.residual.fitRmsPx}px`;
   box.innerHTML =
     `<div style="margin-bottom:6px;">캘리브레이션 완료 — 이 카메라는 최대 <b>${r.residual.beforePx}px</b> 빗나가고 있었습니다.
-       (${fitText} · 샘플 ${r.usable}/${r.of})</div>
+       (초점 적합 — 대표 앵커 ${r.residual.fitRmsMedianPx ?? "?"}px · 최악 ${r.residual.fitRmsPx}px · 샘플 ${r.usable}/${r.of})</div>
      ${(r.skipped && r.skipped.length) ? `<div class="hint" style="margin-bottom:6px; color:var(--color-warn,#ca4);">
         ${r.skipped.map((s) => `줌 ${s.zoom}: ${s.why || "측정하지 못했습니다"}`).join("<br>")}
         <br>그 구간의 곡선은 이웃 값에서 보간됩니다 — 조건을 갖춰 다시 돌리면 더 정확해집니다.
@@ -216,95 +225,99 @@ function renderCalibStatus(st) {
      </div>
      <div class="hint" style="margin-top:6px;">저장하면 리비전 문서로 발행됩니다 — 메모는 그 문서에 함께 남아 나중에 "어떤 조건에서 잰 값인지"를 구분해 줍니다. 적용에는 백엔드 재시작이 필요합니다.</div>`;
 
-  calibEl("calib-save").onclick = () => mintResult(box, false);
+  calibEl("calib-save").onclick = () => saveSweep(box, false);
 }
 
-// 발행(mint). 문서 하나를 새 리비전으로 굳히고 이 백엔드의 런타임 적용본까지 쓴다.
+// 스윕 저장. 발행 게이트에 걸리면 **화면 안에서** 우회할 수 있어야 한다.
 //
-// 게이트에 걸리면 백엔드는 문장 하나가 아니라 **왜·어디**를 함께 준다(code:"quality_gate",
-// failures[], noisyAnchors[]). 그걸 alert 한 줄로 접으면 남는 선택지가 20분 재측정뿐이라,
-// 여기서는 그대로 펼쳐 보이고 우회(force)를 명시적 선택으로 둔다 — 우회는 막지 않되
-// 사유가 문서의 quality.forced 에 영구히 박힌다는 사실을 누르기 전에 말한다.
-async function mintResult(box, force) {
+// 게이트를 만들면서 우회로(force)를 백엔드에만 두고 화면에는 안 만들었더니, 20분짜리 실측이
+// 막다른 길에 섰다(2026-08-05 cam-real-002). 거절은 정보여야지 벽이면 안 된다 — 무엇이 왜
+// 걸렸는지, 어느 줌을 다시 재야 하는지, 그리고 그래도 발행하는 길이 함께 있어야 한다.
+async function saveSweep(box, force) {
   // 메모는 발행 문서(quality.note)에 남는다. 리비전은 발행 후 불변이라 나중에 고칠 수
   // 없다 — 지금 적어 두지 않으면 그 측정이 무엇이었는지 영영 알 수 없다.
   const noteEl = calibEl("calib-note");
   const note = noteEl ? noteEl.value.trim() : "";
-  const body = { ...(note ? { note } : {}), ...(force ? { force: true } : {}) };
   try {
-    const res = await postJson(api("/calibration/mint"), body);
+    // 발행의 정식 이름은 mint 다. /save 는 백엔드가 하위호환으로 남겨 둔 별칭이라 언제
+    // 사라져도 이상하지 않다 — 별칭에 매달릴 이유가 없다.
+    const res = await postJson(api("/calibration/mint"), {
+      ...(note ? { note } : {}),
+      ...(force ? { force: true } : {}),
+    });
     const rev = res && res.minted ? ` (rev ${res.minted.revision} 발행)` : "";
     box.replaceChildren();
     const ok = document.createElement("div");
     ok.style.color = "var(--color-accent,#4a4)";
-    ok.textContent = t("저장했습니다") + rev + ". " + t("백엔드를 재시작하면 적용됩니다.");
+    ok.textContent = `저장했습니다${rev}. 백엔드를 재시작하면 적용됩니다 (pm2 restart baro-backend).`;
     box.appendChild(ok);
-    // 통과했어도 시끄러운 앵커는 알려 준다 — 발행이 곧 "전부 깨끗했다"는 뜻은 아니고,
-    // 그 줌만 다시 쏘면 되는 경우가 대부분이다.
-    if (res && res.noisyAnchors && res.noisyAnchors.length) box.appendChild(noisyList(res.noisyAnchors));
-    loadCalibInstalled();
-    loadProfile();
+    if (res && res.forced && res.forced.length) {
+      const f = document.createElement("div");
+      f.className = "hint";
+      f.style.cssText = "margin-top:6px; color:var(--color-warn,#ca4);";
+      f.textContent = "발행 기준을 우회했습니다 — 그 사유가 문서에 남습니다: " + res.forced.join(" ");
+      box.appendChild(f);
+    }
+    // 통과했더라도 시끄러운 앵커는 알려 준다 — 그 구간만 다시 재면 곡선이 좋아진다.
+    if (res && res.noisyAnchors && res.noisyAnchors.length) box.appendChild(noisyAnchorNote(res.noisyAnchors));
+    refreshProfileCard();
   } catch (e) {
-    const g = e.body || {};
-    if (g.code !== "quality_gate") { alert(t("저장 실패") + ": " + e.message); return; }
-    renderGate(box, g);
+    if (e.status === 422 && e.body && e.body.code === "quality_gate") { renderGateRefusal(box, e.body); return; }
+    alert("저장 실패: " + e.message);
   }
 }
 
-function noisyList(anchors) {
-  const wrap = document.createElement("div");
-  wrap.className = "hint";
-  wrap.style.marginTop = "6px";
-  wrap.appendChild(document.createTextNode(t("튀는 앵커") + ": "));
-  // 서버가 준 값이다 — 모양을 가정하지 않고 textContent 로만 쓴다.
-  wrap.appendChild(document.createTextNode(anchors.map(describeAnchor).join(" · ")));
-  return wrap;
+// 어느 줌이 스윕을 흐렸는가. 이것이 없으면 남은 선택지는 20분 전체 재측정뿐이다.
+function noisyAnchorNote(anchors) {
+  const d = document.createElement("div");
+  d.className = "hint";
+  d.style.marginTop = "6px";
+  d.textContent = "초점 적합이 튄 줌: " +
+    anchors.map((a) => `${a.zoom} (${a.fitRmsPx}px)`).join(" · ") +
+    " — 그 구간에 무늬가 있는 쪽을 향하게 두고 다시 재면 곡선이 좋아집니다.";
+  return d;
 }
 
-function describeAnchor(a) {
-  if (a === null || typeof a !== "object") return String(a);
-  const px = a.fitRmsPx ?? a.px ?? a.residualPx;
-  return `zoom ${a.zoom ?? "?"}` + (px === undefined ? "" : ` (${px}px)`);
-}
-
-// 게이트 거절 화면. 재측정이 정석이라고 먼저 말하고, 우회는 그 아래에 둔다.
-function renderGate(box, g) {
+function renderGateRefusal(box, body) {
+  // 메모 입력은 결과 상자 **안에** 있다 — 여기서 상자를 비우면 함께 사라진다. 실제로 그렇게
+  // 날려서, 우회 발행이 메모 없이 나갔다(cam-real-002 rev 3). 값을 건져 다시 세운다.
+  const prev = calibEl("calib-note");
+  const carried = prev ? prev.value.trim() : "";
   box.replaceChildren();
   const head = document.createElement("div");
-  head.style.color = "var(--color-danger,#e66)";
-  head.style.marginBottom = "6px";
-  head.textContent = t("발행 기준 미달 — 아직 발행하지 않았습니다.");
+  head.style.cssText = "color:var(--color-warn,#ca4); margin-bottom:6px;";
+  head.textContent = "이 스윕은 발행 기준에 미달합니다.";
   box.appendChild(head);
 
-  const why = document.createElement("ul");
-  why.style.margin = "0 0 8px 18px";
-  why.style.fontSize = "12px";
-  for (const f of g.failures || [String(g.error || "")]) {
-    const li = document.createElement("li");
-    li.textContent = String(f);
-    why.appendChild(li);
+  for (const line of body.failures || []) {
+    const d = document.createElement("div");
+    d.className = "hint";
+    d.textContent = line;              // 서버 문장 — textContent 로
+    box.appendChild(d);
   }
-  box.appendChild(why);
+  if (body.noisyAnchors && body.noisyAnchors.length) box.appendChild(noisyAnchorNote(body.noisyAnchors));
 
-  if (g.noisyAnchors && g.noisyAnchors.length) box.appendChild(noisyList(g.noisyAnchors));
-
-  const hint = document.createElement("div");
-  hint.className = "hint";
-  hint.style.marginTop = "6px";
-  hint.textContent = t("재측정이 정석입니다 — 튀는 줌만 조건을 갖춰(조도·특징) 다시 돌리면 됩니다.");
-  box.appendChild(hint);
+  const advice = document.createElement("div");
+  advice.className = "hint";
+  advice.style.marginTop = "8px";
+  advice.textContent = "재측정이 정석입니다. 그래도 발행하면 미달 사유가 발행 문서에 함께 박혀, " +
+    "나중에 이 리비전을 읽는 사람이 그 사실을 알게 됩니다.";
+  box.appendChild(advice);
 
   const row = document.createElement("div");
   row.className = "row";
-  row.style.marginTop = "8px";
+  row.style.cssText = "gap:8px; margin-top:8px;";
+  // 메모를 여기서 다시 받는다. 리비전은 발행 후 불변이라 나중에 고칠 수 없다 — 우회한
+  // 이유는 지금 적지 않으면 영영 남지 않는다. 비었으면 미달 사유로 채워 둔다.
+  const note = document.createElement("input");
+  note.id = "calib-note";
+  note.style.width = "360px";
+  note.placeholder = "이 측정에 붙일 이름·메모";
+  note.value = carried || ("발행 기준 미달을 알고 발행: " + (body.failures || []).join(" "));
   const forceBtn = document.createElement("button");
-  forceBtn.textContent = t("그래도 발행");
-  forceBtn.onclick = () => {
-    // 우회 사실은 문서에 영구히 남는다. 누르기 전에 그 말을 한 번 한다.
-    if (!confirm(t("미달 사유가 발행 문서에 영구히 기록됩니다. 그래도 발행할까요?"))) return;
-    mintResult(box, true);
-  };
-  row.appendChild(forceBtn);
+  forceBtn.textContent = "그래도 발행";
+  forceBtn.onclick = () => saveSweep(box, true);
+  row.append(note, forceBtn);
   box.appendChild(row);
 }
 
@@ -339,19 +352,31 @@ async function loadCalibInstalled() {
       el.innerHTML = '현재 이 기기에는 <b>캘리브레이션이 없습니다</b> — 클릭 센터링이 보정 없이 동작합니다.';
     } else if (typeof ins === "string") {
       el.innerHTML = `현재 <b>내장 프리셋 “${ins}”</b>를 쓰고 있습니다 (다른 카메라에서 실측한 값). 이 개체에 맞는지 <b>검증</b>으로 확인하세요.`;
-    } else if (ins.profileRevision) {
-      // 발행본에서 온 값이다. **어느 카메라가 실제로 쟀는지는 그 문서의 provenance 가 말한다** —
-      // 적용본의 measuredAt 만 보고 "이 카메라에서 잰 값"이라고 하면, 복사본일 때 거짓말이 된다.
-      // 그래서 판단을 여기서 하지 않고 문서를 읽어 그대로 옮긴다(renderProvenance).
+    } else if (ins.label) {
+      // 빌려온 값이다. measuredAt 이 함께 있어도 그건 **원본 카메라**가 잰 시각이므로,
+      // 아래 분기로 흘려보내면 "이 카메라에서 실측한 값"이라고 거짓말을 하게 된다.
       el.replaceChildren();
       const lead = document.createElement("span");
-      lead.textContent = `현재 발행본 rev ${ins.profileRevision} 을 적용해 쓰고 있습니다`;
-      el.appendChild(lead);
-      renderProvenance(el, ins.profileRevision);
+      lead.textContent = "현재 ";
+      const who = document.createElement("b");
+      who.textContent = String(ins.label);   // 서버가 준 문자열 — textContent 로
+      const tail = document.createElement("span");
+      tail.textContent = " 을 쓰고 있습니다 (다른 카메라의 실측값). 이 개체에 맞는지 검증으로 확인하세요.";
+      el.append(lead, who, tail);
+    } else if (Number.isFinite(ins.profileRevision)) {
+      // 창구를 지나 깔린 값 — 어느 리비전인지가 곧 출처다. 실측인지 복사인지는 아래
+      // 리비전 목록이 말한다. measuredAt 만 보고 "이 카메라 실측"이라 하면 복사본에 대해
+      // 거짓말이 되므로, 아는 사실(리비전 번호)만 말한다.
+      el.replaceChildren();
+      const lead = document.createElement("span");
+      lead.textContent = "현재 ";
+      const who = document.createElement("b");
+      who.textContent = `발행본 rev ${ins.profileRevision}`;
+      const tail = document.createElement("span");
+      tail.textContent = " 을 쓰고 있습니다. 출처는 아래 리비전 목록에서 확인하세요.";
+      el.append(lead, who, tail);
     } else if (ins.measuredAt) {
-      // 발행 창구를 지나지 않은 값 — 리비전 번호가 없어 프로파일 목록에서 찾을 수 없다.
-      el.innerHTML = `현재 <b>발행본 없는 실측값</b>을 쓰고 있습니다 (${new Date(ins.measuredAt).toLocaleString()}). ` +
-        '이 값은 프로파일 창구에 없어 다른 서비스가 읽을 수 없습니다.';
+      el.innerHTML = `현재 <b>이 카메라에서 실측한 값</b>을 쓰고 있습니다 (${new Date(ins.measuredAt).toLocaleString()}).`;
     } else {
       el.innerHTML = "현재 이 기기에 캘리브레이션이 지정돼 있습니다.";
     }
@@ -399,8 +424,7 @@ async function initCalibCard() {
     card.style.display = "none";   // 캘리브레이션 API 자체가 없는 기기 (예외적)
     return;
   }
-  loadCalibInstalled();
-  loadProfile();
+  refreshProfileCard();
 
   calibEl("calib-start").onclick = async () => {
     if (!confirm("전체 캘리브레이션을 시작합니다.\n\n약 20분간 카메라가 자동으로 움직이며 그동안 다른 조작은 막힙니다.\n끝나면 원래 위치로 돌아갑니다. 계속할까요?")) return;
@@ -439,25 +463,6 @@ function metaRow(label, value, strong) {
   return div;
 }
 
-// 발행본의 출처를 한 줄로. provenance.method 는 이 문서가 어떻게 생겼는지이고,
-// measuredOn 은 **숫자를 실제로 잰 카메라**다 — 복사의 복사를 지나도 최초 실측 기기를 가리키게
-// 백엔드가 이어 준다. 그래서 "이 카메라가 잰 값인가"의 답은 measuredOn 과 profileId 의 비교다.
-function provenanceText(p, profileId) {
-  if (!p || typeof p !== "object") return "—";
-  const on = p.measuredOn;
-  const self = on && on === profileId;
-  if (p.method === "sweep") return self ? "이 카메라 실측 (스윕)" : `스윕 — 실측 기기 ${on || "?"}`;
-  if (p.method === "import") {
-    // 수입본은 아무것도 재지 않았다. 그 사실을 흐리면 잔차 없는 문서가 실측처럼 읽힌다.
-    return "손으로 넣은 값 (측정 없음)" + (on ? ` · 원 실측 기기 ${on}` : "");
-  }
-  if (p.method === "copy") {
-    const src = p.from ? `${p.from.profileId} rev ${p.from.revision}` : "?";
-    return `복사 — 원본 ${src}` + (on ? ` · 최초 실측 ${on}` : "");
-  }
-  return String(p.method || "—") + (on ? ` · ${on}` : "");
-}
-
 function renderProfile(doc) {
   const meta = calibEl("profile-meta");
   const charts = calibEl("profile-charts");
@@ -474,23 +479,13 @@ function renderProfile(doc) {
   meta.appendChild(metaRow("발행", `${fmtWhen(doc.issuedAt)} · ${issuer.tool || "?"}@${issuer.version || "?"}`));
   meta.appendChild(metaRow("메모", q.note || "— (없음)", !!q.note));
   meta.appendChild(metaRow("측정", `${fmtWhen(q.measuredAt)} · ${q.method || "?"} · 샘플 ${samples.usable ?? "?"}/${samples.of ?? "?"}`));
-  // 출처. 이 문서의 숫자가 어디서 왔는지는 **문서만이** 안다 — 곡선만 보면 잰 것과 베낀 것을
-  // 구분할 수 없고, 재지 않은 값이 실측처럼 보이면 없느니만 못하다.
-  meta.appendChild(metaRow("출처", provenanceText(doc.provenance, doc.profileId)));
   if (res.beforePx !== undefined) {
-    // 피팅 오차는 두 숫자다. 발행 게이트가 보는 것은 중앙값(보통 앵커가 어땠나)이고,
-    // 최댓값은 한 앵커만 시끄러워도 혼자 치솟는다 — 나란히 놔야 어느 쪽인지 읽힌다.
-    const fit = res.fitRmsMedianPx === undefined || res.fitRmsMedianPx === null
-      ? `피팅 ${res.fitRmsPx}px`
-      : `피팅 중앙값 ${res.fitRmsMedianPx}px · 최악 ${res.fitRmsPx}px`;
-    meta.appendChild(metaRow("오차", `보정 전 최악 ${res.beforePx}px · ${fit}`));
-  }
-  // 게이트를 우회해 발행된 문서는 그 사실을 안고 있다. 숨기면 문서의 존재가 곧 품질 보증인
-  // 것처럼 읽힌다 — 우회를 허용한 대가는 흔적이 보이는 것이다.
-  if (Array.isArray(q.forced) && q.forced.length) {
-    const row = metaRow("우회 발행", q.forced.join(" "), true);
-    row.style.color = "var(--color-warn,#ca4)";
-    meta.appendChild(row);
+    // fitRmsPx 는 앵커별 **최댓값**이다 — "피팅 67.3px" 로만 적으면 스윕 전체가 그런 줄 읽힌다.
+    // 대표값(중앙값)과 최악값을 나란히 둬야 "한 앵커가 시끄러운 것"과 "스윕이 설명 안 된 것"이
+    // 구분된다. 중앙값이 없는 옛 문서는 최악값만 적는다.
+    meta.appendChild(metaRow("오차", res.fitRmsMedianPx !== undefined
+      ? `보정 전 최악 ${res.beforePx}px · 초점 적합 대표 ${res.fitRmsMedianPx}px / 최악 ${res.fitRmsPx}px`
+      : `보정 전 최악 ${res.beforePx}px · 초점 적합 최악 ${res.fitRmsPx}px`));
   }
   meta.appendChild(metaRow("용도", (doc.capabilities || []).join(", ") || "—"));
   // 문서 무결성은 파일 옆 .sha256 사이드카가 기준이다. 앞 12자리만 보여도 눈으로 대조된다.
@@ -551,106 +546,365 @@ function renderProfile(doc) {
   points.appendChild(det);
 }
 
-// 적용본 옆에 붙는 한 줄: 그 리비전이 어디서 왔는지, 그리고 **최신인지**.
-// 최신이 아니면 그 자체가 사실이다 — 발행은 했는데 안 깔린 상태를 화면이 말하지 않으면
-// 사람은 마지막으로 누른 발행이 지금 도는 값이라고 믿는다.
-async function renderProvenance(el, appliedRevision) {
-  let id = cam.activeId();
-  if (!id) { try { id = ((await getJson(api("/cctv/config"))).devices || {}).active || null; } catch { return; } }
-  if (!id) return;
-  let doc;
-  try { doc = await getJson(api(`/profiles/camera/${encodeURIComponent(id)}@${appliedRevision}`)); }
-  catch { return; }   // 문서를 못 읽으면 아무 말도 하지 않는다 — 추측해서 붙이지 않는다
-  el.appendChild(document.createTextNode(` — ${provenanceText(doc.provenance, doc.profileId)}.`));
-  let latest = null;
-  try { latest = await getJson(api(`/profiles/camera/${encodeURIComponent(id)}`)); } catch { /* 위와 같음 */ }
-  if (!latest || latest.revision === appliedRevision) return;
-  const warn = document.createElement("div");
-  warn.style.color = "var(--color-warn,#ca4)";
-  warn.style.marginTop = "4px";
-  warn.textContent = `발행본은 rev ${latest.revision} 까지 있는데 지금 도는 것은 rev ${appliedRevision} 입니다 — 아래 이력에서 적용할 수 있습니다.`;
-  el.appendChild(warn);
+async function currentCameraId() {
+  const id = cam.activeId();
+  if (id) return id;
+  // 첫 로드에서는 셀렉터가 아직 목록을 받기 전이다 — 그 순간엔 서버에 직접 묻는다.
+  try { return ((await getJson(api("/cctv/config"))).devices || {}).active || null; } catch { return null; }
 }
 
-// 리비전 이력. 발행본은 불변이고 정정은 새 리비전이므로, 이 목록이 곧 이 카메라의 캘리브레이션
-// 역사다. 되돌리기가 여기 있는 이유도 같다 — 되돌린다는 것은 옛 리비전을 다시 **적용**하는
-// 것이지 새로 발행하는 것이 아니다.
-async function renderRevisions(container, profileId, appliedRevision) {
-  let hist;
-  try { hist = await getJson(api(`/profiles/camera/${encodeURIComponent(profileId)}/revisions`)); }
-  catch { return; }
-  const revs = (hist.revisions || []).slice().reverse();   // 최신이 위
-  if (revs.length <= 1 && revs[0] && revs[0].revision === appliedRevision) return;
-  const det = document.createElement("details");
-  const sum = document.createElement("summary");
-  sum.className = "hint";
-  sum.style.cursor = "pointer";
-  sum.textContent = `리비전 ${revs.length}개 — 이력·되돌리기`;
-  det.appendChild(sum);
-  for (const r of revs) {
-    // 한 리비전 = 한 줄(설명 + 적용 버튼) + 그 아래 메모. 메모를 같은 줄에 넣으면 길이에 따라
-    // flex 가 접히면서 버튼이 다음 줄로 떨어져 어느 리비전의 버튼인지 알 수 없게 된다.
-    const item = document.createElement("div");
-    item.style.marginTop = "8px";
-    const row = document.createElement("div");
-    row.className = "row";
-    // nowrap + 설명이 스스로 줄바꿈: 공용 .row 의 flex-wrap:wrap 을 그대로 두면 긴 설명이
-    // 한 줄을 다 먹고 버튼이 아래로 떨어져, 그 버튼이 어느 리비전의 것인지 보이지 않는다.
-    row.style.cssText = "gap:8px; font-size:12px; flex-wrap:nowrap; align-items:flex-start;";
-    const label = document.createElement("span");
-    label.style.cssText = "flex:1 1 auto; min-width:0;";
-    const applied = r.revision === appliedRevision;
-    label.textContent = `rev ${r.revision} · ${fmtWhen(r.issuedAt)} · ${provenanceText(r.provenance, profileId)}`
-      + (r.anchors ? ` · 앵커 ${r.anchors}` : "") + (r.forced ? " · 우회 발행" : "") + (applied ? " · 적용중" : "");
-    if (applied) label.style.color = "var(--color-accent,#4a4)";
-    else if (r.forced) label.style.color = "var(--color-warn,#ca4)";
-    row.appendChild(label);
-    if (!applied) {
-      const btn = document.createElement("button");
-      btn.style.flex = "0 0 auto";
-      btn.textContent = "적용";
-      btn.onclick = async () => {
-        if (!confirm(`rev ${r.revision} 을 적용합니다. 지금 도는 곡선이 그 값으로 바뀝니다.`)) return;
-        btn.disabled = true;
-        try {
-          await postJson(api(`/profiles/camera/${encodeURIComponent(profileId)}/apply`), { revision: r.revision });
-          loadCalibInstalled();
-          loadProfile();
-        } catch (e) { alert("적용 실패: " + e.message); btn.disabled = false; }
-      };
-      row.appendChild(btn);
-    }
-    item.appendChild(row);
-    if (r.note) {
-      const note = document.createElement("div");
-      note.className = "hint";
-      note.style.cssText = "margin-top:2px; margin-left:10px;";
-      note.textContent = r.note;
-      item.appendChild(note);
-    }
-    det.appendChild(item);
+async function loadProfile() {
+  const meta = calibEl("profile-meta");
+  const charts = calibEl("profile-charts");
+  const points = calibEl("profile-points");
+  charts.replaceChildren();
+  points.replaceChildren();
+  const id = await currentCameraId();
+  if (!id) { meta.textContent = "활성 기기를 알 수 없습니다."; return; }
+  meta.textContent = "불러오는 중…";
+  try {
+    renderProfile(await getJson(api(`/profiles/camera/${encodeURIComponent(id)}`)));
+  } catch (e) {
+    // 404 는 장애가 아니라 "아직 한 번도 발행하지 않았다"는 정상 상태다 — 그렇게 말한다.
+    meta.replaceChildren();
+    meta.appendChild(metaRow("", e.status === 404
+      ? `${id} 에 발행된 프로파일이 없습니다 — 전체 캘리브레이션을 완료하고 저장하면 rev 1 이 발행됩니다.`
+      : "프로파일을 읽지 못했습니다: " + (e.message || e)));
   }
-  container.appendChild(det);
+}
+
+// ── 발행본 ↔ 런타임 드리프트 ────────────────────────────────────────────────
+// 판정은 백엔드가 한다(profile-drift.mjs). 브라우저가 곡선을 다시 비교하면 두 번째 구현이
+// 생기고, 두 구현은 언젠가 서로 다른 답을 낸다 — 이 카드가 없애려는 병이 정확히 그것이다.
+// 그래서 여기서는 /api/help 의 라이브 상태를 읽어 **그대로** 옮긴다.
+async function loadDrift() {
+  const box = calibEl("profile-drift");
+  box.replaceChildren();
+  box.style.display = "none";
+  let lines = [];
+  try { lines = (await getJson(api("/help?format=json"))).live?.profileDrift || []; }
+  catch { return; }               // 대조 실패가 카드를 못 열게 만들면 안 된다
+  if (!lines.length) return;
+
+  box.style.display = "";
+  box.className = "hint";
+  box.style.cssText = "margin-bottom:10px; padding:8px 10px; border-radius:4px; " +
+    "border:1px solid var(--color-warn,#ca4); color:var(--color-warn,#ca4); line-height:1.5;";
+  const head = document.createElement("div");
+  head.textContent = t("발행본과 지금 쓰는 값이 다릅니다 — 조준과 화각이 발행본 기준으로 틀립니다.");
+  box.appendChild(head);
+  for (const line of lines) {
+    const d = document.createElement("div");
+    d.style.marginTop = "4px";
+    d.textContent = line;          // 서버 문자열 — textContent 로
+    box.appendChild(d);
+  }
+  const act = document.createElement("div");
+  act.style.marginTop = "8px";
+  const btn = document.createElement("button");
+  btn.textContent = t("발행본 적용");
+  btn.title = t("최신 발행본을 런타임에 깔아 이 차이를 없앱니다. 재측정은 필요 없습니다.");
+  btn.onclick = () => applyRevision(null);
+  act.appendChild(btn);
+  box.appendChild(act);
+}
+
+// ── 리비전 이력 ─────────────────────────────────────────────────────────────
+// 목록은 상태만 말한다 — 무엇이 언제 어디서 왔는가. 손대는 일은 전부 위 속성창에 있다.
+const PROV_LABEL = { sweep: "실측", import: "수입", copy: "복사" };
+
+function provText(p) {
+  if (!p) return t("실측");
+  const base = PROV_LABEL[p.method] ? t(PROV_LABEL[p.method]) : p.method;
+  if (p.method === "copy" && p.from) return `${base} ← ${p.from.profileId} rev ${p.from.revision}`;
+  return base;
+}
+
+async function loadRevisions() {
+  const box = calibEl("profile-revisions");
+  box.replaceChildren();
+  const id = await currentCameraId();
+  if (!id) return;
+
+  let revs = [];
+  try { revs = (await getJson(api(`/profiles/camera/${encodeURIComponent(id)}/revisions`))).revisions || []; }
+  catch { return; }
+  if (!revs.length) return;
+
+  // 지금 런타임이 어느 리비전을 물고 있는가. apply/mint 가 config 에 적어 둔 값이 유일한
+  // 근거다 — 없으면(그 이전에 저장된 기기) 모른다고 두고 아무 표시도 하지 않는다.
+  let applied = null;
+  try {
+    const cfg = await getJson(api("/cctv/config"));
+    const dev = ((cfg.devices || {}).list || []).find((x) => x.id === id);
+    const rev = dev && dev.intrinsics && dev.intrinsics.profileRevision;
+    applied = Number.isFinite(rev) ? rev : null;
+  } catch { /* 모르면 표시하지 않는다 */ }
+
+  const det = document.createElement("details");
+  det.open = true;
+  const sum = document.createElement("summary");
+  sum.style.cursor = "pointer";
+  sum.textContent = t("리비전 {n}개", { n: revs.length });
+  det.appendChild(sum);
+
+  const table = document.createElement("table");
+  table.style.cssText = "font-size:12px; border-collapse:collapse; margin-top:6px;";
+  const th = (text) => {
+    const c = document.createElement("th");
+    c.style.cssText = "text-align:left; padding:2px 10px 2px 0; opacity:.7; font-weight:normal;";
+    c.textContent = text;
+    return c;
+  };
+  const head = document.createElement("tr");
+  head.append(th("rev"), th(t("발행")), th(t("출처")), th(t("앵커")), th(t("메모")), th(""));
+  table.appendChild(head);
+
+  for (const r of revs.slice().reverse()) {
+    const tr = document.createElement("tr");
+    const td = (text, title) => {
+      const c = document.createElement("td");
+      c.style.cssText = "padding:2px 10px 2px 0; white-space:nowrap;";
+      c.textContent = text;
+      if (title) c.title = title;
+      return c;
+    };
+    tr.append(
+      td(String(r.revision)),
+      td(fmtWhen(r.issuedAt)),
+      td(provText(r.provenance), r.provenance && r.provenance.measuredOn
+        ? t("최초 실측 기기: {id}", { id: r.provenance.measuredOn }) : ""),
+      td(`${r.anchors}${r.hasGain ? " +k" : ""}`, r.hasGain ? t("조준 게인 곡선 포함") : t("화각 곡선만 — 조준 보정 없음")),
+      td(r.note || "—"),
+      // 게이트를 우회해 발행한 리비전은 그 사실이 목록에서 보여야 한다.
+      td(r.revision === applied ? t("적용중") : (r.forced ? t("게이트 우회") : ""),
+        r.forced ? String(r.forced.join(" ")) : ""),
+    );
+    if (r.revision === applied) tr.style.color = "var(--color-accent,#4a4)";
+    table.appendChild(tr);
+  }
+  det.appendChild(table);
+  box.appendChild(det);
+  applyI18n(box);
+}
+
+// ── 관리 창구 ───────────────────────────────────────────────────────────────
+// 백엔드가 두 곳(불변 문서 + 런타임 적용본)을 함께 쓴다. 브라우저는 곡선을 만지지 않고
+// 라우트만 부른다 — 예전에 설정 화면이 브라우저에서 곡선을 복사해 config 에만 넣었고,
+// 그 결과 대상 카메라는 "보정은 있는데 발행본은 없는" 상태가 되어 두 화면이 서로 다른
+// 말을 했다. 복사·수입·적용·퇴역이 전부 한 창구를 지나야 그 어긋남이 생기지 않는다.
+function profMsg(text, kind) {
+  const el = calibEl("profile-msg");
+  el.textContent = text || "";
+  el.style.color = kind === "bad" ? "var(--color-danger,#e66)"
+    : kind === "good" ? "var(--color-accent,#4a4)" : "";
+}
+
+function closePanel() {
+  calibEl("profile-panel").replaceChildren();
+  calibEl("profile-panel").style.display = "none";
+}
+
+async function refreshProfileCard() {
+  // 왼쪽 카탈로그도 함께 다시 읽는다 — 발행·복사·퇴역은 저장소의 목록을 바꾸므로, 여기서
+  // 빠뜨리면 방금 만든 리비전이 왼쪽에만 안 보이고 두 단이 다른 말을 한다.
+  await Promise.all([loadProfile(), loadRevisions(), loadDrift(), loadCalibInstalled(), loadProfileList()]);
+}
+
+// 백엔드는 실패를 코드로 말한다(422 quality_gate·unknown_device·invalid_profile, 409 커미셔닝).
+// 그 문장을 그대로 옮긴다 — 화면이 자기 말로 바꾸면 원인이 흐려진다.
+async function profileWrite(run, okText) {
+  profMsg(t("처리 중…"));
+  try {
+    const res = await run();
+    closePanel();
+    await refreshProfileCard();
+    profMsg(okText(res), "good");
+  } catch (e) {
+    // hint 는 "그래서 뭘 해야 하나"라 버리면 안 된다 — 게이트 미달·미등록 기기가 그렇다.
+    const hint = e.body && e.body.hint ? " " + e.body.hint : "";
+    profMsg((e.message || String(e)) + hint, "bad");
+  }
+}
+
+function panelRow(label, node) {
+  const row = document.createElement("div");
+  row.className = "row";
+  row.style.cssText = "gap:8px; align-items:center; margin-bottom:6px;";
+  const l = document.createElement("label");
+  l.style.cssText = "min-width:84px; opacity:.7;";
+  l.textContent = label;
+  row.append(l, node);
+  return row;
+}
+
+function openPanel(title, build) {
+  const panel = calibEl("profile-panel");
+  panel.replaceChildren();
+  panel.style.display = "";
+  panel.style.cssText = "display:block; margin-bottom:10px; padding:10px; border-radius:4px; " +
+    "border:1px solid var(--color-border,#333);";
+  const h = document.createElement("div");
+  h.style.cssText = "margin-bottom:8px; opacity:.8;";
+  h.textContent = title;
+  panel.appendChild(h);
+  build(panel);
+  const foot = document.createElement("div");
+  foot.className = "row";
+  foot.style.cssText = "gap:8px; margin-top:8px;";
+  const cancel = document.createElement("button");
+  cancel.textContent = t("닫기");
+  cancel.onclick = () => { closePanel(); profMsg(""); };
+  foot.appendChild(cancel);
+  panel.appendChild(foot);
+  applyI18n(panel);
+  profMsg("");
+}
+
+async function applyRevision(revision) {
+  const id = await currentCameraId();
+  if (!id) return;
+  await profileWrite(
+    () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/apply`), revision ? { revision } : {}),
+    (res) => t("rev {rev} 을 적용했습니다 — 백엔드를 재시작하면 실제 조준에 반영됩니다 (pm2 restart baro-backend).", { rev: res.applied.revision }),
+  );
+}
+
+async function openCopyPanel(preselect) {
+  const id = await currentCameraId();
+  if (!id) return;
+  let others = [];
+  try { others = ((await getJson(api("/profiles"))).camera || []).filter((p) => p.profileId !== id); }
+  catch { /* 목록을 못 읽으면 아래에서 안내한다 */ }
+
+  openPanel(t("다른 카메라의 발행본을 이 카메라의 새 리비전으로 복사합니다."), (panel) => {
+    if (!others.length) {
+      const none = document.createElement("div");
+      none.className = "hint";
+      none.textContent = t("복사할 수 있는 다른 카메라의 발행본이 없습니다.");
+      panel.appendChild(none);
+      return;
+    }
+    const sel = document.createElement("select");
+    for (const p of others) {
+      sel.appendChild(new Option(`${p.profileId} rev ${p.revision} (${provText(p.provenance)})`, p.profileId));
+    }
+    // 왼쪽 목록에서 골라 들어왔으면 그 줄로 맞춰 둔다 — 고른 것을 다시 고르게 하면 목록을
+    // 누른 의미가 없다. 그 원본이 목록에 없으면(방금 퇴역 등) 조용히 첫 항목으로 남는다.
+    if (preselect && others.some((p) => p.profileId === preselect)) sel.value = preselect;
+    const note = document.createElement("input");
+    note.style.width = "300px";
+    note.placeholder = t("메모 (선택)");
+    panel.append(panelRow(t("원본"), sel), panelRow(t("메모"), note));
+
+    const warn = document.createElement("div");
+    warn.className = "hint";
+    warn.style.marginTop = "4px";
+    warn.textContent = t("캘리브레이션은 카메라 개체마다 다릅니다 — 복사한 뒤 검증을 돌려 이 개체에 맞는지 확인하세요. 곡선만 옮겨지고 기기 규격(줌 눈금·배선)은 이 카메라 것으로 다시 기록됩니다.");
+    panel.appendChild(warn);
+
+    const go = document.createElement("button");
+    go.textContent = t("복사");
+    go.onclick = () => profileWrite(
+      () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/copy`),
+        { from: sel.value, ...(note.value.trim() ? { note: note.value.trim() } : {}) }),
+      (res) => t("{from} 에서 복사해 rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.", { from: sel.value, rev: res.published.revision }),
+    );
+    panel.appendChild(go);
+  });
+}
+
+async function openImportPanel() {
+  const id = await currentCameraId();
+  if (!id) return;
+  openPanel(t("곡선을 직접 넣어 발행합니다. 스윕을 돌릴 수 없는 기기를 위한 문입니다."), (panel) => {
+    const ta = document.createElement("textarea");
+    ta.style.cssText = "width:100%; height:130px; font-family:monospace; font-size:12px;";
+    ta.placeholder = '{\n  "zoomHfov": [{"z": 0, "h": 57.14}, {"z": 16384, "h": 2.39}],\n  "centeringGain": [{"z": 0, "k": 0.99}]\n}';
+    const note = document.createElement("input");
+    note.style.width = "300px";
+    note.placeholder = t("이 값의 출처 (예: 제조사 매뉴얼) — 권장");
+    panel.append(ta, panelRow(t("메모"), note));
+
+    const hint = document.createElement("div");
+    hint.className = "hint";
+    hint.style.marginTop = "4px";
+    // 이 문장은 {z, h} 같은 중괄호를 담고 있어 t() 의 자리표시자 치환과 충돌한다 —
+    // 값 인자를 주지 않으므로 치환은 일어나지 않지만, 사전 키도 원문 그대로여야 한다.
+    hint.textContent = t("zoomHfov 는 {z, h}(줌 눈금, 수평화각°) 를 z 오름차순으로 최소 2개. centeringGain 은 {z, k} 이며 없으면 조준 보정 없이 화각만 답합니다. 재지 않은 값이므로 문서에 '수입'으로 남고 잔차는 비어 있습니다.");
+    panel.appendChild(hint);
+
+    const go = document.createElement("button");
+    go.textContent = t("발행");
+    go.onclick = () => {
+      let body;
+      // JSON 파싱 실패는 서버까지 갈 일이 아니다 — 어디가 틀렸는지는 여기가 더 잘 안다.
+      try { body = JSON.parse(ta.value); }
+      catch (e) { profMsg(t("JSON 을 읽지 못했습니다") + ": " + e.message, "bad"); return; }
+      profileWrite(
+        () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}`),
+          { ...body, ...(note.value.trim() ? { note: note.value.trim() } : {}) }),
+        (res) => t("rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.", { rev: res.published.revision }),
+      );
+    };
+    panel.appendChild(go);
+  });
+}
+
+async function openApplyPanel() {
+  const id = await currentCameraId();
+  if (!id) return;
+  let revs = [];
+  try { revs = (await getJson(api(`/profiles/camera/${encodeURIComponent(id)}/revisions`))).revisions || []; }
+  catch { /* 아래에서 안내한다 */ }
+
+  openPanel(t("발행된 리비전을 이 백엔드의 런타임에 깝니다. 옛 리비전을 고르면 되돌리기입니다."), (panel) => {
+    if (!revs.length) {
+      const none = document.createElement("div");
+      none.className = "hint";
+      none.textContent = t("이 카메라에는 아직 발행본이 없습니다.");
+      panel.appendChild(none);
+      return;
+    }
+    const sel = document.createElement("select");
+    for (const r of revs.slice().reverse()) {
+      sel.appendChild(new Option(`rev ${r.revision} · ${fmtWhen(r.issuedAt)} · ${provText(r.provenance)}`, String(r.revision)));
+    }
+    panel.appendChild(panelRow(t("리비전"), sel));
+    const go = document.createElement("button");
+    go.textContent = t("적용");
+    go.onclick = () => applyRevision(Number(sel.value));
+    panel.appendChild(go);
+  });
+}
+
+async function retireProfile() {
+  const id = await currentCameraId();
+  if (!id) return;
+  // 파기가 아니라 퇴역이지만, 목록에서 사라지는 것은 되돌리는 방법이 화면에 없다 — 확인을 받는다.
+  if (!confirm(`${id} 의 발행본 전체를 퇴역시킵니다.\n\n파일은 .trash 로 옮겨질 뿐 지워지지 않지만, 목록과 조회에서는 사라집니다.\n지금 쓰고 있는 값(런타임)은 그대로 남습니다. 계속할까요?`)) return;
+  await profileWrite(
+    () => reqJson("DELETE", api(`/profiles/camera/${encodeURIComponent(id)}`)),
+    (res) => t("rev {revs} 를 퇴역시켰습니다. 지금 쓰는 값은 그대로입니다.", { revs: res.revisions.join(", ") }),
+  );
 }
 
 // ── 프로파일 목록 (왼쪽 단) ───────────────────────────────────────────────────
 // 저장소에 발행돼 있는 것 전량. 카메라 선택과 무관한 카탈로그라, 오른쪽 단이 어느 카메라를
-// 보고 있든 목록 자체는 바뀌지 않는다 — 바뀌는 것은 "어느 줄이 이 카메라 것인가"뿐이다.
-let profileList = [];
-let profileSelId = null;
-let profileSelRev = null;
-
-function listMsg(text) { calibEl("profile-list-msg").textContent = text; }
+// 보고 있든 목록 자체는 바뀌지 않는다 — 바뀌는 것은 "어느 줄이 이 카메라 것인가"와
+// 그 줄을 눌렀을 때 열리는 창뿐이다. 쓰기는 전부 오른쪽 창구를 지난다(여기서 따로 부르지
+// 않는다 — 두 벌이 되면 한쪽만 고쳐진다).
+let profileCatalog = [];
 
 async function loadProfileList() {
   const box = calibEl("profile-list");
   try {
-    profileList = (await getJson(api("/profiles"))).camera || [];
+    profileCatalog = (await getJson(api("/profiles"))).camera || [];
   } catch (e) {
     box.replaceChildren();
     const err = document.createElement("span");
     err.className = "hint";
-    err.textContent = "목록을 읽지 못했습니다: " + (e.message || e);
+    err.textContent = t("목록을 읽지 못했습니다") + ": " + (e.message || e);
     box.appendChild(err);
     return;
   }
@@ -661,134 +915,51 @@ function renderProfileList() {
   const box = calibEl("profile-list");
   const mine = cam.activeId();
   box.replaceChildren();
-  if (!profileList.length) {
+  if (!profileCatalog.length) {
     const empty = document.createElement("span");
     empty.className = "hint";
-    empty.textContent = "발행된 프로파일이 없습니다.";
+    empty.textContent = t("발행된 프로파일이 없습니다.");
     box.appendChild(empty);
-    renderApplyButton();
     return;
   }
-  for (const p of profileList) {
+  for (const p of profileCatalog) {
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "prof-row" + (p.profileId === profileSelId ? " sel" : "") + (p.profileId === mine ? " mine" : "");
+    row.className = "prof-row" + (p.profileId === mine ? " mine" : "");
     row.dataset.id = p.profileId;
-    row.onclick = () => { profileSelId = p.profileId; profileSelRev = p.revision; renderProfileList(); };
+    // 이 카메라 것이면 적용(되돌리기), 남의 것이면 그 원본으로 복사창을 연다.
+    row.onclick = () => (p.profileId === mine ? openApplyPanel() : openCopyPanel(p.profileId));
     const id = document.createElement("span");
     id.className = "prof-id";
-    id.textContent = p.profileId + (p.profileId === mine ? "  (이 카메라)" : "");
-    const line1 = document.createElement("span");
-    line1.className = "prof-meta";
-    line1.textContent = `rev ${p.revision} · ${fmtWhen(p.issuedAt)}`;
-    const line2 = document.createElement("span");
-    line2.className = "prof-meta";
-    // 출처를 목록에서부터 말한다 — 어느 것이 실측이고 어느 것이 남의 것을 베낀 것인지가
-    // 곧 "이걸 깔아도 되나"의 답이라, 문서를 열어 봐야 알 수 있으면 늦다.
-    line2.textContent = provenanceText(p.provenance, p.profileId);
-    row.append(id, line1, line2);
+    id.textContent = p.profileId + (p.profileId === mine ? "  " + t("(이 카메라)") : "");
+    const l1 = document.createElement("span");
+    l1.className = "prof-meta";
+    l1.textContent = `rev ${p.revision} · ${fmtWhen(p.issuedAt)}`;
+    const l2 = document.createElement("span");
+    l2.className = "prof-meta";
+    // 출처를 목록에서부터 말한다 — 어느 것이 실측이고 어느 것이 베낀 것인지가 곧
+    // "이걸 깔아도 되나"의 답이라, 문서를 열어야 알 수 있으면 늦다.
+    l2.textContent = provText(p.provenance);
+    row.append(id, l1, l2);
     box.appendChild(row);
   }
-  renderApplyButton();
 }
 
-// 버튼 하나가 두 가지 일을 한다 — 고른 것이 이 카메라의 것이면 그 리비전을 **적용**하고,
-// 남의 것이면 이 카메라 앞으로 **복사 발행**한 뒤 적용한다. 둘은 결과가 같아 보이지만
-// 하나는 되돌리기이고 하나는 지워지지 않는 리비전을 하나 더 만드는 일이라, 버튼 이름과
-// 확인 문구가 그 차이를 말해야 한다.
-function renderApplyButton() {
-  const btn = calibEl("profile-apply");
-  const mine = cam.activeId();
-  const sel = profileList.find((p) => p.profileId === profileSelId);
-  btn.disabled = !sel || !mine;
-  if (!sel) { btn.textContent = "현재 카메라에 적용"; return; }
-  btn.textContent = sel.profileId === mine
-    ? `rev ${sel.revision} 적용`
-    : `${sel.profileId} rev ${sel.revision} 을 이 카메라로 복사`;
-}
-
-async function applySelectedProfile() {
-  const mine = cam.activeId();
-  const sel = profileList.find((p) => p.profileId === profileSelId);
-  if (!sel || !mine) return;
-  const own = sel.profileId === mine;
-  const ok = own
-    ? confirm(`${mine} 의 rev ${sel.revision} 을 적용합니다. 지금 도는 곡선이 그 값으로 바뀝니다.`)
-    : confirm(`${sel.profileId} rev ${sel.revision} 의 광학을 ${mine} 앞으로 복사해 새 리비전으로 발행하고 바로 적용합니다.\n\n` +
-        "발행된 리비전은 지워지지 않습니다. 캘리브레이션은 카메라 개체마다 다르므로, 적용한 뒤 '검증'으로 이 개체에 맞는지 확인하세요.");
-  if (!ok) return;
-  const btn = calibEl("profile-apply");
-  btn.disabled = true;
-  listMsg(own ? "적용 중…" : "복사·발행 중…");
-  try {
-    if (own) {
-      await postJson(api(`/profiles/camera/${encodeURIComponent(mine)}/apply`), { revision: sel.revision });
-      listMsg(`rev ${sel.revision} 적용됨.`);
-    } else {
-      const res = await postJson(api(`/profiles/camera/${encodeURIComponent(mine)}/copy`),
-        { from: sel.profileId, fromRevision: sel.revision });
-      const rev = res && res.published ? res.published.revision : null;
-      listMsg(rev === null ? "복사됨." : `복사됨 — ${mine} rev ${rev} 발행·적용.`);
-      profileSelId = mine; profileSelRev = rev;
-    }
-    await loadProfileList();      // 리비전이 늘었을 수 있다
-    loadCalibInstalled();
-    loadProfile();
-  } catch (e) {
-    listMsg("실패: " + (e.message || e));
-    renderApplyButton();
-  }
-}
-
-// 지금 이 백엔드가 실제로 들고 도는 리비전. 발행본이 아니라 **런타임 적용본**에서 읽는다 —
-// 둘이 갈릴 수 있다는 것이 이 숫자를 보여 주는 이유다.
-async function appliedRevisionOf(id) {
-  try {
-    const cfg = await getJson(api("/cctv/config"));
-    const dev = (cfg.devices.list || []).find((x) => x.id === id);
-    const ins = dev && dev.intrinsics;
-    return ins && typeof ins === "object" && ins.profileRevision ? ins.profileRevision : null;
-  } catch { return null; }
-}
-
-async function loadProfile() {
-  const meta = calibEl("profile-meta");
-  const charts = calibEl("profile-charts");
-  const points = calibEl("profile-points");
-  charts.replaceChildren();
-  points.replaceChildren();
-  let id = cam.activeId();
-  if (!id) {
-    // 첫 로드에서는 셀렉터가 아직 목록을 받기 전이다 — 그 순간엔 서버에 직접 묻는다.
-    try { id = ((await getJson(api("/cctv/config"))).devices || {}).active || null; } catch { id = null; }
-  }
-  if (!id) { meta.textContent = "활성 기기를 알 수 없습니다."; return; }
-  meta.textContent = "불러오는 중…";
-  try {
-    renderProfile(await getJson(api(`/profiles/camera/${encodeURIComponent(id)}`)));
-    // 이력은 문서와 별도 라우트다. 실패해도 방금 그린 문서는 그대로 둔다 — 곁가지가
-    // 본문을 지우면 "프로파일이 없다"로 보인다.
-    renderRevisions(points, id, await appliedRevisionOf(id));
-  } catch (e) {
-    // 404 는 장애가 아니라 "아직 한 번도 발행하지 않았다"는 정상 상태다 — 그렇게 말한다.
-    meta.replaceChildren();
-    meta.appendChild(metaRow("", e.status === 404
-      ? `${id} 에 발행된 프로파일이 없습니다 — 전체 캘리브레이션을 완료하고 저장하면 rev 1 이 발행됩니다.`
-      : "프로파일을 읽지 못했습니다: " + (e.message || e)));
-  }
-}
+calibEl("prof-act-copy").onclick = () => openCopyPanel();
+calibEl("prof-act-import").onclick = openImportPanel;
+calibEl("prof-act-apply").onclick = openApplyPanel;
+calibEl("prof-act-retire").onclick = retireProfile;
 
 // 카메라 전환 → 카드 재구성 (실기 ↔ 시뮬 검증전용). renderCalibStatus 가 cam 을 참조하므로
 // createCameraSelect 는 initCalibCard 첫 호출 전에 만들어져 있어야 한다.
 const cam = createCameraSelect({
   select: document.getElementById("header-camera-select"),
-  // 목록 자체는 카메라와 무관하지만 "어느 줄이 이 카메라 것인가"와 버튼이 하는 일은 바뀐다.
+  // 카탈로그 자체는 카메라와 무관하지만 "어느 줄이 이 카메라 것인가"와 그 줄을 눌렀을 때
+  // 열리는 창은 바뀐다.
   onChange: () => { initCalibCard(); renderProfileList(); },
 });
-calibEl("profile-apply").addEventListener("click", applySelectedProfile);
-// 목록은 활성 카메라를 몰라도 그릴 수 있지만(카탈로그다), "이 카메라" 표시와 적용 버튼이
-// 하는 일은 안다. load() 는 onChange 를 부르지 않으므로 끝난 뒤 한 번 다시 그린다 —
-// 안 하면 첫 화면에서만 버튼이 잠긴 채로 남는다.
+// load() 는 onChange 를 부르지 않으므로 끝난 뒤 한 번 다시 그린다 — 안 하면 첫 화면에서만
+// "이 카메라" 표시가 빠진다.
 cam.load().then(renderProfileList);
 initCalibCard();
 loadProfileList();

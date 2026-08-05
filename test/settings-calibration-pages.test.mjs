@@ -101,6 +101,25 @@ test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
   assert.doesNotMatch(html, /header-camera-select/);
 });
 
+// 캘리브레이션 페이지는 2단이다 — 왼쪽은 저장소에 발행된 것 전량(카메라와 무관한 카탈로그),
+// 오른쪽은 지금 고른 카메라의 작업면. 한 단에 세로로 쌓으면 목록에서 고른 것과 오른쪽에 뜬
+// 것이 한 화면에 함께 보이지 않아 비교가 성립하지 않는다.
+test("캘리브레이션 페이지 — 2단 배치와 프로파일 카탈로그", async () => {
+  const html = await read("../public/calibration.html");
+  assert.match(html, /#cal-split[^}]*flex-direction: row/, "2단이어야 한다");
+  assert.match(html, /\.cal-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
+  assert.match(html, /\.cal-col-detail[^}]*overflow-y: auto/, "작업면은 따로 스크롤해야 한다");
+  // 쓰기는 전부 오른쪽 창구를 지난다 — 목록이 자기 몫의 복사/적용을 따로 부르면 두 벌이 되고,
+  // 두 벌은 언젠가 한쪽만 고쳐진다.
+  assert.match(html, /openApplyPanel\(\) : openCopyPanel\(p\.profileId\)/,
+    "줄을 누르면 오른쪽 창구가 열려야 한다 (내 것이면 적용, 남의 것이면 그 원본으로 복사)");
+  assert.doesNotMatch(html, /profile-list[\s\S]{0,4000}postJson\(api\(`\/profiles/,
+    "목록이 직접 쓰기를 부르면 안 된다");
+  // 발행·복사·퇴역은 저장소의 목록을 바꾼다 — 함께 다시 읽지 않으면 두 단이 다른 말을 한다.
+  assert.match(html, /refreshProfileCard\(\)[\s\S]{0,300}loadProfileList\(\)/,
+    "쓰기 뒤에 카탈로그도 다시 읽어야 한다");
+});
+
 test("캘리브레이션 페이지 — 독립 실행 계약", async () => {
   const html = await read("../public/calibration.html");
   for (const id of [
@@ -135,50 +154,6 @@ test("캘리브레이션 페이지 — 발행된 프로파일 가시화", async 
   // 이름·메모는 사람이 적은 문자열이다 — innerHTML 로 이으면 그대로 마크업이 된다.
   assert.match(html, /v\.textContent = value/, "서버가 준 값은 textContent 로 넣어야 한다");
   assert.match(html, /e\.status === 404/, "발행 전(404)은 장애가 아니라 정상 상태로 안내해야 한다");
-});
-
-test("캘리브레이션 페이지 — 발행 창구 계약 (게이트·출처·리비전)", async () => {
-  const html = await read("../public/calibration.html");
-  // 발행의 정식 이름은 mint 다. /save 는 하위호환 별칭이라 언제 사라져도 이상하지 않다.
-  assert.match(html, /api\("\/calibration\/mint"\)/, "발행은 mint 라우트로 가야 한다");
-  assert.doesNotMatch(html, /calibration\/save/, "옛 별칭에 매달리지 않는다");
-
-  // 게이트 거절은 문장 하나가 아니다. code·failures[]·noisyAnchors[] 를 alert 로 접으면
-  // "어느 줌이 튀었는지"가 사라지고, 사람에게 남는 선택지가 20분 재측정뿐이 된다.
-  assert.match(html, /g\.code !== "quality_gate"/, "발행 게이트 거절을 다른 실패와 갈라야 한다");
-  assert.match(html, /g\.failures/, "미달 사유를 그대로 보여야 한다");
-  assert.match(html, /noisyAnchors/, "튀는 앵커를 보여야 한다 — 없으면 재측정 범위를 알 수 없다");
-  // 우회는 막지 않되, 문서에 영구히 남는다는 사실을 누르기 전에 말한다.
-  assert.match(html, /mintResult\(box, true\)/, "우회 발행 경로가 있어야 한다");
-  assert.match(html, /confirm\(t\("미달 사유가 발행 문서에 영구히 기록됩니다/, "우회는 확인을 받아야 한다");
-
-  // 출처는 문서만이 안다. 곡선만 보면 잰 것과 베낀 것을 구분할 수 없고, 적용본의 measuredAt
-  // 은 복사본일 때 **원본 카메라**가 잰 시각이라 그대로 읽으면 거짓말이 된다.
-  assert.match(html, /function provenanceText\(/, "발행본의 출처를 말해야 한다");
-  assert.match(html, /p\.method === "copy"/, "복사본을 실측과 구분해야 한다");
-  assert.match(html, /p\.method === "import"/, "수입본(측정 없음)을 실측과 구분해야 한다");
-  assert.match(html, /q\.forced/, "게이트를 우회한 문서는 그 사실을 드러내야 한다");
-
-  // 적용본과 발행본은 갈릴 수 있다 — 그 사실이 이 숫자를 보여 주는 이유다.
-  assert.match(html, /ins\.profileRevision/, "지금 도는 리비전을 적용본에서 읽어야 한다");
-  assert.match(html, /latest\.revision === appliedRevision/, "발행본이 앞서 있으면 말해야 한다");
-  // 되돌리기는 새 발행이 아니라 옛 리비전의 재적용이다.
-  assert.match(html, /\/apply`\), \{ revision: r\.revision \}/, "이력에서 리비전을 적용할 수 있어야 한다");
-});
-
-test("설정 — 캘리브레이션은 발행 창구를 지난다 (브라우저가 곡선을 만들지 않는다)", async () => {
-  const html = await read("../public/settings.html");
-  // 브라우저가 발행본을 읽어 intrinsics 에 직접 써 넣던 우회로는 **발행본 없는 보정**을
-  // 만들었다: 설정에는 값이 있는데 프로파일 창구에는 그 기기가 없어 두 화면이 다른 말을 했다.
-  assert.match(html, /\/copy`\), \{ from: fromId \}/, "복사는 백엔드 발행 창구로 가야 한다");
-  assert.doesNotMatch(html, /d\.intrinsics = \{/, "브라우저가 곡선을 조립해 설정에 심지 않는다");
-  assert.doesNotMatch(html, /borrowProfileFrom/, "옛 우회로의 잔재가 남으면 안 된다");
-  // 복사 창구는 등록된 기기만 받는다(422 unknown_device) — 그래서 기기 저장이 먼저다.
-  assert.match(html, /commitDevices\(staged\.list[\s\S]{0,400}staged\.copyFrom/,
-    "기기를 저장한 뒤에 복사를 불러야 한다");
-  // 적용본의 근거는 리비전 번호다. label 을 지어 붙이던 옛 표시는 발행본과 이어지지 않았다.
-  assert.match(html, /ins\.profileRevision/, "적용 중인 리비전으로 말해야 한다");
-  assert.doesNotMatch(html, /ins\.label/, "임의로 지어낸 표식에 기대지 않는다");
 });
 
 test("API 오류는 본문을 잃지 않는다", async () => {
@@ -246,4 +221,92 @@ test("대문 카드 잠금은 설정 카드를 남긴다", async () => {
   const src = await readFile(new URL("../src/page-chrome.mjs", import.meta.url), "utf8");
   assert.match(src, /a\.home-card/, "대문 카드도 잠금 대상이어야 한다");
   assert.match(src, /settingsHref/, "설정 카드는 예외로 남겨야 한다 — 벗어날 길이 사라진다");
+});
+
+// 캘리브레이션 데이터가 저장소로 들어오는 문은 오래 "실기 20분 스윕 → 발행" 하나뿐이었다.
+// 그래서 스윕을 못 돌리는 기기의 곡선은 갈 곳이 없었고, 설정 화면이 브라우저에서 곡선을
+// 복사해 config 에만 넣는 우회로가 생겼다 — 그 결과 대상 카메라는 "보정은 있는데 발행본은
+// 없는" 상태가 되어 두 화면이 서로 다른 말을 했다. 창구는 하나여야 한다.
+test("캘리브레이션 페이지 — 프로파일 관리 창구", async () => {
+  const html = await read("../public/calibration.html");
+  for (const id of [
+    "profile-drift", "profile-actions", "profile-panel", "profile-msg", "profile-revisions",
+    "prof-act-copy", "prof-act-import", "prof-act-apply", "prof-act-retire",
+    "profile-list",   // 왼쪽 단: 저장소에 발행된 것 전량(카메라와 무관한 카탈로그)
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
+  }
+
+  // 발행의 정식 이름은 mint 다. /save 는 백엔드가 하위호환으로 남겨 둔 별칭이라 언제
+  // 사라져도 이상하지 않다 — 별칭에 매달리지 않는다.
+  assert.match(html, /api\("\/calibration\/mint"\)/, "발행은 mint 라우트로 가야 한다");
+  assert.doesNotMatch(html, /calibration\/save/, "옛 별칭에 매달리지 않는다");
+
+  // 네 동작이 전부 백엔드 창구를 지난다. 브라우저가 곡선을 만지면 두 곳 중 한 곳만 쓰인다.
+  assert.match(html, /\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/copy/, "복사는 창구 라우트를 불러야 한다");
+  assert.match(html, /\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/apply/, "적용은 창구 라우트를 불러야 한다");
+  assert.match(html, /reqJson\("DELETE", api\(`\/profiles\/camera\//, "퇴역은 DELETE 여야 한다");
+  assert.match(html, /\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/revisions/, "이력을 읽어야 한다");
+
+  // 드리프트 판정은 백엔드가 한다. 브라우저가 곡선을 다시 비교하면 두 번째 구현이 생기고,
+  // 두 구현은 언젠가 서로 다른 답을 낸다 — 이 카드가 없애려는 병이 정확히 그것이다.
+  assert.match(html, /help\?format=json[\s\S]{0,200}profileDrift/, "드리프트는 백엔드 라이브 상태에서 가져와야 한다");
+  assert.doesNotMatch(html, /published[\s\S]{0,80}live[\s\S]{0,80}Math\.abs/, "브라우저가 곡선을 다시 비교하면 안 된다");
+
+  // 서버가 준 문자열(경고문·메모·기기명)은 사람이 적은 값이라 innerHTML 로 이으면 마크업이 된다.
+  assert.match(html, /d\.textContent = line/, "드리프트 경고는 textContent 로 넣어야 한다");
+  assert.match(html, /c\.textContent = text/, "이력 표의 값은 textContent 로 넣어야 한다");
+
+  // 퇴역은 목록에서 사라지고, 되돌리는 방법이 화면에 없다 — 확인을 받아야 한다.
+  assert.match(html, /async function retireProfile\(\)[\s\S]{0,600}confirm\(/, "퇴역은 확인을 받아야 한다");
+  // 문서를 치웠다고 돌고 있는 카메라의 조준이 말없이 바뀌면 그게 더 나쁘다.
+  assert.match(html, /지금 쓰고 있는 값\(런타임\)은 그대로 남습니다/, "퇴역이 런타임을 건드리지 않음을 말해야 한다");
+
+  // 복사본을 "이 카메라 실측"이라고 말하면 안 된다 — 창구가 열린 이상 섞여 들어온다.
+  assert.match(html, /Number\.isFinite\(ins\.profileRevision\)/, "깔린 리비전 번호로 출처를 말해야 한다");
+});
+
+test("설정 페이지 — 캘리브레이션 빌려오기는 백엔드 창구를 지난다", async () => {
+  const html = await read("../public/settings.html");
+  // 브라우저가 발행 문서를 뜯어 intrinsics 를 조립하던 우회로는 사라져야 한다. 그 경로는
+  // config 한 곳에만 값을 넣어, 대상 카메라에 발행본 없는 보정을 남겼다.
+  assert.doesNotMatch(html, /d\.intrinsics = \{[\s\S]{0,200}zoomHfov/, "브라우저가 곡선을 조립하면 안 된다");
+  assert.doesNotMatch(html, /에서 빌림/, "빌려온 표시를 값 안에 심지 않는다 — 출처는 발행 문서가 안다");
+  // 대신 창구를 부른다. 새 기기는 등록 전이라 422 가 되므로 저장이 끝난 뒤여야 한다.
+  assert.match(html, /\/profiles\/camera\/\$\{encodeURIComponent\(staged\.id\)\}\/copy/, "복사는 창구 라우트를 불러야 한다");
+  assert.match(html, /commitDevices\([\s\S]{0,400}staged\.borrowFrom/, "복사는 기기 저장 뒤에 와야 한다");
+  // 복사가 실패해도 기기 저장은 이미 끝났다 — 조용히 삼키면 "빌렸다고 생각하는" 상태가 남는다.
+  assert.match(html, /프로파일 복사 실패/, "복사 실패를 말해야 한다");
+  // measuredAt 만 보고 "이 카메라 실측"이라 하면 복사본에 대해 거짓말이 된다.
+  assert.match(html, /Number\.isFinite\(ins\.profileRevision\)[\s\S]{0,120}발행본 rev/, "깔린 리비전으로 말해야 한다");
+});
+
+// 게이트를 만들면서 우회로를 백엔드에만 두고 화면에는 안 만들었더니, 20분짜리 실측이 막다른
+// 길에 섰다(2026-08-05 cam-real-002: alert 하나 띄우고 끝이라 curl 없이는 방법이 없었다).
+// 거절은 정보여야지 벽이면 안 된다.
+test("캘리브레이션 페이지 — 발행 게이트 거절에 화면 안의 길이 있다", async () => {
+  const html = await read("../public/calibration.html");
+  // 422 quality_gate 는 alert 이 아니라 카드 안에서 다뤄야 한다.
+  assert.match(html, /e\.status === 422 && e\.body && e\.body\.code === "quality_gate"/,
+    "게이트 거절을 다른 실패와 갈라 다뤄야 한다");
+  assert.match(html, /function renderGateRefusal\(/, "거절 화면이 있어야 한다");
+  assert.match(html, /그래도 발행/, "우회 버튼이 화면에 있어야 한다");
+  assert.match(html, /saveSweep\(box, true\)/, "우회는 force 로 다시 보내야 한다");
+  // 어느 줌이 스윕을 흐렸는지 없으면 남은 선택지는 20분 전체 재측정뿐이다.
+  assert.match(html, /function noisyAnchorNote\(/, "시끄러운 앵커를 짚어 줘야 한다");
+  assert.match(html, /body\.noisyAnchors/, "거절할 때 앵커를 보여야 한다");
+  assert.match(html, /res\.noisyAnchors/, "통과할 때도 앵커를 보여야 한다");
+  // 불변 문서에 "왜 이 값이 여기 있나"가 남아야 한다.
+  // 메모 입력은 결과 상자 안에 산다 — 거절 화면이 상자를 비우면 함께 사라진다(실제로 그렇게
+  // 날려서 우회 발행이 메모 없이 나갔다: cam-real-002 rev 3).
+  assert.match(html, /const carried = prev \? prev\.value\.trim\(\) : ""/, "지우기 전에 메모를 건져야 한다");
+  assert.match(html, /note\.id = "calib-note"/, "거절 화면이 메모 입력을 다시 세워야 한다");
+  assert.match(html, /"발행 기준 미달을 알고 발행: "/, "비었으면 우회 사유로 채워야 한다");
+  assert.match(html, /res\.forced/, "우회했다는 사실을 저장 후에도 말해야 한다");
+  // 서버 문장은 사람이 읽는 값이라 innerHTML 로 이으면 마크업이 된다.
+  assert.match(html, /d\.textContent = line;\s*\/\/ 서버 문장/, "거절 사유는 textContent 로");
+
+  // fitRmsPx 는 앵커별 최댓값이다 — "피팅 67.3px" 로만 적으면 스윕 전체가 그런 줄 읽힌다.
+  assert.doesNotMatch(html, /피팅 오차 \$\{r\.residual\.fitRmsPx\}px/, "최댓값을 스윕 성적처럼 적으면 안 된다");
+  assert.match(html, /fitRmsMedianPx/, "대표값을 함께 보여야 한다");
 });
