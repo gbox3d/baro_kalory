@@ -1,0 +1,61 @@
+# GitHub Pages 배포 — pnpm build:dist 산출물(dist/)을 그대로 올린다.
+#
+# 배포 브랜치(gh-pages)를 쓰지 않는 이유: dist/ 는 gitignore 산출물이고, 산출물을 저장소에
+# 커밋해 두면 소스와 배포본이 어긋난 채 굳는다. Actions 아티팩트 경로는 커밋이 아니라
+# 빌드 결과를 그대로 서빙하므로 그 어긋남 자체가 생기지 않는다.
+#
+# 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 두어야 이 워크플로가 발행한다.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 배포는 마지막 하나만 의미가 있다 — 밀린 실행은 취소한다.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 버전의 출처는 package.json 의 packageManager 다 — 여기 숫자를 적으면 두 벌이 된다.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # 배포 전에 테스트를 돌린다. 이 저장소의 테스트는 네트워크·실기가 필요 없다.
+      - run: pnpm test
+
+      # app.css(Tailwind) + dist/ 재작성. dist/ 안에 .nojekyll 도 pack 이 넣는다.
+      - run: pnpm build:dist
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

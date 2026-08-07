@@ -56,9 +56,20 @@ pnpm build:dist     # 정적 호스트용 dist/
 
 ## 정적 배포 (GitHub Pages)
 
-`pnpm build:dist` 가 만드는 `dist/` 가 배포 산출물이다. `pack.mjs` 는 **재작성 규칙이 없는
-호스트**를 전제로 링크를 `.html` 실파일로 바꾸고 `index.html` 을 만든다 — 소스의 URL 정규형은
-건드리지 않는다.
+`main` 에 push 하면 `.github/workflows/pages.yml` 이 `pnpm test` → `pnpm build:dist` 를 돌리고
+`dist/` 를 그대로 발행한다. 저장소 **Settings → Pages → Source 를 "GitHub Actions"** 로 두어야
+한다. 사이트 주소는 `https://<계정>.github.io/baro_kalory/` 이고, 페이지가 전부 상대경로라
+저장소 이름이 base path 여도 그대로 동작한다.
+
+배포 브랜치(`gh-pages`)를 쓰지 않는 이유: `dist/` 는 gitignore 산출물이라 커밋해 두면 소스와
+배포본이 어긋난 채 굳는다.
+
+`pack.mjs` 는 **재작성 규칙이 없는 호스트**를 전제로 링크를 `.html` 실파일로 바꾸고
+`index.html` 과 `.nojekyll` 을 만든다 — 소스의 URL 정규형은 건드리지 않는다. 함께 심는
+`<meta name="baro-static-build">` 는 브라우저가 링크 형태를 고르는 근거다. **URL 로 추측하면
+안 된다** — 정적 호스트는 `index.html` 을 디렉터리 URL(`/baro_kalory/`)로 서빙해서 pathname 이
+`.html` 로 끝나지 않고, 그 오판은 링크 404 로 끝나지 않는다. 미연결 게이트가 href 비교로 설정
+카드를 가리므로 **설정 카드까지 잠겨** 백엔드 주소를 넣을 문이 사라진다.
 
 Pages 는 순수 정적 호스트라 다음이 불가능하다.
 
@@ -67,10 +78,17 @@ Pages 는 순수 정적 호스트라 다음이 불가능하다.
 
 따라서 배포 전에 확인할 것:
 
-- **CORS**: 백엔드가 이 사이트의 오리진을 허용해야 한다. 이 저장소가 고칠 수 있는 문제가 아니다.
-- **혼합 콘텐츠**: Pages 는 https 다. 백엔드가 http 면 브라우저가 요청을 차단한다.
-  사설망 http 백엔드를 https 페이지에서 부르는 조합은 성립하지 않는다.
-- `.nojekyll` 이 저장소 루트에 있어야 한다(밑줄로 시작하는 경로가 산출물에서 빠지는 것을 막는다).
+- **혼합 콘텐츠**: Pages 는 https 다. 백엔드가 http 면 브라우저가 요청을 차단한다. 즉
+  **백엔드에 https 종단이 있어야 한다.** 사설망 백엔드라면 터널이 그 종단을 만든다 —
+  `cloudflared tunnel --url http://127.0.0.1:8080` 은 임시 `https://<임의>.trycloudflare.com`
+  주소를 즉시 내주고(재시작마다 주소가 바뀐다), 고정 주소가 필요하면 named tunnel 로 자기
+  도메인에 붙이거나 `tailscale funnel 8080`(`https://<호스트>.<tailnet>.ts.net`)을 쓴다.
+  주소를 받으면 설정 화면이나 `?api=` 로 지정한다 — **저장소에는 넣지 않는다.**
+- **CORS**: 백엔드가 이 사이트의 오리진(`https://<계정>.github.io`)을 허용해야 한다. 이
+  저장소가 고칠 수 있는 문제가 아니다. MJPEG 프리뷰도 `fetch` 로 읽으므로 스트림 경로까지
+  같은 허용이 필요하다.
+- **터널은 곧 공개 노출이다.** 이 백엔드는 카메라 접속정보를 다루는데 무인증이므로, 터널을
+  열어 둔 채 방치하지 말고 접근 제어를 앞에 두거나 쓸 때만 띄운다.
 
 ## 백엔드 주소 지정
 
@@ -108,10 +126,11 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 | `/calibration` | `public/calibration.html` | 카메라 캘리브레이션 (기기별 광학·조준 실측) |
 | `/v0` | `public/cctv.html` | CCTV alias |
 
-페이지 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드가 전부 이 표를 본다.
-페이지를 추가하면 `pages.mjs` + `server.mjs` 의 `PAGE_ROUTES` + `pack.mjs` +
-`styles/tailwind.css` 의 `@source`(글로브가 아니라 파일 나열!) 를 **함께** 고친다. 자동 검사는
-없다 — 한 곳만 고치면 그 경로만 조용히 404 가 된다.
+페이지 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드가 전부 이 표를 보고,
+`pack.mjs` 도 dist 파일 목록을 여기서 파생시킨다(`test/static-build.test.mjs` 가 그 정합과
+실파일 존재를 검사한다). 손으로 맞춰야 하는 미러는 둘 남았다 — `server.mjs` 의 `PAGE_ROUTES`
+(개발 서버 라우팅)와 `styles/tailwind.css` 의 `@source`(글로브가 아니라 파일 나열!). 이 둘은
+자동 검사가 없다 — 한 곳만 고치면 그 경로만 조용히 404 가 되거나 스타일이 빠진다.
 
 ## 브라우저 모듈
 
