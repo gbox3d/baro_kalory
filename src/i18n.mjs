@@ -231,6 +231,28 @@ const DICT = {
     { en: "Scene restored: cameras +{sp}/{mv}/{rm} · {cars} cars",
       vi: "Đã khôi phục scene: camera +{sp}/{mv}/{rm} · {cars} xe" },
   "복원 실패": { en: "Restore failed", vi: "Khôi phục thất bại" },
+  // 오라클 대조 — 렌더러의 정답과 우리 광학 모델을 나란히 놓는다.
+  "오라클 대조": { en: "Check vs oracle", vi: "Đối chiếu với oracle" },
+  "렌더러가 계산한 픽셀(그라운드-트루스)과 우리 광학 모델의 픽셀을 나란히 놓습니다":
+    { en: "Puts the renderer's own pixel (ground truth) next to our optics model's pixel",
+      vi: "Đặt pixel do trình kết xuất tính (chuẩn thật) cạnh pixel của mô hình quang học" },
+  "대조 중…": { en: "Comparing…", vi: "Đang đối chiếu…" },
+  "이 카메라의 포즈를 몰라 대조할 수 없습니다.":
+    { en: "This camera's pose is unknown, so there is nothing to compare against.",
+      vi: "Không biết tư thế của camera này nên không thể đối chiếu." },
+  "대조할 주차면이 없습니다.": { en: "No parking slots to compare.", vi: "Không có chỗ đỗ nào để đối chiếu." },
+  "모델과 오라클의 차이: {d} px": { en: "Model vs oracle: {d} px", vi: "Mô hình so với oracle: {d} px" },
+  "프레임 안 {n}면 · 중앙 {med} px · 최대 {max} px (밖 {o} · 뒤 {b}) — 프레임 {w}×{h}":
+    { en: "{n} in frame · median {med} px · max {max} px ({o} outside · {b} behind) — frame {w}×{h}",
+      vi: "{n} trong khung · trung vị {med} px · tối đa {max} px ({o} ngoài khung · {b} phía sau) — khung {w}×{h}" },
+  "프레임 안에 든 주차면이 없습니다 — 카메라를 주차면 쪽으로 돌리고 다시 재세요. (뒤 {b} · 밖 {o})":
+    { en: "No slot landed inside the frame — aim the camera at the slots and measure again. ({b} behind · {o} outside)",
+      vi: "Không chỗ đỗ nào nằm trong khung — hãy hướng camera về phía chỗ đỗ rồi đo lại. ({b} phía sau · {o} ngoài khung)" },
+  "이 씬에는 렌더가 없어 오라클이 없습니다 (Fake 모드).":
+    { en: "This scene has no renderer, so there is no oracle (fake mode).",
+      vi: "Scene này không có trình kết xuất nên không có oracle (chế độ fake)." },
+  "오라클 대조 실패": { en: "Oracle comparison failed", vi: "Đối chiếu oracle thất bại" },
+  "오라클 대조 중…": { en: "Comparing against the oracle…", vi: "Đang đối chiếu với oracle…" },
   "시뮬레이터 '{name}'을(를) 삭제할까요?": { en: "Delete simulator '{name}'?", vi: "Xóa mô phỏng '{name}'?" },
   "삭제 중…": { en: "Deleting…", vi: "Đang xóa…" },
   "삭제 실패": { en: "Delete failed", vi: "Xóa thất bại" },

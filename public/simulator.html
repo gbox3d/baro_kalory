@@ -856,8 +856,10 @@ header h1 .ver {
       <span id="fps-actual" class="hint" style="margin:0;">—</span>
       <label style="margin:0;" title="화면 중앙 조준선 켜기/끄기"><input type="checkbox" id="crosshair-toggle" style="width:auto;" checked /> Crosshair</label>
       <label style="margin:0;"><input type="checkbox" id="show-all-slots" style="width:auto;" /> 전체 슬롯</label>
+      <button id="oracle-check" type="button" title="렌더러가 계산한 픽셀(그라운드-트루스)과 우리 광학 모델의 픽셀을 나란히 놓습니다">오라클 대조</button>
       <span class="hint view-help" style="margin:0;">클릭 = 센터링 · 드래그 = 박스줌</span>
       <span id="overlay-hint" class="hint" style="margin:0;"></span>
+      <span id="oracle-out" class="hint" style="margin:0;"></span>
     </div>
     <div id="sim-bottom-tabs">
       <div class="sim-tabs" role="tablist" aria-label="시뮬레이터 보조 패널">
@@ -1816,8 +1818,15 @@ function scheduleRepose() { clearTimeout(reposeTimer); reposeTimer = setTimeout(
 // 다시 그린다(renderPins) → 클릭 반응에 네트워크가 끼지 않는다.
 let pinsBySlot = new Map();   // slotId -> { x, y, behind } (프레임 픽셀 기준)
 let pinsFrame = { width: 1920, height: 1080 };
+// 오라클(렌더러가 답한 진짜 픽셀) — 대조를 눌렀을 때만 차고, 자세가 바뀌면 비운다.
+let truthPins = new Map();    // slotId -> { x, y, behind, d } (d = 우리 모델과의 픽셀 거리)
+let oracleSummary = "";
+const ORACLE_TOLERANCE_PX = 3;   // 이 위는 색으로 표시한다(프레임 1920 기준 0.16%)
 
 async function refreshOverlay() {
+  // 자세가 바뀌면 지난 오라클 답은 거짓말이 된다 — 남겨 두면 모델 오차처럼 보인다.
+  truthPins = new Map();
+  oracleSummary = "";
   if (!activeCam || !lastPtz) { pinsBySlot = new Map(); renderPins(); return; }
   const nw = view.naturalWidth || 1920;
   const nh = view.naturalHeight || 1080;
@@ -1840,7 +1849,11 @@ function renderPins() {
   if (!simSlotList.length || !pinsBySlot.size) return;
   const rect = view.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
-  const targets = showAllSlots ? simSlotList : simSlotList.filter((s) => s.id === simSelectedSlot);
+  // 대조 결과가 있으면 전체를 그린다. 대조는 본디 모든 주차면에 대한 답인데 선택 하나만
+  // 그리면 방금 잰 것을 볼 수 없다. 자세가 바뀌면 truthPins 가 비므로 평소 동작으로 돌아간다.
+  const targets = (showAllSlots || truthPins.size)
+    ? simSlotList
+    : simSlotList.filter((s) => s.id === simSelectedSlot);
   for (const s of targets) {
     const p = pinsBySlot.get(s.id);
     if (!p || p.behind) continue;                 // 카메라 뒤 = 표시 안 함
@@ -1852,9 +1865,107 @@ function renderPins() {
     pin.style.top = dy + "px";
     pin.innerHTML = '<span class="dot"></span><span class="tag"></span>';
     pin.querySelector(".tag").textContent = simSlotName(s);
+    const truth = truthPins.get(s.id);
+    if (truth) pin.title = t("모델과 오라클의 차이: {d} px", { d: truth.d.toFixed(1) });
     layer.appendChild(pin);
+
+    // 오라클 핀은 우리 핀과 **같은 프레임 좌표계**로 환산한다. 다른 배율을 쓰면
+    // 그 배율 차이가 그대로 모델 오차로 보인다.
+    if (!truth || truth.behind) continue;
+    const cross = document.createElement("div");
+    cross.className = "truth-pin" + (truth.d > ORACLE_TOLERANCE_PX ? " off" : "");
+    cross.style.left = ((truth.x / pinsFrame.width) * rect.width) + "px";
+    cross.style.top = ((truth.y / pinsFrame.height) * rect.height) + "px";
+    layer.appendChild(cross);
   }
 }
+
+// ---- 오라클 대조 ----
+// 시뮬레이터가 존재하는 이유가 이것이다: 여기서는 정답이 실재한다. /simulator/project 는
+// UE 가 실제 렌더에 쓴 뷰·투영 행렬로 월드점을 픽셀로 옮긴 값이고, /simulator/overlay 는
+// 같은 점을 우리 광학 모델로 옮긴 값이다. 둘을 나란히 놓는 것이 우리 모델의 시험이다.
+//
+// 두 답은 반드시 **같은 순간의 자세**로 물어야 한다. 오라클은 렌더러의 현재 자세를 쓰고
+// 오버레이는 우리가 넘긴 PTZ 를 쓰므로, 카메라가 도는 중에 재면 그 시간차가 고스란히
+// 모델 오차로 나타난다 — 그래서 PTZ 를 바로 앞에서 새로 읽고 둘을 함께 던진다.
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+async function compareWithOracle() {
+  const out = document.getElementById("oracle-out");
+  const say = (message) => { if (out) out.textContent = message || ""; };
+  if (!activeCam) { say(t("이 카메라의 포즈를 몰라 대조할 수 없습니다.")); return; }
+  const targets = simSlotList.filter((s) => s?.transform?.location);
+  if (!targets.length) { say(t("대조할 주차면이 없습니다.")); return; }
+  const nw = view.naturalWidth || 1920;
+  const nh = view.naturalHeight || 1080;
+  setBusy(true, "오라클 대조 중…");
+  say(t("대조 중…"));
+  try {
+    lastPtz = await getJson(api("/simulator/control/ptz"));
+    ptzEl.textContent = fmt(lastPtz);
+    const [ours, truth] = await Promise.all([
+      postJson(api("/simulator/overlay"), { ptz: lastPtz, width: nw, height: nh, cameraId: activeCam.id }),
+      postJson(api("/simulator/project"), {
+        cameraId: activeCam.id,
+        points: targets.map((s) => s.transform.location),
+        resolution: { width: nw, height: nh },
+      }),
+    ]);
+    // 우리 핀도 이 응답으로 갈아 끼운다 — 두 답이 같은 호출에서 나와야 비교가 성립한다.
+    pinsBySlot = new Map((ours.pins || []).map((p) => [p.id, p]));
+    pinsFrame = { width: ours.width || nw, height: ours.height || nh };
+    // 오라클이 다른 해상도로 답하면 그 배율로 우리 프레임에 맞춘다(요청과 다를 수 있다).
+    const tw = truth.resolution?.width || nw;
+    const th = truth.resolution?.height || nh;
+    const sx = pinsFrame.width / tw;
+    const sy = pinsFrame.height / th;
+
+    truthPins = new Map();
+    const inFrame = [];
+    let behind = 0;
+    let outside = 0;
+    (truth.points || []).forEach((point, index) => {
+      const slot = targets[index];
+      const ourPin = pinsBySlot.get(slot?.id);
+      if (!slot || !ourPin) return;
+      if (point.behind || ourPin.behind) { behind += 1; return; }
+      const x = point.x * sx;
+      const y = point.y * sy;
+      const d = Math.hypot(ourPin.x - x, ourPin.y - y);
+      truthPins.set(slot.id, { x, y, behind: false, d });
+      // 화면 밖 점은 통계에서 뺀다 — 화면 가장자리 너머에서는 각도 오차가 픽셀로 발산해서
+      // 몇 개가 프레임을 벗어났느냐에 따라 "최대 오차"가 널뛴다.
+      if (x >= 0 && x <= pinsFrame.width && y >= 0 && y <= pinsFrame.height) inFrame.push(d);
+      else outside += 1;
+    });
+    renderPins();
+
+    if (!inFrame.length) {
+      oracleSummary = t("프레임 안에 든 주차면이 없습니다 — 카메라를 주차면 쪽으로 돌리고 다시 재세요. (뒤 {b} · 밖 {o})", { b: behind, o: outside });
+    } else {
+      oracleSummary = t("프레임 안 {n}면 · 중앙 {med} px · 최대 {max} px (밖 {o} · 뒤 {b}) — 프레임 {w}×{h}", {
+        n: inFrame.length,
+        med: median(inFrame).toFixed(1),
+        max: Math.max(...inFrame).toFixed(1),
+        o: outside, b: behind, w: pinsFrame.width, h: pinsFrame.height,
+      });
+    }
+    say(oracleSummary);
+    log(t("오라클 대조") + ": " + oracleSummary);
+  } catch (e) {
+    // Fake 씬에는 대조할 렌더가 없다 — 501 이 그 뜻이고, 다른 실패와 섞어 말하지 않는다.
+    say(e.status === 501
+      ? t("이 씬에는 렌더가 없어 오라클이 없습니다 (Fake 모드).")
+      : t("오라클 대조 실패") + ": " + e.message);
+  } finally { setBusy(false); }
+}
+
+document.getElementById("oracle-check").addEventListener("click", compareWithOracle);
 
 // 옛 이름 유지 — 호출부(PTZ 변경·슬롯 갱신)는 그대로 두고 경로만 서버로 바꾼다.
 function reproject() { refreshOverlay(); }
