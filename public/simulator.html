@@ -2749,8 +2749,16 @@ async function spawnSceneCamera(event) {
     cancelPlacing();
     await refreshRig();
   } catch (e) {
-    setCamStatus(t("세우기 실패") + ": " + e.message);
+    // 등록에 실패하면 서버가 카메라를 되돌린다. 되돌리는 것까지 실패하면(rolledBack:false)
+    // 카메라는 씬에 남아 포트를 물고 있다 — "실패"라고만 말하고 목록을 그대로 두면 그
+    // 카메라는 화면 어디에도 없는 채 다음 세우기를 포트 충돌로 막는다.
+    if (e.body?.rolledBack === false) {
+      setCamStatus(t("기기 등록은 실패했지만 카메라는 씬에 남았습니다 — 목록에서 지우세요") + ": " + e.message);
+    } else {
+      setCamStatus(t("세우기 실패") + ": " + e.message);
+    }
     log(t("카메라 세우기 실패") + ": " + e.message);
+    await refreshRig();   // 실패해도 씬은 바뀌었을 수 있다
   } finally { setBusy(false); }
 }
 
@@ -2772,9 +2780,19 @@ async function removeSceneCamera(cam, device) {
 // 씬과 등록부를 함께 다시 읽는다. 둘 중 하나만 갱신하면 화면이 방금 만든 것을 모르거나
 // 방금 지운 것을 계속 보여준다.
 async function refreshRig() {
+  const activeBefore = simActiveCameraId;
   await fetchSimCameras();
   await loadCameras();
   resolveActiveCam();
+  // 보고 있던 카메라를 지우면 서버가 활성 sim 기기를 스스로 갈아 끼운다(그리고 프리뷰는
+  // 스트림이 끊긴 자리에서 새 카메라로 재연결한다). 그때 PTZ 표시와 주차면 핀만 옛 카메라
+  // 것으로 남으면, 새 카메라의 영상 위에 남의 핀이 얹힌 화면이 된다.
+  if (simActiveCameraId !== activeBefore) {
+    lastPtz = null;
+    ptzEl.textContent = "—";
+    reproject();        // 옛 카메라의 핀을 먼저 지운다 — 틀린 자리에 그리느니 안 그린다
+    await loadPtz();    // 새 카메라의 PTZ 로 다시 그린다
+  }
   renderMap();
   renderSceneCameraList();
   renderSimDeviceList();

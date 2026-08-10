@@ -200,6 +200,9 @@ const DICT = {
   "세웠습니다 — 기기 등록은 하지 않았습니다.": { en: "Placed — no device was registered.", vi: "Đã đặt — không đăng ký thiết bị." },
   "세우기 실패": { en: "Could not place the camera", vi: "Không thể đặt camera" },
   "카메라 세우기 실패": { en: "Placing the camera failed", vi: "Đặt camera thất bại" },
+  "기기 등록은 실패했지만 카메라는 씬에 남았습니다 — 목록에서 지우세요":
+    { en: "Device registration failed but the camera is still in the scene — remove it from the list",
+      vi: "Đăng ký thiết bị thất bại nhưng camera vẫn còn trong scene — hãy xóa nó khỏi danh sách" },
   "카메라 '{name}' 를 씬에서 지우고 기기 등록도 해제할까요?":
     { en: "Remove camera '{name}' from the scene and unregister its device?",
       vi: "Xóa camera '{name}' khỏi scene và hủy đăng ký thiết bị?" },
@@ -209,6 +212,12 @@ const DICT = {
   // 씬 스냅샷 — 런타임에 세운 카메라의 유일한 내구 기록.
   "씬 저장": { en: "Save scene", vi: "Lưu scene" },
   "씬 복원": { en: "Restore scene", vi: "Khôi phục scene" },
+  "지금 씬(세운 카메라 + 차량)을 JSON 파일로 내려받습니다":
+    { en: "Download the current scene (placed cameras + cars) as a JSON file",
+      vi: "Tải scene hiện tại (camera đã đặt + xe) dưới dạng tệp JSON" },
+  "저장해 둔 JSON 으로 씬을 되돌립니다":
+    { en: "Restore the scene from a saved JSON file",
+      vi: "Khôi phục scene từ tệp JSON đã lưu" },
   "씬을 읽는 중…": { en: "Reading the scene…", vi: "Đang đọc scene…" },
   "저장했습니다 — 카메라 {cams}대 · 차량 {cars}대":
     { en: "Saved — {cams} cameras, {cars} cars", vi: "Đã lưu — {cams} camera, {cars} xe" },
