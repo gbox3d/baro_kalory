@@ -178,6 +178,7 @@ const DICT = {
     { en: "Check the height, then place it — the tilt is recomputed from the height.",
       vi: "Kiểm tra độ cao rồi đặt — góc chúc được tính lại theo độ cao." },
   "먼저 평면도에서 자리를 정하세요.": { en: "Pick a spot on the map first.", vi: "Hãy chọn vị trí trên sơ đồ trước." },
+  "조준점은 평면도 안에서 찍어야 합니다.": { en: "The aim point has to be clicked inside the map.", vi: "Điểm ngắm phải được nhấp bên trong sơ đồ." },
   "높이를 입력하세요 (m).": { en: "Enter the height (m).", vi: "Nhập độ cao (m)." },
   "포트를 입력하세요.": { en: "Enter the ports.", vi: "Nhập cổng." },
   "레벨 저작": { en: "Level-authored", vi: "Tạo trong level" },
