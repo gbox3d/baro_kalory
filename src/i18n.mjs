@@ -581,9 +581,12 @@ const DICT = {
   "설치 때 사람이 잰 값이 이 축의 정본입니다. 카메라를 옮기면 무효가 되고, 다른 카메라로 복사할 수 없습니다.":
     { en: "A person measuring at install time is the primary source here. Moving the camera voids the value, and it can never be copied from another unit.",
       vi: "Giá trị do người đo khi lắp đặt là nguồn chính. Di chuyển camera làm giá trị mất hiệu lực, và không thể sao chép từ camera khác." },
-  "번호판이 미터를 들여오고 도장 격자가 기하를 줍니다. 둘 다 있어야 답이 나옵니다. 이 카메라의 발행된 줌→화각 곡선이 없으면 시작이 거절됩니다.":
-    { en: "The licence plate brings in metres and the painted grid brings in geometry. Both are required. Start is refused if this camera has no published zoom→HFOV curve.",
-      vi: "Biển số mang lại đơn vị mét, còn lưới sơn mang lại hình học. Cần cả hai. Không có đường cong zoom→HFOV đã phát hành thì việc bắt đầu bị từ chối." },
+  "번호판이 미터를 들여오고 도장 격자가 기하를 줍니다. 둘 다 있어야 답이 나옵니다. 픽셀을 각으로 바꾸는 데 이 기기의 줌→화각 곡선을 씁니다.":
+    { en: "The licence plate brings in metres and the painted grid brings in geometry. Both are required. Turning pixels into angles uses this device's zoom→HFOV curve.",
+      vi: "Biển số mang lại đơn vị mét, còn lưới sơn mang lại hình học. Cần cả hai. Việc đổi pixel thành góc dùng đường cong zoom→HFOV của thiết bị này." },
+  "이 기기에는 발행된 캘리브레이션이 없습니다 — 백엔드가 기본 곡선으로 대신 잽니다. 초점거리 오차가 높이에 그대로 배율로 곱해지므로 결과를 실측으로 쓰지 마세요.":
+    { en: "This device has no published calibration — the backend measures with a default curve instead. A focal-length error scales the height directly, so do not treat the result as a measurement.",
+      vi: "Thiết bị này chưa có hiệu chuẩn được phát hành — backend sẽ đo bằng đường cong mặc định. Sai số tiêu cự nhân thẳng vào chiều cao, nên đừng coi kết quả là số đo thực." },
   "영상에서 설치 높이를 잽니다 — 수 분간 카메라를 점유합니다":
     { en: "Measures the installed height from video — owns the camera for several minutes",
       vi: "Đo chiều cao lắp đặt từ video — chiếm camera trong vài phút" },
