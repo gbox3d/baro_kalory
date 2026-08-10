@@ -139,6 +139,15 @@ header h1 .ver {
   border: 1px solid var(--color-border);
 }
 
+/* 배치 탭일 때만 아래 칸이 커진다 — 평면도가 이 기능의 작업면이라 320px 로는 못 찍는다.
+   다른 탭(로그·설정)은 그만한 높이가 필요 없으므로 늘 키워 두면 화면만 잡아먹는다. */
+#sim-bottom-tabs.tall {
+  flex-basis: 400px;
+  height: 400px;
+  min-height: 400px;
+  max-height: 400px;
+}
+
 .sim-tabs {
   flex: 0 0 auto;
   display: flex;
@@ -403,8 +412,233 @@ header h1 .ver {
   background: var(--color-danger);
 }
 
-#sim-settings-panel {
+#sim-settings-panel,
+#sim-rig-panel {
   overflow: hidden;
+}
+
+/* ---- 카메라 배치 탭 ---- */
+.sim-rig-layout {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 306px;
+  gap: 12px;
+}
+
+.sim-map-pane,
+.sim-rig-side {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel2);
+}
+
+.sim-map-pane {
+  position: relative;
+  display: flex;
+}
+
+#sim-map {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: block;
+}
+
+/* 배치 모드에서만 커서가 조준선이 된다 — 평소엔 읽는 그림이지 찍는 그림이 아니다. */
+#sim-map.placing {
+  cursor: crosshair;
+}
+
+.sim-map-hint {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  right: 6px;
+  margin: 0;
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-slot {
+  fill: rgba(120, 132, 150, .18);
+  stroke: var(--color-border2);
+}
+
+.map-slot.occ {
+  fill: rgba(120, 132, 150, .42);
+}
+
+.map-slot.sel {
+  fill: rgba(255, 255, 255, .16);
+  stroke: var(--color-accent);
+}
+
+.map-cone {
+  fill: var(--color-accent);
+  opacity: .13;
+  stroke: none;
+}
+
+.map-cam {
+  fill: var(--color-accent);
+  stroke: var(--color-bg);
+}
+
+/* 레벨에 저작된 카메라 — 이 화면에서 옮기거나 지울 수 없는 부류라 색이 달라야 한다. */
+.map-cam.authored {
+  fill: var(--color-muted);
+}
+
+.map-cam.sel {
+  fill: var(--color-ok);
+}
+
+.map-cam-label {
+  fill: var(--color-muted);
+  dominant-baseline: middle;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.map-ghost {
+  fill: none;
+  stroke: var(--color-ok);
+  stroke-dasharray: 14 10;
+  pointer-events: none;
+}
+
+.map-ghost-dot {
+  fill: var(--color-ok);
+  pointer-events: none;
+}
+
+.sim-rig-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px;
+  overflow-y: auto;
+}
+
+.sim-rig-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sim-rig-actions button {
+  white-space: nowrap;
+}
+
+.sim-cam-grid {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 5px 7px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.sim-cam-grid label {
+  color: var(--color-label);
+  font-size: 12px;
+}
+
+.sim-cam-unit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.sim-cam-grid input {
+  width: 100%;
+  min-width: 0;
+}
+
+.sim-rig-status {
+  margin: 0;
+  min-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.sim-cam-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sim-cam-row {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+}
+
+.sim-cam-row.sel {
+  border-color: var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.sim-cam-row .cam-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.sim-cam-row .cam-name,
+.sim-cam-row .cam-meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sim-cam-row .cam-name {
+  color: var(--color-bright);
+  font-size: 12px;
+}
+
+.sim-cam-row .cam-meta {
+  color: var(--color-muted);
+  font-size: 10px;
+}
+
+.sim-cam-row button {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+}
+
+.sim-cam-tag {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  font-size: 9px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.sim-cam-tag.warn { color: var(--color-warn); }
+.sim-cam-tag.muted { color: var(--color-muted); }
+
+/* 설정 탭의 기기 행에도 같은 사실을 단다 — 등록은 있는데 씬에 그 포트가 없으면
+   그 기기는 조용히 502 를 뱉는 기기다(2026-08-10 실제 사고). */
+.sim-device-badge.warn {
+  color: var(--color-warn);
+  border-color: var(--color-warn);
 }
 
 .sim-settings-layout {
@@ -624,6 +858,7 @@ header h1 .ver {
       <div class="sim-tabs" role="tablist" aria-label="시뮬레이터 보조 패널">
         <button class="sim-tab active" type="button" data-sim-tab="log">로그</button>
         <button class="sim-tab" type="button" data-sim-tab="position">위치저장</button>
+        <button class="sim-tab" type="button" data-sim-tab="rig">카메라 배치</button>
         <button class="sim-tab" type="button" data-sim-tab="info">시뮬레이터 정보</button>
         <button class="sim-tab" type="button" data-sim-tab="settings">설정</button>
       </div>
@@ -637,6 +872,41 @@ header h1 .ver {
             <button id="sim-save-position" type="button">현재 위치 저장</button>
           </div>
           <div id="sim-saved-positions"></div>
+        </div>
+      </div>
+      <div id="sim-rig-panel" class="sim-tab-panel" data-sim-tab-panel="rig">
+        <div class="sim-rig-layout">
+          <!-- 평면도: 시뮬이 보고한 주차면·카메라를 위에서 내려다본 그림. 좌표는 전부
+               씬에서 오고, 여기서 만들어 내는 값은 없다. -->
+          <section class="sim-map-pane" aria-label="주차장 평면도">
+            <svg id="sim-map" role="img" aria-label="주차장 평면도"></svg>
+            <div id="sim-map-hint" class="hint sim-map-hint">—</div>
+          </section>
+          <section class="sim-rig-side" aria-label="씬 카메라">
+            <div class="sim-rig-actions">
+              <button id="sim-cam-add" type="button">＋ 카메라 세우기</button>
+              <button id="sim-cam-cancel" type="button" hidden>취소</button>
+            </div>
+            <form id="sim-cam-form" class="sim-cam-form" hidden>
+              <div class="sim-cam-grid">
+                <label for="sim-cam-height">높이</label>
+                <span class="sim-cam-unit"><input id="sim-cam-height" type="number" min="0.5" max="60" step="0.1" value="6" /> m</span>
+                <label for="sim-cam-pitch">하향각</label>
+                <span class="sim-cam-unit"><input id="sim-cam-pitch" type="number" min="-89" max="0" step="0.1" /> °</span>
+                <label for="sim-cam-yaw">방위</label>
+                <span class="sim-cam-unit"><input id="sim-cam-yaw" type="number" min="-360" max="360" step="0.1" /> °</span>
+                <label for="sim-cam-http">포트</label>
+                <span class="sim-cam-unit"><input id="sim-cam-http" type="number" min="1" max="65535" /> / <input id="sim-cam-mjpeg" type="number" min="1" max="65535" title="MJPEG 포트" /></span>
+                <label for="sim-cam-name">이름</label>
+                <input id="sim-cam-name" type="text" placeholder="(높이에서 자동)" />
+              </div>
+              <div class="sim-rig-actions">
+                <button id="sim-cam-spawn" type="submit">세우고 등록</button>
+              </div>
+            </form>
+            <div id="sim-cam-status" class="hint sim-rig-status">—</div>
+            <div id="sim-cam-list" class="sim-cam-list"></div>
+          </section>
         </div>
       </div>
       <div id="sim-info-panel" class="sim-tab-panel" data-sim-tab-panel="info">
@@ -811,11 +1081,13 @@ document.querySelectorAll("[data-sim-tab]").forEach((tab) => {
     const key = tab.dataset.simTab;
     document.querySelectorAll("[data-sim-tab]").forEach((el) => el.classList.toggle("active", el.dataset.simTab === key));
     document.querySelectorAll("[data-sim-tab-panel]").forEach((el) => el.classList.toggle("active", el.dataset.simTabPanel === key));
+    document.getElementById("sim-bottom-tabs").classList.toggle("tall", key === "rig");
     if (key === "log") {
       logEl.scrollTop = 0;
       if (logPanel) logPanel.scrollTop = 0;
     }
     if (key === "settings") loadSimulatorSettings();
+    if (key === "rig") refreshRig();
   });
 });
 
@@ -1072,6 +1344,16 @@ function renderSimDeviceList() {
     meta.textContent = `${d.id} · ${simTypeNeedsHost(d.type) ? `${d.host || "?"}:${d.port || "?"}` : t("무카메라")}`;
     main.append(name, meta);
     row.appendChild(main);
+    // 등록은 있는데 씬에 그 포트를 여는 카메라가 없으면, 그 기기는 조용히 502 를 뱉는다.
+    // 어제 넷이 그랬고 화면에는 아무 표시도 없었다 — 그래서 SSH 로 들어가서야 알았다.
+    if (!draft && simTypeNeedsHost(d.type) && simCameras.length
+        && !simCameras.some((c) => Number(c.hucomsPort) === Number(d.port))) {
+      const badge = document.createElement("span");
+      badge.className = "sim-device-badge warn";
+      badge.textContent = t("포즈 없음");
+      badge.title = t("씬에 이 포트를 여는 카메라가 없습니다 — 제어·프리뷰가 502 로 실패합니다.");
+      row.appendChild(badge);
+    }
     if (draft || d.id === simSettingActiveId) {
       const badge = document.createElement("span");
       badge.className = "sim-device-badge";
@@ -1610,6 +1892,8 @@ async function loadSimulator() {
     renderSimSlots(simSlotList);
     refreshSimSelection();
     reproject();
+    renderMap();              // 평면도의 주차면·점유 표시는 이 목록에서 온다
+    renderSceneCameraList();
     status.textContent = "";
   } catch (e) { status.textContent = t("불러오기 실패") + ": " + e.message; }
 }
@@ -1825,6 +2109,447 @@ async function stopSimPreview() {
 simPreviewStartBtn.addEventListener("click", startSimPreview);
 simPreviewStopBtn.addEventListener("click", stopSimPreview);
 renderSimPreviewState();
+
+// ===================== 카메라 배치 (평면도) =====================
+// 시뮬에서 카메라는 접속 대상이 아니라 **만드는 대상**이다. 그래서 이 탭의 정본은 기기
+// 등록부가 아니라 씬이 보고한 카메라 목록(/api/simulator/cameras)이고, 등록은 거기서
+// 파생된다. 반대로 두면 사람이 포트를 관례로 유추해 없는 카메라를 등록하게 된다 —
+// 실제로 그렇게 등록한 기기 넷이 조용히 502 를 뱉었다(2026-08-10).
+//
+// 좌표는 하나도 만들어 내지 않는다. 슬롯·카메라 위치는 전부 씬에서 오고, 사람이 넣는 것은
+// 높이 하나뿐이다. 월드 cm 를 손으로 적게 하는 순간 이 화면은 못 쓰는 화면이 된다.
+const SVG_NS = "http://www.w3.org/2000/svg";
+const mapEl = document.getElementById("sim-map");
+const mapHintEl = document.getElementById("sim-map-hint");
+const camListEl = document.getElementById("sim-cam-list");
+const camStatusEl = document.getElementById("sim-cam-status");
+const camFormEl = document.getElementById("sim-cam-form");
+
+// 위에서 내려다본 그림: UE 는 +X 가 북, +Y 가 동, yaw 0 = +X 다. 화면 위를 북으로 두면
+// mapX = worldY, mapY = -worldX 이고, 그러면 yaw 0 인 카메라가 화면에서 위를 가리킨다.
+const toMap = (w) => ({ x: Number(w?.y) || 0, y: -(Number(w?.x) || 0) });
+const toWorld = (m) => ({ x: -m.y, y: m.x });
+
+let mapSelectedCameraId = "";
+let mapView = null;      // { minX, minY, width, height } (평면도 좌표계)
+let placing = null;      // { stage: "position"|"aim", location?, aim? } — 배치 진행 상태
+
+function svgEl(name, attrs = {}, cls = "") {
+  const node = document.createElementNS(SVG_NS, name);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
+  if (cls) node.setAttribute("class", cls);
+  return node;
+}
+
+function setCamStatus(message) { if (camStatusEl) camStatusEl.textContent = message || ""; }
+
+function mapHint(message) { if (mapHintEl) mapHintEl.textContent = message || ""; }
+
+// 씬이 보고한 것들을 다 담는 사각형. 아무것도 없으면 그릴 것이 없다.
+function computeMapView() {
+  const points = [];
+  for (const s of simSlotList) if (s?.transform?.location) points.push(toMap(s.transform.location));
+  for (const c of simCameras) if (c?.mount?.location) points.push(toMap(c.mount.location));
+  if (!points.length) return null;
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const pad = Math.max(300, Math.max(maxX - minX, maxY - minY) * 0.12);
+  return {
+    minX: minX - pad, minY: minY - pad,
+    width: Math.max(1, (maxX - minX) + pad * 2),
+    height: Math.max(1, (maxY - minY) + pad * 2),
+  };
+}
+
+// 화면 픽셀 → 월드 cm. SVG 가 viewBox 로 맞춰 그리므로 역변환은 브라우저에게 묻는다
+// (직접 계산하면 preserveAspectRatio 의 레터박스만큼 어긋난다).
+function worldAtEvent(event) {
+  const ctm = mapEl.getScreenCTM();
+  if (!ctm) return null;
+  const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
+  return toWorld({ x: point.x, y: point.y });
+}
+
+function cameraDeviceFor(camera) {
+  return simDevices.find((d) => Number(d.port) === Number(camera.hucomsPort)) || null;
+}
+
+function cameraHeightM(camera) {
+  const cm = Number(camera?.heightAboveReferenceGroundCm);
+  return Number.isFinite(cm) ? cm / 100 : null;
+}
+
+function renderMap() {
+  if (!mapEl) return;
+  mapEl.replaceChildren();
+  mapView = computeMapView();
+  if (!mapView) {
+    mapEl.removeAttribute("viewBox");
+    mapHint(t("씬에서 받은 주차면·카메라가 없습니다."));
+    return;
+  }
+  mapEl.setAttribute("viewBox", `${mapView.minX} ${mapView.minY} ${mapView.width} ${mapView.height}`);
+  mapEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  const span = Math.max(mapView.width, mapView.height);
+  const dot = span / 90;
+  const font = span / 46;
+  const coneLen = span * 0.22;
+
+  for (const slot of simSlotList) {
+    const loc = slot?.transform?.location;
+    if (!loc) continue;
+    const p = toMap(loc);
+    // 주차면은 대략 5m×2.5m — 씬은 크기를 안 주므로 규격 사각형으로 그린다(자리 표시용).
+    const yaw = Number(slot?.transform?.rotation?.yaw) || 0;
+    const rect = svgEl("rect", {
+      x: p.x - 125, y: p.y - 250, width: 250, height: 500,
+      transform: `rotate(${-yaw} ${p.x} ${p.y})`,
+      "vector-effect": "non-scaling-stroke",
+    }, "map-slot" + (slot.occupied ? " occ" : "") + (slot.id === simSelectedSlot ? " sel" : ""));
+    rect.addEventListener("click", (e) => {
+      if (placing) return;   // 배치 중에는 지도가 클릭 대상이지 슬롯이 대상이 아니다
+      e.stopPropagation();
+      simSelectedSlot = slot.id;
+      simSelectedCar = slot.carId || null;
+      if (simSelectedCar) loadCarIntoForm(simSelectedCar);
+      refreshSimSelection();
+      renderSimSlots(simSlotList);
+      renderPins();
+      renderMap();
+    });
+    mapEl.appendChild(rect);
+  }
+
+  // 한 폴에 여러 대가 붙으면 위에서 본 그림에서는 **같은 한 점**이다(높이만 다르다).
+  // 그대로 그리면 마커도 라벨도 뭉쳐서 넷 중 아무것도 못 고른다 — 같은 자리끼리 작은
+  // 원으로 벌려 놓고, 라벨은 포트가 아니라 그 폴에서 유일하게 다른 값인 높이로 단다.
+  const clusters = new Map();
+  for (const cam of simCameras) {
+    const loc = cam?.mount?.location;
+    if (!loc) continue;
+    const key = `${Math.round(loc.x / 30)}:${Math.round(loc.y / 30)}`;
+    if (!clusters.has(key)) clusters.set(key, []);
+    clusters.get(key).push(cam.id);
+  }
+
+  for (const cam of simCameras) {
+    const loc = cam?.mount?.location;
+    if (!loc) continue;
+    const p = toMap(loc);
+    const peers = clusters.get(`${Math.round(loc.x / 30)}:${Math.round(loc.y / 30)}`) || [cam.id];
+    if (peers.length > 1) {
+      const turn = (peers.indexOf(cam.id) / peers.length) * Math.PI * 2;
+      p.x += Math.cos(turn) * dot * 2.1;
+      p.y += Math.sin(turn) * dot * 2.1;
+    }
+    const yaw = Number(cam?.mount?.baseYaw) || 0;
+    const half = (Number(cam.wideHFovDeg) || 57) / 2;
+    // 설치 방위의 시야콘. 지금 어디를 보는지(pan)가 아니라 **어떻게 설치됐는지**를 그린다.
+    const arc = (deg) => {
+      const w = { x: loc.x + Math.cos(deg * Math.PI / 180) * coneLen, y: loc.y + Math.sin(deg * Math.PI / 180) * coneLen };
+      return toMap(w);
+    };
+    const a = arc(yaw - half), b = arc(yaw + half);
+    mapEl.appendChild(svgEl("path", {
+      d: `M ${p.x} ${p.y} L ${a.x} ${a.y} A ${coneLen} ${coneLen} 0 0 0 ${b.x} ${b.y} Z`,
+    }, "map-cone"));
+    const marker = svgEl("circle", {
+      cx: p.x, cy: p.y, r: dot, "vector-effect": "non-scaling-stroke",
+    }, "map-cam" + (cam.spawned === false ? " authored" : "") + (cam.id === mapSelectedCameraId ? " sel" : ""));
+    marker.addEventListener("click", (e) => {
+      if (placing) return;
+      e.stopPropagation();
+      selectSceneCamera(cam.id);
+    });
+    const heightM = cameraHeightM(cam);
+    const title = svgEl("title");
+    title.textContent = `:${cam.hucomsPort} · ${heightM === null ? "?" : heightM.toFixed(2) + " m"}`;
+    marker.appendChild(title);
+    mapEl.appendChild(marker);
+    const label = svgEl("text", { x: p.x, y: p.y + dot * 2.8, "font-size": font }, "map-cam-label");
+    label.textContent = heightM === null ? String(cam.hucomsPort) : `${heightM.toFixed(1)}m`;
+    mapEl.appendChild(label);
+  }
+
+  renderPlacingGhost(span);
+}
+
+// 배치 중 미리보기: 세울 자리와 조준선. 아직 씬에는 아무것도 없다.
+function renderPlacingGhost(span) {
+  if (!placing || !placing.location) return;
+  const p = toMap(placing.location);
+  const dot = span / 80;
+  mapEl.appendChild(svgEl("circle", { cx: p.x, cy: p.y, r: dot }, "map-ghost-dot"));
+  if (placing.aim) {
+    const q = toMap(placing.aim);
+    mapEl.appendChild(svgEl("line", {
+      x1: p.x, y1: p.y, x2: q.x, y2: q.y, "vector-effect": "non-scaling-stroke",
+    }, "map-ghost"));
+    mapEl.appendChild(svgEl("circle", { cx: q.x, cy: q.y, r: dot * 0.7 }, "map-ghost-dot"));
+  }
+}
+
+// 자리와 조준점 두 점이면 설치 자세가 다 나온다: 방위는 두 점을 잇는 각, 하향각은
+// 높이와 수평거리의 아크탄젠트. 사람이 각도를 상상해서 적는 일을 없애는 것이 요점이다.
+function poseFromPlacement() {
+  const h = num(document.getElementById("sim-cam-height").value);
+  const heightCm = (h === null ? 6 : h) * 100;
+  const from = placing?.location, to = placing?.aim;
+  if (!from || !to) return { yawDeg: 0, pitchDeg: -20 };
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const dist = Math.hypot(dx, dy);
+  const yawDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+  const pitchDeg = dist < 1 ? -89 : -Math.atan2(heightCm, dist) * 180 / Math.PI;
+  return { yawDeg, pitchDeg: Math.max(-89, Math.min(-1, pitchDeg)) };
+}
+
+// 빈 값은 0 이 아니라 없음이다 — Number("") 도 Number(null) 도 0 이라 그냥 쓰면
+// "높이 0 m 카메라"가 조용히 성립한다.
+function num(value) {
+  if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+// 빈 포트를 고르는 근거는 **씬이 지금 열고 있는 포트**다. 등록부를 근거로 삼으면
+// 등록이 어긋나 있을 때 그 어긋남을 그대로 물려받는다. 관례(+1)로 유추하지도 않는다.
+function suggestPorts() {
+  const used = new Set();
+  for (const cam of simCameras) {
+    if (Number.isFinite(Number(cam.hucomsPort))) used.add(Number(cam.hucomsPort));
+    if (Number.isFinite(Number(cam.mjpegPort))) used.add(Number(cam.mjpegPort));
+  }
+  for (const d of simDevices) {
+    for (const key of ["port", "mjpegPort", "scenePort"]) {
+      const p = Number(d[key]);
+      if (Number.isFinite(p)) used.add(p);
+    }
+  }
+  // 낮은 쪽부터 찾는다. 「쓰인 것 중 최대 + 1」로 늘리면 CGI 포트가 MJPEG 대역(83xx)으로
+  // 흘러들어가 두 대역이 섞이고, 지웠다 만들기를 반복할수록 번호가 실제 대수와 멀어진다.
+  // 짝은 이 씬의 관례대로 CGI + 100 = MJPEG.
+  for (let http = 8200; http <= 8299; http += 1) {
+    if (!used.has(http) && !used.has(http + 100)) return { http, mjpeg: http + 100 };
+  }
+  const highest = used.size ? Math.max(...used) : 8080;
+  for (let http = highest + 1; http <= 65400; http += 1) {
+    if (!used.has(http) && !used.has(http + 100)) return { http, mjpeg: http + 100 };
+  }
+  return { http: "", mjpeg: "" };
+}
+
+function startPlacing() {
+  placing = { stage: "position" };
+  mapSelectedCameraId = "";
+  mapEl.classList.add("placing");
+  camFormEl.hidden = true;
+  // 감추고 드러낸다 — setBusy 가 모든 버튼의 disabled 를 되돌리므로 disabled 로 잠그면
+  // 다른 작업 하나가 끝날 때 배치 중인데도 "＋" 가 되살아난다.
+  document.getElementById("sim-cam-cancel").hidden = false;
+  document.getElementById("sim-cam-add").hidden = true;
+  mapHint(t("카메라를 세울 자리를 평면도에서 클릭하세요."));
+  setCamStatus("");
+  renderMap();
+}
+
+function cancelPlacing() {
+  placing = null;
+  mapEl.classList.remove("placing");
+  camFormEl.hidden = true;
+  document.getElementById("sim-cam-cancel").hidden = true;
+  document.getElementById("sim-cam-add").hidden = false;
+  mapHint(t("카메라를 클릭하면 선택됩니다."));
+  renderMap();
+}
+
+function finishPlacing() {
+  placing.stage = "ready";
+  const { yawDeg, pitchDeg } = poseFromPlacement();
+  document.getElementById("sim-cam-yaw").value = yawDeg.toFixed(1);
+  document.getElementById("sim-cam-pitch").value = pitchDeg.toFixed(1);
+  const ports = suggestPorts();
+  document.getElementById("sim-cam-http").value = ports.http;
+  document.getElementById("sim-cam-mjpeg").value = ports.mjpeg;
+  camFormEl.hidden = false;
+  mapHint(t("높이를 확인하고 세우세요 — 하향각은 높이에서 다시 계산됩니다."));
+  renderMap();
+}
+
+if (mapEl) {
+  let downAt = null;
+  mapEl.addEventListener("mousedown", (event) => {
+    if (!placing || placing.stage === "ready") return;
+    const world = worldAtEvent(event);
+    if (!world) return;
+    downAt = { clientX: event.clientX, clientY: event.clientY, world };
+    if (placing.stage === "position") {
+      placing.location = world;
+      placing.stage = "aim";
+      mapHint(t("이 카메라가 바라볼 지면 지점을 클릭하세요 (드래그해도 됩니다)."));
+      renderMap();
+    }
+  });
+  // 조준선은 프레임마다 한 번만 다시 그린다 — mousemove 마다 SVG 를 통째로 재구성하면
+  // 슬롯 스무 개 남짓에도 끌리는 게 눈에 보인다.
+  let ghostRaf = 0;
+  mapEl.addEventListener("mousemove", (event) => {
+    if (!placing || placing.stage !== "aim" || !placing.location) return;
+    const world = worldAtEvent(event);
+    if (!world) return;
+    placing.aim = world;
+    if (ghostRaf) return;
+    ghostRaf = requestAnimationFrame(() => { ghostRaf = 0; renderMap(); });
+  });
+  window.addEventListener("mouseup", (event) => {
+    if (!placing || placing.stage !== "aim" || !placing.location) { downAt = null; return; }
+    // 눌렀다 뗀 자리가 그대로면 아직 조준점을 안 찍은 것이다 — 두 번째 클릭을 기다린다.
+    const dragged = downAt && Math.hypot(event.clientX - downAt.clientX, event.clientY - downAt.clientY) > 8;
+    const world = worldAtEvent(event);
+    downAt = null;
+    if (!dragged && !placing.aimed) { placing.aimed = true; return; }
+    if (world) placing.aim = world;
+    if (!placing.aim) return;
+    finishPlacing();
+  });
+  // 높이를 바꾸면 하향각이 따라와야 한다 — 두 값이 어긋난 채로 세우면 그게 곧 틀린 설치다.
+  document.getElementById("sim-cam-height").addEventListener("input", () => {
+    if (!placing || !placing.aim) return;
+    document.getElementById("sim-cam-pitch").value = poseFromPlacement().pitchDeg.toFixed(1);
+  });
+}
+
+function selectSceneCamera(id) {
+  mapSelectedCameraId = id;
+  const cam = simCameras.find((c) => c.id === id);
+  const device = cam ? cameraDeviceFor(cam) : null;
+  renderMap();
+  renderSceneCameraList();
+  if (!cam) return;
+  setCamStatus(device
+    ? t("{id} · 기기 {dev}", { id: cam.id, dev: device.id })
+    : t("{id} · 등록된 기기 없음 — 제어·프리뷰는 등록해야 됩니다.", { id: cam.id }));
+}
+
+function renderSceneCameraList() {
+  if (!camListEl) return;
+  camListEl.replaceChildren();
+  if (!simCameras.length) {
+    const empty = document.createElement("div");
+    empty.className = "sim-device-empty";
+    empty.textContent = t("씬에 카메라가 없습니다.");
+    camListEl.appendChild(empty);
+    return;
+  }
+  for (const cam of simCameras) {
+    const device = cameraDeviceFor(cam);
+    const row = document.createElement("div");
+    row.className = "sim-cam-row" + (cam.id === mapSelectedCameraId ? " sel" : "");
+
+    const main = document.createElement("button");
+    main.type = "button";
+    main.className = "cam-main";
+    const heightM = cameraHeightM(cam);
+    const label = document.createElement("span");
+    label.className = "cam-name";
+    label.textContent = device?.name || cam.id;
+    const meta = document.createElement("span");
+    meta.className = "cam-meta";
+    meta.textContent = `:${cam.hucomsPort} · ${heightM === null ? "?" : heightM.toFixed(2) + " m"}`;
+    main.append(label, meta);
+    main.title = `${device?.name || cam.id} · ${cam.id}`;
+    main.addEventListener("click", () => selectSceneCamera(cam.id));
+    row.appendChild(main);
+
+    if (cam.spawned === false) {
+      const tag = document.createElement("span");
+      tag.className = "sim-cam-tag muted";
+      tag.textContent = t("레벨 저작");
+      tag.title = t("레벨에 저작된 카메라는 이 화면에서 옮기거나 지울 수 없습니다.");
+      row.appendChild(tag);
+    }
+    if (!device) {
+      const tag = document.createElement("span");
+      tag.className = "sim-cam-tag warn";
+      tag.textContent = t("미등록");
+      row.appendChild(tag);
+    }
+    if (cam.spawned !== false) {
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = t("삭제");
+      del.addEventListener("click", () => removeSceneCamera(cam, device));
+      row.appendChild(del);
+    }
+    camListEl.appendChild(row);
+  }
+}
+
+async function spawnSceneCamera(event) {
+  event.preventDefault();
+  if (!placing || !placing.location) { setCamStatus(t("먼저 평면도에서 자리를 정하세요.")); return; }
+  const height = num(document.getElementById("sim-cam-height").value);
+  if (height === null || height <= 0) { setCamStatus(t("높이를 입력하세요 (m).")); return; }
+  const httpPort = num(document.getElementById("sim-cam-http").value);
+  const mjpegPort = num(document.getElementById("sim-cam-mjpeg").value);
+  if (httpPort === null || mjpegPort === null) { setCamStatus(t("포트를 입력하세요.")); return; }
+  const ground = simCameras[0]?.groundReference?.zCm;
+  const body = {
+    // 높이는 지면 기준이다 — 월드 z 로 바꾸려면 씬이 보고한 기준면을 더한다.
+    location: { x: placing.location.x, y: placing.location.y, z: height * 100 + (Number(ground) || 0) },
+    yawDeg: num(document.getElementById("sim-cam-yaw").value) ?? 0,
+    pitchDeg: num(document.getElementById("sim-cam-pitch").value) ?? -20,
+    httpPort, mjpegPort,
+  };
+  const name = document.getElementById("sim-cam-name").value.trim();
+  if (name) body.register = { name };
+  setBusy(true, "카메라를 세우는 중…");
+  setCamStatus(t("세우는 중…"));
+  try {
+    const r = await postJson(api("/simulator/cameras"), body);
+    log(t("카메라 세움: {id} :{port}", { id: r.camera.id, port: r.camera.hucomsPort }));
+    setCamStatus(r.device
+      ? t("세웠습니다 — 기기 {dev} 로 등록됨.", { dev: r.device.id })
+      : t("세웠습니다 — 기기 등록은 하지 않았습니다."));
+    cancelPlacing();
+    await refreshRig();
+  } catch (e) {
+    setCamStatus(t("세우기 실패") + ": " + e.message);
+    log(t("카메라 세우기 실패") + ": " + e.message);
+  } finally { setBusy(false); }
+}
+
+async function removeSceneCamera(cam, device) {
+  const label = device?.name || `:${cam.hucomsPort}`;
+  if (!confirm(t("카메라 '{name}' 를 씬에서 지우고 기기 등록도 해제할까요?", { name: label }))) return;
+  setBusy(true, "카메라를 지우는 중…");
+  try {
+    const r = await reqJson("DELETE", api(`/simulator/cameras/${encodeURIComponent(cam.id)}`));
+    setCamStatus(r.warning ? r.warning : t("지웠습니다: {id}", { id: r.removed }));
+    log(t("카메라 삭제: {id}", { id: r.removed }));
+    if (mapSelectedCameraId === cam.id) mapSelectedCameraId = "";
+    await refreshRig();
+  } catch (e) {
+    setCamStatus(t("삭제 실패") + ": " + e.message);
+  } finally { setBusy(false); }
+}
+
+// 씬과 등록부를 함께 다시 읽는다. 둘 중 하나만 갱신하면 화면이 방금 만든 것을 모르거나
+// 방금 지운 것을 계속 보여준다.
+async function refreshRig() {
+  await fetchSimCameras();
+  await loadCameras();
+  resolveActiveCam();
+  renderMap();
+  renderSceneCameraList();
+  renderSimDeviceList();
+  if (!placing) mapHint(t("카메라를 클릭하면 선택됩니다."));
+}
+
+document.getElementById("sim-cam-add").addEventListener("click", startPlacing);
+document.getElementById("sim-cam-cancel").addEventListener("click", cancelPlacing);
+camFormEl.addEventListener("submit", spawnSceneCamera);
 
 // ---- 초기화 ----
 async function initSimulatorPage() {
