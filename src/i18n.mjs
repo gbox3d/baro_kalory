@@ -253,6 +253,9 @@ const DICT = {
       vi: "Scene này không có trình kết xuất nên không có oracle (chế độ fake)." },
   "오라클 대조 실패": { en: "Oracle comparison failed", vi: "Đối chiếu oracle thất bại" },
   "오라클 대조 중…": { en: "Comparing against the oracle…", vi: "Đang đối chiếu với oracle…" },
+  "이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다.":
+    { en: "This scene's ground level is unknown — it needs at least one parking slot or camera.",
+      vi: "Không biết cao độ mặt đất của scene này — cần ít nhất một chỗ đỗ hoặc camera." },
   "시뮬레이터 '{name}'을(를) 삭제할까요?": { en: "Delete simulator '{name}'?", vi: "Xóa mô phỏng '{name}'?" },
   "삭제 중…": { en: "Deleting…", vi: "Đang xóa…" },
   "삭제 실패": { en: "Delete failed", vi: "Xóa thất bại" },

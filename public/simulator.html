@@ -1726,8 +1726,11 @@ function invalidateSimulatorScene({ clearSelection = false } = {}) {
   document.getElementById("sim-level").textContent = "—";
   document.getElementById("sim-plugin-version").textContent = "—";
   document.getElementById("sim-slots").replaceChildren();
+  slotPitchCm = null;   // 레벨이 갈리면 주차면 간격도 갈린다
   refreshSimSelection();
   reproject();
+  renderMap();          // 새 씬을 받기 전까지 옛 레벨의 그림을 남겨 두지 않는다
+  renderSceneCameraList();
 }
 async function loadCameras() {
   try {
@@ -2004,6 +2007,7 @@ async function loadSimulator() {
     document.getElementById("sim-level").textContent = simCatalog.level || "—";
     document.getElementById("sim-plugin-version").textContent = simCatalog.pluginVersion ? "v" + simCatalog.pluginVersion : "—";
     simSlotList = sortSimSlots(slots.slots);   // 투영 대상(월드 좌표 포함)
+    slotPitchCm = null;                        // 새 목록 = 새 간격(레벨이 바뀌었을 수도 있다)
     // 선택 슬롯의 실제 점유 차량으로 편집 대상을 재동기화한다. 스폰 직후엔 방금 배치한
     // 차량이, 삭제/리셋 후엔 null 이 되도록 — 이게 없으면 simSelectedCar 가 슬롯 상태와
     // 어긋나 배치 직후 '적용'(PATCH)이 편집 대상 없음으로 막힌다(다른 슬롯을 찍고 다시
@@ -2304,6 +2308,68 @@ function cameraHeightM(camera) {
   return Number.isFinite(cm) ? cm / 100 : null;
 }
 
+// 이 씬의 지면 z(cm). 사람이 넣는 높이는 **지면 기준**이라 월드 z 로 옮기려면 이 값이 필요하다.
+//
+// 카메라가 하나라도 있으면 씬이 계산해 준 groundReference 가 정답이다. 없을 때가 문제인데,
+// 하필 그때가 **새 레벨에 첫 카메라를 세우는 순간**이다 — 물어볼 카메라가 없다고 0 으로 두면
+// 지면이 z=0 이 아닌 레벨에서 그 차이가 통째로 높이 오차가 된다(이 레벨은 10cm, 다른 레벨은
+// 얼마든지 될 수 있다). 슬롯 z 의 중앙값으로 대신 구한다 — 씬이 쓰는 방법과 같다
+// (groundReference.method = "parkingSlotPlacementOriginMedian").
+function sceneGroundZcm() {
+  for (const cam of simCameras) {
+    const z = Number(cam?.groundReference?.zCm);
+    if (Number.isFinite(z)) return z;
+  }
+  const zs = simSlotList.map((s) => Number(s?.transform?.location?.z)).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!zs.length) return null;   // 슬롯도 카메라도 없으면 모른다 — 0 이라고 우기지 않는다
+  const mid = zs.length >> 1;
+  return zs.length % 2 ? zs[mid] : (zs[mid - 1] + zs[mid]) / 2;
+}
+
+// 주차면 그림 크기 — 씬은 치수를 주지 않는다(`transform` 은 location·rotation 뿐).
+// 그래서 **레벨 자신에게서** 읽어 낸다. 여기에 "2.5×5m" 같은 규격을 박으면 그 레벨에만
+// 맞는 그림이 되고, 버스면·이륜차면이 승용차면으로 그려진다.
+//
+//   길이 = type 문자열 앞의 숫자("5m"→5m). 못 읽으면 폭에서 되돌려 세운다.
+//   폭   = 이 레벨의 주차면 간격(같은 방향 이웃까지의 거리 중앙값). 나란히 놓인 자리
+//          사이 거리가 곧 한 자리의 폭이다.
+// 둘 다 못 구하면 사각형을 그리지 않고 점만 찍는다 — 모르는 치수를 지어내지 않는다.
+let slotPitchCm = null;   // simSlotList 가 바뀔 때만 다시 잰다(레벨이 바뀌면 같이 바뀐다)
+
+function measureSlotPitchCm() {
+  const items = simSlotList
+    .map((s) => ({ loc: s?.transform?.location, yaw: Number(s?.transform?.rotation?.yaw) || 0 }))
+    .filter((s) => s.loc && Number.isFinite(Number(s.loc.x)) && Number.isFinite(Number(s.loc.y)));
+  if (items.length < 2) return null;
+  const gaps = [];
+  for (const a of items) {
+    let best = Infinity;
+    for (const b of items) {
+      if (a === b) continue;
+      // 같은 열의 이웃만 본다. 방향이 다른 자리는 통로 건너편이라 간격이 폭이 아니다.
+      const turn = Math.abs(((a.yaw - b.yaw) % 180 + 180) % 180);
+      if (Math.min(turn, 180 - turn) > 10) continue;
+      best = Math.min(best, Math.hypot(a.loc.x - b.loc.x, a.loc.y - b.loc.y));
+    }
+    if (Number.isFinite(best)) gaps.push(best);
+  }
+  if (!gaps.length) return null;
+  gaps.sort((x, y) => x - y);
+  const mid = gaps.length >> 1;
+  return gaps.length % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2;
+}
+
+function slotBoxCm(slot) {
+  const metres = Number(String(slot?.type || "").match(/^(\d+(?:\.\d+)?)\s*m/i)?.[1]);
+  const fromType = Number.isFinite(metres) && metres > 0 ? metres * 100 : null;
+  const pitch = slotPitchCm;
+  if (fromType === null && pitch === null) return null;
+  // 폭은 이 레벨의 간격, 다만 자리보다 넓을 수는 없다(1m 자리가 5m 자리만큼 넓어지지 않게).
+  const width = pitch === null ? fromType * 0.5 : Math.min(pitch, fromType ?? pitch);
+  const length = fromType === null ? pitch * 2 : fromType;
+  return { length, width };
+}
+
 function renderMap() {
   if (!mapEl) return;
   mapEl.replaceChildren();
@@ -2315,22 +2381,31 @@ function renderMap() {
   }
   mapEl.setAttribute("viewBox", `${mapView.minX} ${mapView.minY} ${mapView.width} ${mapView.height}`);
   mapEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  // 화면상의 크기는 전부 이 span 에서 파생된다 — 어떤 레벨이든, 주차장이 20m 든 200m 든
+  // 마커와 글자가 그림에서 차지하는 비율이 같다.
   const span = Math.max(mapView.width, mapView.height);
   const dot = span / 90;
   const font = span / 46;
   const coneLen = span * 0.22;
+  // 간격은 주차면 목록이 바뀔 때만 다시 잰다 — 이 계산은 n² 이고 renderMap 은 조준 중
+  // 프레임마다 돈다. 목록이 갈릴 때 loadSimulator/invalidateSimulatorScene 가 null 로 비운다.
+  if (slotPitchCm === null) slotPitchCm = measureSlotPitchCm();
 
   for (const slot of simSlotList) {
     const loc = slot?.transform?.location;
     if (!loc) continue;
     const p = toMap(loc);
-    // 주차면은 대략 5m×2.5m — 씬은 크기를 안 주므로 규격 사각형으로 그린다(자리 표시용).
     const yaw = Number(slot?.transform?.rotation?.yaw) || 0;
-    const rect = svgEl("rect", {
-      x: p.x - 125, y: p.y - 250, width: 250, height: 500,
-      transform: `rotate(${-yaw} ${p.x} ${p.y})`,
-      "vector-effect": "non-scaling-stroke",
-    }, "map-slot" + (slot.occupied ? " occ" : "") + (slot.id === simSelectedSlot ? " sel" : ""));
+    const box = slotBoxCm(slot);
+    const cls = "map-slot" + (slot.occupied ? " occ" : "") + (slot.id === simSelectedSlot ? " sel" : "");
+    // 치수를 알면 사각형, 모르면 점. 모르는 것을 규격으로 채워 넣으면 그림이 거짓말을 한다.
+    const rect = box
+      ? svgEl("rect", {
+        x: p.x - box.width / 2, y: p.y - box.length / 2, width: box.width, height: box.length,
+        transform: `rotate(${-yaw} ${p.x} ${p.y})`,
+        "vector-effect": "non-scaling-stroke",
+      }, cls)
+      : svgEl("circle", { cx: p.x, cy: p.y, r: dot * 0.8, "vector-effect": "non-scaling-stroke" }, cls);
     rect.addEventListener("click", (e) => {
       if (placing) return;   // 배치 중에는 지도가 클릭 대상이지 슬롯이 대상이 아니다
       e.stopPropagation();
@@ -2348,11 +2423,17 @@ function renderMap() {
   // 한 폴에 여러 대가 붙으면 위에서 본 그림에서는 **같은 한 점**이다(높이만 다르다).
   // 그대로 그리면 마커도 라벨도 뭉쳐서 넷 중 아무것도 못 고른다 — 같은 자리끼리 작은
   // 원으로 벌려 놓고, 라벨은 포트가 아니라 그 폴에서 유일하게 다른 값인 높이로 단다.
+  //
+  // "같은 자리"의 기준은 실거리가 아니라 **화면에서 겹치는가**다. 마커 반지름(dot)이 이미
+  // span 에서 나오므로 그보다 가까우면 어느 레벨에서든 겹친다. 여기에 "30cm" 같은 실거리를
+  // 박으면 넓은 주차장에서는 겹치는 것들을 못 묶고, 좁은 곳에서는 남남을 묶는다.
+  const clusterRadius = dot * 2;
+  const clusterKey = (loc) => `${Math.round(loc.x / clusterRadius)}:${Math.round(loc.y / clusterRadius)}`;
   const clusters = new Map();
   for (const cam of simCameras) {
     const loc = cam?.mount?.location;
     if (!loc) continue;
-    const key = `${Math.round(loc.x / 30)}:${Math.round(loc.y / 30)}`;
+    const key = clusterKey(loc);
     if (!clusters.has(key)) clusters.set(key, []);
     clusters.get(key).push(cam.id);
   }
@@ -2361,7 +2442,7 @@ function renderMap() {
     const loc = cam?.mount?.location;
     if (!loc) continue;
     const p = toMap(loc);
-    const peers = clusters.get(`${Math.round(loc.x / 30)}:${Math.round(loc.y / 30)}`) || [cam.id];
+    const peers = clusters.get(clusterKey(loc)) || [cam.id];
     if (peers.length > 1) {
       const turn = (peers.indexOf(cam.id) / peers.length) * Math.PI * 2;
       p.x += Math.cos(turn) * dot * 2.1;
@@ -2617,10 +2698,13 @@ async function spawnSceneCamera(event) {
   const httpPort = num(document.getElementById("sim-cam-http").value);
   const mjpegPort = num(document.getElementById("sim-cam-mjpeg").value);
   if (httpPort === null || mjpegPort === null) { setCamStatus(t("포트를 입력하세요.")); return; }
-  const ground = simCameras[0]?.groundReference?.zCm;
+  // 높이는 지면 기준이다 — 월드 z 로 바꾸려면 이 레벨의 지면을 더해야 한다. 모르면
+  // 세우지 않는다: 0 으로 가정하면 지면이 z=0 이 아닌 레벨에서 그 차이가 통째로 높이
+  // 오차가 되고, 그 오차는 나중에 높이 축이 "실측"으로 읽는다.
+  const ground = sceneGroundZcm();
+  if (ground === null) { setCamStatus(t("이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다.")); return; }
   const body = {
-    // 높이는 지면 기준이다 — 월드 z 로 바꾸려면 씬이 보고한 기준면을 더한다.
-    location: { x: placing.location.x, y: placing.location.y, z: height * 100 + (Number(ground) || 0) },
+    location: { x: placing.location.x, y: placing.location.y, z: height * 100 + ground },
     yawDeg: num(document.getElementById("sim-cam-yaw").value) ?? 0,
     pitchDeg: num(document.getElementById("sim-cam-pitch").value) ?? -20,
     httpPort, mjpegPort,
