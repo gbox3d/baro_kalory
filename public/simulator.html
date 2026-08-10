@@ -567,6 +567,11 @@ header h1 .ver {
   overflow-wrap: anywhere;
 }
 
+.sim-rig-snapshot {
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border);
+}
+
 .sim-cam-list {
   display: flex;
   flex-direction: column;
@@ -905,6 +910,13 @@ header h1 .ver {
               </div>
             </form>
             <div id="sim-cam-status" class="hint sim-rig-status">—</div>
+            <!-- 런타임에 세운 카메라는 시뮬이 꺼지면 사라진다. 서버는 스냅샷을 보관하지
+                 않으므로, 이 파일이 리그의 유일한 내구 기록이다. -->
+            <div class="sim-rig-actions sim-rig-snapshot">
+              <button id="sim-snap-save" type="button" title="지금 씬(세운 카메라 + 차량)을 JSON 파일로 내려받습니다">씬 저장</button>
+              <button id="sim-snap-load" type="button" title="저장해 둔 JSON 으로 씬을 되돌립니다">씬 복원</button>
+              <input id="sim-snap-file" type="file" accept="application/json,.json" hidden />
+            </div>
             <div id="sim-cam-list" class="sim-cam-list"></div>
           </section>
         </div>
@@ -2547,9 +2559,87 @@ async function refreshRig() {
   if (!placing) mapHint(t("카메라를 클릭하면 선택됩니다."));
 }
 
+// ---- 씬 스냅샷: 리그의 유일한 내구 기록 ----
+// 런타임에 세운 카메라는 시뮬 프로세스 안에만 산다. 시뮬이 꺼지면 카메라는 사라지는데
+// 그것을 가리키던 기기 등록은 남아 502 를 뱉기 시작한다. 서버는 스냅샷을 보관하지
+// 않으므로(저장 책임은 부르는 쪽), 여기서 파일로 떨어뜨리는 것이 그 대비다.
+async function saveSceneSnapshot() {
+  setCamStatus(t("씬을 읽는 중…"));
+  try {
+    const snap = await getJson(api("/simulator/snapshot"));
+    const stamp = String(snap.savedAtUtc || "").replace(/[:.]/g, "-").replace(/Z$/, "") || "snapshot";
+    const blob = new Blob([JSON.stringify(snap, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${snap.level || "scene"}.${stamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setCamStatus(t("저장했습니다 — 카메라 {cams}대 · 차량 {cars}대", {
+      cams: (snap.cameras || []).length, cars: (snap.cars || []).length,
+    }));
+    log(t("씬 스냅샷 저장: {name}", { name: a.download }));
+  } catch (e) {
+    setCamStatus(t("씬 저장 실패") + ": " + e.message);
+  }
+}
+
+async function restoreSceneSnapshot(file) {
+  let snap;
+  try {
+    snap = JSON.parse(await file.text());
+  } catch (e) {
+    setCamStatus(t("이 파일은 씬 스냅샷이 아닙니다") + ": " + e.message);
+    return;
+  }
+  const cams = (snap.cameras || []).length;
+  const cars = (snap.cars || []).length;
+  // 복원은 되돌릴 수 없다: 차량은 전량 리셋 후 재배치되고, 스냅샷에 없는 스폰 카메라는
+  // 지워진다. 무엇이 사라지는지 세어서 보여준 뒤에 묻는다.
+  const doomed = simCameras.filter((c) => c.spawned && !(snap.cameras || []).some((s) => Number(s.httpPort) === Number(c.hucomsPort))).length;
+  if (!confirm(t("복원하면 차량이 전부 다시 배치되고, 스냅샷에 없는 카메라 {n}대가 지워집니다. 계속할까요? (카메라 {cams} · 차량 {cars})", { n: doomed, cams, cars }))) return;
+  setBusy(true, "씬을 되돌리는 중…");
+  setCamStatus(t("복원 중…"));
+  try {
+    let r;
+    try {
+      r = await postJson(api("/simulator/snapshot"), snap);
+    } catch (e) {
+      // 레벨이 다르면 409 다. 강행 여부는 사람이 정한다 — 다른 주차장의 좌표를 이 레벨에
+      // 쏟아붓는 일이라 조용히 force 를 붙이면 안 된다.
+      if (e.status !== 409) throw e;   // 상태코드로 가른다 — 본문 문구는 서버마다 다르다
+      if (!confirm(t("이 스냅샷은 다른 레벨({level})의 것입니다. 그래도 이 레벨에 적용할까요?", { level: snap.level || "?" }))) {
+        setCamStatus(t("복원을 취소했습니다."));
+        return;
+      }
+      r = await postJson(api("/simulator/snapshot"), { ...snap, force: true });
+    }
+    const c = r.cameras || {};
+    setCamStatus(t("복원됨 — 카메라 +{sp}/이동 {mv}/삭제 {rm} · 차량 {cars}대{fail}", {
+      sp: c.spawned ?? 0, mv: c.moved ?? 0, rm: c.removed ?? 0,
+      cars: r.cars?.restored ?? 0,
+      fail: (r.failures || []).length ? t(" · 실패 {n}건", { n: r.failures.length }) : "",
+    }));
+    log(t("씬 복원: 카메라 +{sp}/{mv}/{rm} · 차량 {cars}", { sp: c.spawned ?? 0, mv: c.moved ?? 0, rm: c.removed ?? 0, cars: r.cars?.restored ?? 0 }));
+    // 복원은 카메라도 차량도 바꾼다 — 등록부·씬·슬롯을 전부 다시 읽는다.
+    simCatalog = null;
+    await refreshRig();
+    await loadSimulator();
+  } catch (e) {
+    setCamStatus(t("복원 실패") + ": " + e.message);
+  } finally { setBusy(false); }
+}
+
 document.getElementById("sim-cam-add").addEventListener("click", startPlacing);
 document.getElementById("sim-cam-cancel").addEventListener("click", cancelPlacing);
 camFormEl.addEventListener("submit", spawnSceneCamera);
+document.getElementById("sim-snap-save").addEventListener("click", saveSceneSnapshot);
+document.getElementById("sim-snap-load").addEventListener("click", () => document.getElementById("sim-snap-file").click());
+document.getElementById("sim-snap-file").addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";   // 같은 파일을 다시 고를 수 있게 — 안 비우면 두 번째 선택이 안 먹는다
+  if (file) restoreSceneSnapshot(file);
+});
 
 // ---- 초기화 ----
 async function initSimulatorPage() {

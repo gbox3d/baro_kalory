@@ -205,6 +205,32 @@ const DICT = {
   "카메라를 지우는 중…": { en: "Removing the camera…", vi: "Đang xóa camera…" },
   "지웠습니다: {id}": { en: "Removed: {id}", vi: "Đã xóa: {id}" },
   "카메라 삭제: {id}": { en: "Camera removed: {id}", vi: "Đã xóa camera: {id}" },
+  // 씬 스냅샷 — 런타임에 세운 카메라의 유일한 내구 기록.
+  "씬 저장": { en: "Save scene", vi: "Lưu scene" },
+  "씬 복원": { en: "Restore scene", vi: "Khôi phục scene" },
+  "씬을 읽는 중…": { en: "Reading the scene…", vi: "Đang đọc scene…" },
+  "저장했습니다 — 카메라 {cams}대 · 차량 {cars}대":
+    { en: "Saved — {cams} cameras, {cars} cars", vi: "Đã lưu — {cams} camera, {cars} xe" },
+  "씬 스냅샷 저장: {name}": { en: "Scene snapshot saved: {name}", vi: "Đã lưu ảnh chụp scene: {name}" },
+  "씬 저장 실패": { en: "Could not save the scene", vi: "Không thể lưu scene" },
+  "이 파일은 씬 스냅샷이 아닙니다": { en: "That file is not a scene snapshot", vi: "Tệp đó không phải ảnh chụp scene" },
+  "복원하면 차량이 전부 다시 배치되고, 스냅샷에 없는 카메라 {n}대가 지워집니다. 계속할까요? (카메라 {cams} · 차량 {cars})":
+    { en: "Restoring re-places every car and removes {n} camera(s) missing from the snapshot. Continue? ({cams} cameras · {cars} cars)",
+      vi: "Khôi phục sẽ đặt lại toàn bộ xe và xóa {n} camera không có trong ảnh chụp. Tiếp tục? ({cams} camera · {cars} xe)" },
+  "씬을 되돌리는 중…": { en: "Restoring the scene…", vi: "Đang khôi phục scene…" },
+  "복원 중…": { en: "Restoring…", vi: "Đang khôi phục…" },
+  "이 스냅샷은 다른 레벨({level})의 것입니다. 그래도 이 레벨에 적용할까요?":
+    { en: "This snapshot is from another level ({level}). Apply it to this level anyway?",
+      vi: "Ảnh chụp này thuộc level khác ({level}). Vẫn áp dụng vào level này?" },
+  "복원을 취소했습니다.": { en: "Restore cancelled.", vi: "Đã hủy khôi phục." },
+  "복원됨 — 카메라 +{sp}/이동 {mv}/삭제 {rm} · 차량 {cars}대{fail}":
+    { en: "Restored — cameras +{sp}/moved {mv}/removed {rm} · {cars} cars{fail}",
+      vi: "Đã khôi phục — camera +{sp}/di chuyển {mv}/xóa {rm} · {cars} xe{fail}" },
+  " · 실패 {n}건": { en: " · {n} failed", vi: " · {n} thất bại" },
+  "씬 복원: 카메라 +{sp}/{mv}/{rm} · 차량 {cars}":
+    { en: "Scene restored: cameras +{sp}/{mv}/{rm} · {cars} cars",
+      vi: "Đã khôi phục scene: camera +{sp}/{mv}/{rm} · {cars} xe" },
+  "복원 실패": { en: "Restore failed", vi: "Khôi phục thất bại" },
   "시뮬레이터 '{name}'을(를) 삭제할까요?": { en: "Delete simulator '{name}'?", vi: "Xóa mô phỏng '{name}'?" },
   "삭제 중…": { en: "Deleting…", vi: "Đang xóa…" },
   "삭제 실패": { en: "Delete failed", vi: "Xóa thất bại" },
