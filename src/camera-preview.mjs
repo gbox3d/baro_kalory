@@ -58,7 +58,9 @@ export function createCameraPreview(opts) {
   let streamRetryCount = 0;
   let hiddenTimer = 0;            // 백그라운드 유예 타이머
   let suspendedByHidden = false;  // 자동 정지인지(= 복귀 시 재개) 사용자 정지인지 구분
-  const stage = img.closest("#stage, #disc-stage") || img.parentElement;
+  // 스테이지는 **클래스**로 찾는다. id 를 나열하면 그 목록이 tailwind.css 의 오버레이 선택자와
+  // 미러가 되어, 새 페이지를 추가할 때 한쪽만 고치면 그 페이지만 조용히 오버레이를 잃는다.
+  const stage = img.closest(".preview-stage") || img.parentElement;
 
   const player = createMjpegPlayer({
     img,

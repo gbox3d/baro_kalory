@@ -71,7 +71,7 @@ test("식별자 키는 실제로 data-i18n-html 이 가리킨다", async () => {
   // 항목이 되고, 한국어 값까지 들고 있어서 살아 있는 것처럼 보인다.
   const src = await readFile(SRC, "utf8");
   const pages = await Promise.all(
-    ["cctv", "discovery", "simulator", "settings", "calibration", "home"]
+    ["cctv", "discovery", "simulator", "settings", "calibration", "height", "home"]
       .map((p) => readFile(new URL(`../public/${p}.html`, import.meta.url), "utf8").catch(() => "")),
   );
   const html = pages.join("\n");

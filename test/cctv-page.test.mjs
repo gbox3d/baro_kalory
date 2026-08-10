@@ -63,8 +63,9 @@ test("첫 페인트는 대기가 아니라 정지 상태로 그린다", async ()
     readFile(cctvPageUrl, "utf8"),
     readFile(new URL("../public/discovery.html", import.meta.url), "utf8"),
   ]);
-  for (const [page, stageId, imgId] of [[html, "stage", "view"], [discovery, "disc-stage", "disc-view"]]) {
-    assert.match(page, new RegExp(`id="${stageId}" class="preview-paused" data-paused-label="[^"]+"`),
+  const height = await readFile(new URL("../public/height.html", import.meta.url), "utf8");
+  for (const [page, stageId, imgId] of [[html, "stage", "view"], [discovery, "disc-stage", "disc-view"], [height, "hgt-stage", "hgt-view"]]) {
+    assert.match(page, new RegExp(`id="${stageId}" class="preview-stage preview-paused" data-paused-label="[^"]+"`),
       `${stageId} 는 정지 상태 + 문구로 첫 페인트를 그려야 한다`);
     assert.doesNotMatch(page, new RegExp(`id="${stageId}" class="preview-waiting"`),
       `${stageId} 가 대기로 시작하면 안 켠 페이지가 영원히 Wait 로 남는다`);

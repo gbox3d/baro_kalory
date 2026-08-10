@@ -9,6 +9,9 @@ export const PAGES = [
   { id: "simulator",   slug: "simulator",   label: "시뮬레이터 셋업", versionKey: "simulator",   badge: "SIM" },
   { id: "settings",    slug: "settings",    label: "설정",          versionKey: "settings",    badge: "SET" },
   { id: "calibration", slug: "calibration", label: "캘리브레이션",    versionKey: "calibration", badge: "CAL" },
+  // 높이 축은 캘리브레이션 **뒤**다. 픽셀을 각으로 바꾸려면 발행된 줌→화각 곡선이 필요해서
+  // 의존이 한 방향뿐이고(광학 먼저, 높이 나중), 목록 순서가 그 순서를 말한다.
+  { id: "height",      slug: "height",      label: "설치 높이",       versionKey: "height",      badge: "HGT" },
 ];
 
 export function getPage(id) {

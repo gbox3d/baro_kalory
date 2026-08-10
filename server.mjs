@@ -22,6 +22,7 @@
 //    안 하면 프록시가 유령 시청자로 남아 카메라를 영구 점유한다.
 
 import { createServer, request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { pipeline } from "node:stream";
 import { readFile } from "node:fs/promises";
 import { dirname, extname, resolve, sep } from "node:path";
@@ -58,11 +59,13 @@ const PAGE_ROUTES = {
   "/simulator": "simulator.html",
   "/settings": "settings.html",
   "/calibration": "calibration.html",
+  "/height": "height.html",
   "/v0": "cctv.html",
 };
 const PAGE_REDIRECTS = {
   "/cctv/": "/cctv", "/simulator/": "/simulator", "/v0/": "/v0",
   "/settings/": "/settings", "/calibration/": "/calibration", "/discovery/": "/discovery",
+  "/height/": "/height",
 };
 
 function optionValue(flag) {
@@ -74,6 +77,17 @@ const BASE_PATH = normalizeBase(optionValue("--base") || process.env.BARO_FRONTE
 const port = Number(optionValue("--port") || process.env.BARO_FRONTEND_PORT || 8180);
 const host = optionValue("--host") || process.env.BARO_FRONTEND_HOST || "127.0.0.1";
 const backendOrigin = new URL(optionValue("--backend") || process.env.BARO_BACKEND_URL || "http://127.0.0.1:8080");
+// backend 는 https 일 수 있다(터널·CDN 뒤). 스킴을 안 가르면 node:http 로 443 이 아닌 80 을
+// 치게 되는데, 그게 통하는 호스트가 있어서 **되는 것처럼 보이다가** TLS 전용 호스트에서만
+// 조용히 죽는다 — 그런 실패는 원인을 찾는 데 시간이 가장 많이 든다.
+const backendIsTls = backendOrigin.protocol === "https:";
+const backendPort = Number(backendOrigin.port) || (backendIsTls ? 443 : 80);
+// backend 가 마운트 아래 있는 배포(`https://호스트/calory`)가 정상이다 — .env.example 이 그
+// 형태를 문서화하고 브라우저 쪽 cleanApiBase 도 경로를 보존한다. 여기서만 떨어뜨리면 개발
+// 프록시가 말없이 루트를 쳐서 404 를 "백엔드가 이상하다"로 오인하게 만든다.
+const backendMount = backendOrigin.pathname.replace(/\/+$/, "");
+// 화면(설정 탭)이 "지금 어느 backend 를 보고 있나"에 답할 때 쓰는 값 — 마운트까지가 답이다.
+const backendLabel = `${backendOrigin.origin}${backendMount}`;
 
 function contentTypeFor(filePath) {
   if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
@@ -125,18 +139,21 @@ async function serveStatic(res, pathname, search = "") {
 // upstreamPath 는 **이 서버의 마운트를 이미 벗긴** 경로다(호출부에서 벗긴다). backend 에
 // 우리 프리픽스를 넘기지 않는 이유: 프리픽스는 이 배포의 사실이지 backend 가 아는 것이 아니다.
 function proxyToBackend(req, res, upstreamPath) {
-  const upstream = httpRequest({
+  // Host 헤더는 **backend 가 아는 자기 이름**이어야 한다(포트가 기본이면 붙이지 않는다) —
+  // TLS 뒤의 가상호스트·터널은 이 값으로 라우팅하므로 어긋나면 404 나 인증서 오류가 난다.
+  const upstream = (backendIsTls ? httpsRequest : httpRequest)({
     host: backendOrigin.hostname,
-    port: backendOrigin.port || 80,
+    port: backendPort,
     method: req.method,
-    path: upstreamPath,
-    headers: { ...req.headers, host: `${backendOrigin.hostname}:${backendOrigin.port || 80}` },
+    path: `${backendMount}${upstreamPath}`,
+    headers: { ...req.headers, host: backendOrigin.host },
+    ...(backendIsTls ? { servername: backendOrigin.hostname } : {}),
   });
   upstream.on("response", (up) => {
     // 브라우저는 프록시 뒤의 backend 를 알 수 없다 — API 가 동일 출처로 보이기 때문이다.
     // 그래서 "지금 어느 backend 를 보고 있나"를 화면이 답할 수 없었다(설정 탭 공란).
     // 프록시만 아는 사실이므로 프록시가 실어 보낸다. nginx conf 도 같은 헤더를 보낸다.
-    res.writeHead(up.statusCode || 502, { ...up.headers, "x-baro-upstream": backendOrigin.origin });
+    res.writeHead(up.statusCode || 502, { ...up.headers, "x-baro-upstream": backendLabel });
     // pipe() 가 아니라 pipeline(): backend 가 응답 도중 FIN 으로 죽으면(pm2 restart 가 정확히
     // 이 경우 — SIGTERM 핸들러가 없어 즉시 종료) pipe() 는 res 를 끝내지 않아 클라이언트가
     // 영구 대기한다(MJPEG 뷰어 무한 동결, 실측 재현). pipeline 은 소스 조기 종료를 res 파괴로
@@ -145,8 +162,8 @@ function proxyToBackend(req, res, upstreamPath) {
   });
   upstream.on("error", () => {
     if (!res.headersSent) {
-      res.writeHead(502, { "content-type": "application/json", "x-baro-upstream": backendOrigin.origin });
-      res.end(JSON.stringify({ error: `backend 에 연결할 수 없습니다 (${backendOrigin.origin})` }));
+      res.writeHead(502, { "content-type": "application/json", "x-baro-upstream": backendLabel });
+      res.end(JSON.stringify({ error: `backend 에 연결할 수 없습니다 (${backendLabel})` }));
     } else {
       res.destroy();
     }
@@ -215,5 +232,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen({ port, host }, () => {
-  console.log(`[frontend] http://localhost:${port}${BASE_PATH}/  (bind ${host}, backend → ${backendOrigin.origin})`);
+  console.log(`[frontend] http://localhost:${port}${BASE_PATH}/  (bind ${host}, backend → ${backendLabel})`);
 });

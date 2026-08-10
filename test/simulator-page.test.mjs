@@ -19,7 +19,9 @@ test("simulator settings provides a split list/detail CRUD surface", async () =>
 
 test("simulator preview shares the first-paint waiting state", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
-  assert.match(html, /id="stage" class="preview-waiting"/);
+  // preview-stage 는 오버레이 CSS 와 camera-preview 의 closest() 가 함께 보는 표식이다 —
+  // 빠뜨리면 이 페이지만 대기/정지 오버레이 없이 깨진 이미지 아이콘을 그린다.
+  assert.match(html, /id="stage" class="preview-stage preview-waiting"/);
   assert.match(html, /id="view" class="preview-waiting-image"/);
 });
 

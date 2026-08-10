@@ -23,6 +23,7 @@
 @source "../public/discovery.html";
 @source "../public/settings.html";
 @source "../public/calibration.html";
+@source "../public/height.html";
 @source "../src/*.mjs";
 
 /* ── 기본 테마: 80s 유닉스 쉘 / CRT 터미널 (phosphor green, 심플·차분) ── */
@@ -139,27 +140,30 @@
   #stage { position: relative; line-height: 0; background: #000; border: 1px solid var(--color-border);
     border-radius: var(--radius-card); overflow: hidden; width: 860px; max-width: 100%; box-sizing: border-box; }
   #view { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; height: auto; background: #000; cursor: crosshair; }
-  #stage.preview-waiting::before, #disc-stage.preview-waiting::before {
+  /* 대기/정지 오버레이는 **클래스**로 건다. 예전에는 `#stage, #disc-stage` 처럼 id 를 나열했는데,
+     그 목록이 camera-preview.mjs 의 closest() 와 미러가 되어 페이지를 추가할 때마다 두 곳을 같이
+     고쳐야 했다 — 한쪽만 고치면 새 페이지의 프리뷰가 오버레이 없이 깨진 이미지 아이콘을 그린다. */
+  .preview-stage.preview-waiting::before {
     content: ""; position: absolute; inset: 0; z-index: 30; background: #000; pointer-events: none;
   }
-  #stage.preview-waiting::after, #disc-stage.preview-waiting::after {
+  .preview-stage.preview-waiting::after {
     content: "Wait..."; position: absolute; inset: 0; z-index: 31; display: flex; align-items: center; justify-content: center;
     color: var(--color-bright); font-size: 18px; line-height: 1; letter-spacing: 0; text-shadow: 0 0 6px #000; pointer-events: none;
   }
-  #stage.preview-waiting > .preview-waiting-image, #disc-stage.preview-waiting > .preview-waiting-image { visibility: hidden; }
+  .preview-stage.preview-waiting > .preview-waiting-image { visibility: hidden; }
   /* 정지 상태. src 를 지우면 브라우저가 **깨진 이미지 아이콘 + alt 텍스트**를 좌상단에 그린다
      — 사용자에게는 "링크가 깨졌다"로 읽힌다(실제로는 정상적인 정지). 이미지를 감추고
      화면 중앙에 상태를 글자로 쓴다. 대기(Wait...)와 같은 구조라 두 상태가 같은 자리에 뜬다. */
-  #stage.preview-paused::before, #disc-stage.preview-paused::before {
+  .preview-stage.preview-paused::before {
     content: ""; position: absolute; inset: 0; z-index: 30; background: #000; pointer-events: none;
   }
-  #stage.preview-paused::after, #disc-stage.preview-paused::after {
+  .preview-stage.preview-paused::after {
     content: attr(data-paused-label); position: absolute; inset: 0; z-index: 31;
     display: flex; align-items: center; justify-content: center;
     color: var(--color-dim); font-size: 18px; line-height: 1; letter-spacing: 0;
     text-shadow: 0 0 6px #000; pointer-events: none;
   }
-  #stage.preview-paused > .preview-waiting-image, #disc-stage.preview-paused > .preview-waiting-image { visibility: hidden; }
+  .preview-stage.preview-paused > .preview-waiting-image { visibility: hidden; }
   .ptz-control-overlay { position: absolute; left: 12px; bottom: 12px; z-index: 9; width: 386px;
     display: flex; flex-direction: column; gap: 8px; line-height: 1.5; font-size: 11px; pointer-events: auto; }
   .ptz-control-overlay[hidden] { display: none; }

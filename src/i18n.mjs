@@ -563,6 +563,132 @@ const DICT = {
   "스크린샷 실패": { en: "Screenshot failed", vi: "Chụp màn hình thất bại" },
   "스크린샷 실패: 표시 중인 영상 프레임이 없습니다": { en: "Screenshot failed: no video frame is being shown", vi: "Chụp màn hình thất bại: không có khung hình đang hiển thị" },
   "스크린샷 실패: 인코딩 오류": { en: "Screenshot failed: encoding error", vi: "Chụp màn hình thất bại: lỗi mã hóa" },
+
+  // ── 설치 높이(측량) 축 ──
+  // 이 축의 문구는 위상을 말한다: 정본은 시공 실측이고 자동 측정은 보조 출처다. 번역이
+  // 그 위상을 뭉개면(예: measured 를 그냥 "measured height" 로) 화면이 자동을 정본처럼
+  // 보이게 만든다 — 이 축이 가장 피해야 하는 오해다.
+  "Baro Calory · 설치 높이": { en: "Baro Calory · Installed Height", vi: "Baro Calory · Chiều cao lắp đặt" },
+  "설치 높이": { en: "Installed height", vi: "Chiều cao lắp đặt" },
+  "설치 높이 · 측량": { en: "Installed height · Survey", vi: "Chiều cao lắp đặt · Đo đạc" },
+  "카메라가 지면에서 몇 미터에 달렸는가 — 시공 실측 입력(정본)과 영상 자동 측정(보조). 광학 곡선이 있어야 잴 수 있다.":
+    { en: "How many metres above the ground the camera is mounted — the installer's tape measure (primary) and video measurement (secondary). Needs the optical curve first.",
+      vi: "Camera được lắp cao bao nhiêu mét so với mặt đất — đo bằng thước khi lắp (nguồn chính) và đo qua video (phụ). Cần đường cong quang học trước." },
+  "현재 설치 높이": { en: "Current installed height", vi: "Chiều cao lắp đặt hiện tại" },
+  "시공 입력 (정본)": { en: "Installer entry (primary)", vi: "Nhập khi lắp đặt (nguồn chính)" },
+  "자동 측정 (보조)": { en: "Automatic measurement (secondary)", vi: "Đo tự động (phụ)" },
+  "측정 결과": { en: "Measurement result", vi: "Kết quả đo" },
+  "설치 때 사람이 잰 값이 이 축의 정본입니다. 카메라를 옮기면 무효가 되고, 다른 카메라로 복사할 수 없습니다.":
+    { en: "A person measuring at install time is the primary source here. Moving the camera voids the value, and it can never be copied from another unit.",
+      vi: "Giá trị do người đo khi lắp đặt là nguồn chính. Di chuyển camera làm giá trị mất hiệu lực, và không thể sao chép từ camera khác." },
+  "번호판이 미터를 들여오고 도장 격자가 기하를 줍니다. 둘 다 있어야 답이 나옵니다. 이 카메라의 발행된 줌→화각 곡선이 없으면 시작이 거절됩니다.":
+    { en: "The licence plate brings in metres and the painted grid brings in geometry. Both are required. Start is refused if this camera has no published zoom→HFOV curve.",
+      vi: "Biển số mang lại đơn vị mét, còn lưới sơn mang lại hình học. Cần cả hai. Không có đường cong zoom→HFOV đã phát hành thì việc bắt đầu bị từ chối." },
+  "영상에서 설치 높이를 잽니다 — 수 분간 카메라를 점유합니다":
+    { en: "Measures the installed height from video — owns the camera for several minutes",
+      vi: "Đo chiều cao lắp đặt từ video — chiếm camera trong vài phút" },
+  "미측량": { en: "Unsurveyed", vi: "Chưa đo" },
+  "설치 높이 있음": { en: "Height known", vi: "Đã biết chiều cao" },
+  "측량됨": { en: "Surveyed", vi: "Đã đo đạc" },
+  "빈칸은 결함이 아니라 정상 상태입니다. 높이를 모르면 월드 좌표를 광고하지 않습니다.":
+    { en: "Blank is a normal state, not a defect. Without a height the camera does not advertise world coordinates.",
+      vi: "Để trống là trạng thái bình thường, không phải lỗi. Không biết chiều cao thì không công bố tọa độ thế giới." },
+  "지면까지의 거리를 줄 수 있습니다. 월드 좌표(위치·방위)는 아직 모릅니다.":
+    { en: "It can give ground distance. World coordinates (position and bearing) are still unknown.",
+      vi: "Có thể cho khoảng cách tới mặt đất. Tọa độ thế giới (vị trí, hướng) thì chưa biết." },
+  "월드 자세까지 압니다.": { en: "World pose is known too.", vi: "Đã biết cả tư thế trong hệ tọa độ thế giới." },
+  "시공 시 현장 실측": { en: "Measured on site at install", vi: "Đo tại hiện trường khi lắp đặt" },
+  "도면 · 폴 규격": { en: "Drawing / pole spec", vi: "Bản vẽ / quy cách cột" },
+  "영상 자동 측정 (보조)": { en: "Measured from video (secondary)", vi: "Đo tự động từ video (phụ)" },
+  "높이": { en: "Height", vi: "Chiều cao" },
+  "시각": { en: "Time", vi: "Thời điểm" },
+  "측정자": { en: "Operator", vi: "Người đo" },
+  "이름 또는 팀": { en: "Name or team", vi: "Tên hoặc nhóm" },
+  "줄자 · 폴 도면 등": { en: "Tape measure, pole drawing, …", vi: "Thước dây, bản vẽ cột, …" },
+  "프로파일": { en: "Profile", vi: "Hồ sơ" },
+  "읽지 못했습니다": { en: "Could not read it", vi: "Không đọc được" },
+  "활성 기기를 알 수 없습니다.": { en: "The active device is unknown.", vi: "Không xác định được thiết bị đang hoạt động." },
+  "{id} 에 발행된 프로파일이 없습니다 — 캘리브레이션을 먼저 발행하세요.":
+    { en: "No profile has been published for {id} — publish a calibration first.",
+      vi: "Chưa có hồ sơ nào được phát hành cho {id} — hãy phát hành hiệu chuẩn trước." },
+  "높이를 미터로 입력하세요.": { en: "Enter the height in metres.", vi: "Hãy nhập chiều cao theo mét." },
+  "{v} 는 1~30 m 밖입니다 — cm 를 넣으신 건 아닌가요?":
+    { en: "{v} is outside 1–30 m — did you enter centimetres?",
+      vi: "{v} nằm ngoài khoảng 1–30 m — bạn có nhập nhầm đơn vị cm không?" },
+  "{id} 의 설치 높이를 {v} m 로 발행합니다. 발행본은 불변이라 정정도 새 리비전으로 남습니다.":
+    { en: "Publish {v} m as the installed height of {id}. Published documents are immutable, so a correction becomes another revision.",
+      vi: "Phát hành {v} m làm chiều cao lắp đặt của {id}. Bản phát hành là bất biến, nên sửa lại sẽ tạo một phiên bản mới." },
+  "발행 중…": { en: "Publishing…", vi: "Đang phát hành…" },
+  "발행 실패": { en: "Publish failed", vi: "Phát hành thất bại" },
+  "rev {rev} 로 발행했습니다.": { en: "Published as rev {rev}.", vi: "Đã phát hành thành rev {rev}." },
+  "영상 처리": { en: "Image processing", vi: "Xử lý ảnh" },
+  // "검출기" 는 이미 위(Detector 테스트)에 있다 — 같은 낱말이라 다시 넣지 않는다.
+  "준비됨": { en: "Ready", vi: "Sẵn sàng" },
+  "미설정": { en: "Not configured", vi: "Chưa cấu hình" },
+  "준비 상태 확인 중…": { en: "Checking readiness…", vi: "Đang kiểm tra mức sẵn sàng…" },
+  "준비 상태를 알 수 없습니다.": { en: "Readiness is unknown.", vi: "Không rõ mức sẵn sàng." },
+  "사이드카 상태는 대기 중일 때만 보고됩니다.":
+    { en: "Side-car readiness is reported only while the axis is idle.",
+      vi: "Trạng thái side-car chỉ được báo khi trục đang rảnh." },
+  "격자 재료": { en: "Grid material", vi: "Dữ liệu lưới" },
+  "자 {n}": { en: "{n} rulers", vi: "{n} thước" },
+  "지면선 {n}": { en: "{n} ground lines", vi: "{n} vạch mặt đất" },
+  "측정 중": { en: "Measuring", vi: "Đang đo" },
+  "측정 시작": { en: "Start measuring", vi: "Bắt đầu đo" },
+  "{m}분 {s}초 경과": { en: "{m}m {s}s elapsed", vi: "Đã trôi qua {m} phút {s} giây" },
+  "카메라가 원위치로 돌아가지 못했습니다 — 수동 확인이 필요합니다.":
+    { en: "The camera did not return to where it started — check it manually.",
+      vi: "Camera chưa quay lại vị trí ban đầu — cần kiểm tra thủ công." },
+  "측정이 수 분 동안 이 카메라를 점유합니다. 그동안 수동 조작은 거절됩니다. 시작할까요?":
+    { en: "The measurement owns this camera for several minutes and manual moves are refused meanwhile. Start?",
+      vi: "Phép đo sẽ chiếm camera này trong vài phút và mọi thao tác thủ công bị từ chối. Bắt đầu chứ?" },
+  "시작 중…": { en: "Starting…", vi: "Đang bắt đầu…" },
+  "이 기기의 줌→화각 곡선이 없습니다 — 캘리브레이션을 먼저 발행하세요. (픽셀을 각으로 바꾸려면 초점거리가 필요합니다)":
+    { en: "This device has no zoom→HFOV curve — publish a calibration first. (Pixels become angles only if the focal length is known.)",
+      vi: "Thiết bị này chưa có đường cong zoom→HFOV — hãy phát hành hiệu chuẩn trước. (Pixel chỉ thành góc khi biết tiêu cự.)" },
+  "이 백엔드에는 높이 측정 축이 구성돼 있지 않습니다 — 시공 입력은 그대로 쓸 수 있습니다.":
+    { en: "This backend has no height axis configured — the installer entry still works.",
+      vi: "Backend này chưa cấu hình trục chiều cao — phần nhập khi lắp đặt vẫn dùng được." },
+  "상태 조회 실패": { en: "Status query failed", vi: "Truy vấn trạng thái thất bại" },
+  "측정 중 — 결과는 끝나야 나옵니다": { en: "Measuring — the result comes when it finishes", vi: "Đang đo — kết quả chỉ có khi kết thúc" },
+  "아직 측정하지 않았습니다": { en: "Not measured yet", vi: "Chưa đo lần nào" },
+  "합격": { en: "Accepted", vi: "Đạt" },
+  "거부": { en: "Refused", vi: "Bị từ chối" },
+  "측정값": { en: "Measured value", vi: "Giá trị đo" },
+  "값이 나오지 않았습니다 — 발행할 것이 없습니다.":
+    { en: "No value came out — there is nothing to publish.",
+      vi: "Không có giá trị nào — không có gì để phát hành." },
+  "게이트가 거부한 값입니다 — 발행할 수 없습니다.":
+    { en: "The gates refused this value — it cannot be published.",
+      vi: "Các ngưỡng đã từ chối giá trị này — không thể phát hành." },
+  "번호판 지상고": { en: "Plate height above ground", vi: "Chiều cao biển số so với mặt đất" },
+  " (물리 대역 {lo}~{hi})": { en: " (physical band {lo}–{hi})", vi: " (dải vật lý {lo}–{hi})" },
+  "판정 항목": { en: "Gate", vi: "Tiêu chí" },
+  "문턱": { en: "Threshold", vi: "Ngưỡng" },
+  "방향 퍼짐": { en: "Direction spread", vi: "Độ tản hướng" },
+  "격자 잔차": { en: "Grid residual", vi: "Sai số lưới" },
+  "번호판 수": { en: "Plates", vi: "Số biển số" },
+  "군집 지지율": { en: "Cluster support", vi: "Tỷ lệ ủng hộ cụm" },
+  "군집 산포": { en: "Cluster spread", vi: "Độ tản trong cụm" },
+  "자들이 다 같은 방향이면 높이와 자세가 상쇄돼 어떤 높이든 맞아 보입니다.":
+    { en: "When every ruler points the same way, height and pose cancel and any height fits.",
+      vi: "Nếu mọi thước đều cùng hướng, chiều cao và tư thế triệt tiêu nhau nên chiều cao nào cũng có vẻ đúng." },
+  "도장선을 잘못 읽은 것입니다. 판을 더 모아도 이건 못 고칩니다 — 기하가 틀리면 모든 판이 같이 틀리고 자기들끼리는 사이좋게 일치합니다.":
+    { en: "The painted lines were read wrong. More plates cannot fix this — when the geometry is wrong every plate is wrong together and they agree with each other about it.",
+      vi: "Các vạch sơn đã bị đọc sai. Thêm biển số cũng không sửa được — hình học sai thì mọi biển số cùng sai và chúng nhất trí với nhau." },
+  "군집 투표가 성립하지 않습니다.": { en: "A cluster vote is not possible.", vi: "Không thể bỏ phiếu theo cụm." },
+  "판들이 서로 다른 답을 말하고 있습니다.": { en: "The plates disagree with each other.", vi: "Các biển số cho ra kết quả khác nhau." },
+  "군집 안에서도 값이 벌어져 있습니다.": { en: "The values spread out even inside the cluster.", vi: "Ngay trong cụm, các giá trị cũng phân tán." },
+  "제안 발행": { en: "Publish proposal", vi: "Phát hành đề xuất" },
+  "이 측정을 근거와 함께 발행본의 설치 높이로 올립니다 (source: measured)":
+    { en: "Publishes this measurement, with its evidence, as the profile's installed height (source: measured)",
+      vi: "Phát hành phép đo này kèm bằng chứng làm chiều cao lắp đặt của hồ sơ (source: measured)" },
+  "자동 측정은 보조 출처입니다 — 근거(measurement)가 함께 문서에 실립니다.":
+    { en: "Automatic measurement is a secondary source — the evidence rides along in the document.",
+      vi: "Đo tự động là nguồn phụ — bằng chứng được ghi kèm trong tài liệu." },
+  "측정값 {v} m 를 자동 측정(measured)으로 발행합니다. 정본은 시공 실측이며 이 값은 보조 출처로 남습니다.":
+    { en: "Publish {v} m as an automatic measurement (source: measured). The primary source is still the installer's measurement; this stays secondary.",
+      vi: "Phát hành {v} m dưới dạng đo tự động (source: measured). Nguồn chính vẫn là số đo khi lắp đặt; giá trị này là nguồn phụ." },
 };
 
 // Elements with inline markup: key -> full innerHTML per language (data-i18n-html="<key>").
@@ -576,6 +702,11 @@ const HTML = {
     ko: '흰 박스=후보 LP · <span style="color:#16d05a">녹색=선택</span> · 빨강 십자=중앙',
     en: 'White box=candidate LP · <span style="color:#16d05a">green=selected</span> · red cross=center',
     vi: 'Khung trắng=LP ứng viên · <span style="color:#16d05a">xanh=được chọn</span> · chữ thập đỏ=tâm',
+  },
+  "height.normalRefusal": {
+    ko: '이 축은 <b>답을 못 내는 것이 정상 출력</b>입니다. 합격한 측정만 발행할 수 있고, 게이트를 우회하는 문은 없습니다 — 조용히 틀린 높이는 없느니만 못하기 때문입니다.',
+    en: 'For this axis, <b>not answering is a normal outcome</b>. Only an accepted measurement can be published and there is no door around the gates — a quietly wrong height is worse than none.',
+    vi: 'Với trục này, <b>không đưa ra câu trả lời là kết quả bình thường</b>. Chỉ phép đo đạt ngưỡng mới được phát hành và không có cửa nào đi vòng — một chiều cao sai một cách âm thầm còn tệ hơn là không có.',
   },
 };
 

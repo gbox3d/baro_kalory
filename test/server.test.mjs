@@ -48,6 +48,7 @@ test("정적 서빙 + API 프록시 (nginx 미러)", async (t) => {
     ["/discovery", "id=\"disc-wrap\""],
     ["/settings", "id=\"set-panel\""],
     ["/calibration", "id=\"calib-card\""],
+    ["/height", "id=\"hgt-wrap\""],
   ]) {
     const r = await fetch(base + route);
     assert.equal(r.status, 200, route);
@@ -63,6 +64,7 @@ test("정적 서빙 + API 프록시 (nginx 미러)", async (t) => {
     ["/discovery/", "/discovery"],
     ["/settings/", "/settings"],
     ["/calibration/", "/calibration"],
+    ["/height/", "/height"],
     ["/v0/", "/v0"],
   ]) {
     const r = await fetch(base + from, { redirect: "manual" });

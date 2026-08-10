@@ -4,7 +4,7 @@ import test from "node:test";
 
 const webUiDir = new URL("../", import.meta.url);
 
-const APPS = ["calibration", "cctv", "discovery", "settings", "simulator"];
+const APPS = ["calibration", "cctv", "discovery", "height", "settings", "simulator"];
 
 test("각 프런트 앱은 자기 버전을 독립적으로 든다", async () => {
   // public/ 에 있는 이유: 이 파일은 페이지와 **함께 배포**되어야 한다(2026-07-28). 페이지가
@@ -28,6 +28,7 @@ test("페이지는 공용 크롬을 부르고, backend 가 프런트 버전을 �
     ["simulator", "public/simulator.html"],
     ["settings", "public/settings.html"],
     ["calibration", "public/calibration.html"],
+    ["height", "public/height.html"],
     ["home", "public/home.html"],
   ];
   for (const [name, rel] of pages) {
@@ -52,7 +53,7 @@ test("home 카드는 모든 앱을 가리키고 각자의 버전 키를 단다",
   for (const app of APPS) {
     assert.match(home, new RegExp(`data-version-key="${app}"`), `${app} 버전 배지 누락`);
   }
-  for (const slug of ["cctv", "discovery", "simulator", "settings", "calibration"]) {
+  for (const slug of ["cctv", "discovery", "simulator", "settings", "calibration", "height"]) {
     assert.match(home, new RegExp(`href="\\./${slug}"`), `${slug} 카드 링크 누락`);
   }
 });
