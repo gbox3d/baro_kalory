@@ -652,32 +652,22 @@ header h1 .ver {
 .sim-cam-tag.warn { color: var(--color-warn); }
 .sim-cam-tag.muted { color: var(--color-muted); }
 
-/* 설정 탭의 기기 행에도 같은 사실을 단다 — 등록은 있는데 씬에 그 포트가 없으면
-   그 기기는 조용히 502 를 뱉는 기기다(2026-08-10 실제 사고). */
-.sim-device-badge.warn {
-  color: var(--color-warn);
-  border-color: var(--color-warn);
-}
-
-.sim-settings-layout {
-  height: 100%;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 238px minmax(0, 1fr);
-  gap: 12px;
-}
-
-.sim-device-list-pane,
-.sim-device-detail {
-  min-width: 0;
-  min-height: 0;
+/* 설정 탭은 위아래 두 블록이다: 월드(씬 주소·계정)와 그 월드가 가진 카메라 목록.
+   카메라는 씬에서 파생되므로 목록은 읽기 전용이고, 편집 창이 붙던 오른쪽 칸은 없다. */
+.sim-scene-endpoint {
+  margin-bottom: 10px;
+  padding: 8px 10px;
   border: 1px solid var(--color-border);
   background: var(--color-panel2);
 }
 
 .sim-device-list-pane {
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel2);
 }
 
 .sim-device-toolbar {
@@ -693,11 +683,6 @@ header h1 .ver {
 .sim-device-toolbar strong {
   color: var(--color-bright);
   font-size: 12px;
-}
-
-#sim-set-add {
-  padding: 4px 8px;
-  white-space: nowrap;
 }
 
 #sim-set-list {
@@ -767,19 +752,14 @@ header h1 .ver {
   border: 1px dashed var(--color-border);
 }
 
-.sim-device-detail {
-  overflow-y: auto;
-  padding: 8px 10px;
-}
-
-.sim-device-detail-head {
+.sim-pane-head {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 7px;
 }
 
-.sim-device-detail-head strong {
+.sim-pane-head strong {
   color: var(--color-bright);
 }
 
@@ -788,38 +768,6 @@ header h1 .ver {
   color: var(--color-accent);
   border: 1px solid var(--color-accent);
   font-size: 10px;
-}
-
-.sim-settings-grid {
-  display: grid;
-  grid-template-columns: 66px minmax(112px, 1fr) 74px minmax(96px, 1fr);
-  gap: 6px 8px;
-  align-items: center;
-}
-
-.sim-settings-grid input,
-.sim-settings-grid select {
-  width: 100%;
-}
-
-.sim-settings-host-fields {
-  display: contents;
-}
-
-.sim-settings-host-fields[hidden] {
-  display: none;
-}
-
-.sim-settings-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-}
-
-#sim-set-delete {
-  margin-left: auto;
 }
 
 /* Crosshair 토글 — 화면 중앙 조준선만 숨긴다. 슬롯 마커는 '전체 슬롯' 토글이 따로 담당. */
@@ -970,11 +918,11 @@ header h1 .ver {
       </div>
       <div id="sim-settings-panel" class="sim-tab-panel" data-sim-tab-panel="settings">
         <section class="sim-scene-endpoint" aria-label="씬 주소">
-          <div class="sim-device-detail-head">
+          <div class="sim-pane-head">
             <strong>씬 주소</strong>
             <span id="sim-endpoint-state" class="sim-mode-badge">—</span>
           </div>
-          <div class="hint" style="margin:0 0 7px;">시뮬레이터 월드 하나의 주소입니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.</div>
+          <div class="hint" style="margin:0 0 7px;">시뮬레이터 월드 하나의 주소와 계정입니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.</div>
           <div class="row">
             <label>호스트</label>
             <input id="sim-endpoint-host" type="text" placeholder="192.0.2.60" style="width:150px" />
@@ -982,66 +930,26 @@ header h1 .ver {
             <input id="sim-endpoint-port" type="number" min="1" max="65535" placeholder="8095" style="width:80px" />
             <label>Timeout</label>
             <input id="sim-endpoint-timeout" type="number" min="1000" max="120000" step="1000" placeholder="8000" style="width:90px" />
+          </div>
+          <div class="row" style="margin-top:6px;">
+            <label>계정</label>
+            <input id="sim-endpoint-user" type="text" autocomplete="username" placeholder="admin" style="width:120px" />
+            <label>비밀번호</label>
+            <input id="sim-endpoint-pass" type="password" autocomplete="new-password" placeholder="비밀번호" style="width:150px" />
             <button id="sim-endpoint-probe" type="button">연결 테스트</button>
             <button id="sim-endpoint-save" type="button">저장</button>
           </div>
           <div id="sim-endpoint-status" class="hint" style="margin-top:7px;">—</div>
         </section>
-        <div class="sim-settings-layout">
-          <section class="sim-device-list-pane" aria-label="시뮬레이터 목록">
-            <div class="sim-device-toolbar">
-              <strong>시뮬레이터 목록</strong>
-              <button id="sim-set-add" type="button">＋ 추가</button>
-            </div>
-            <div id="sim-set-list"></div>
-          </section>
-          <section class="sim-device-detail" aria-label="시뮬레이터 상세 설정">
-            <div class="sim-device-detail-head">
-              <strong id="sim-set-title">시뮬레이터 상세</strong>
-              <span class="sim-mode-badge">mode: sim</span>
-            </div>
-            <div class="hint" style="margin:0 0 7px;" data-i18n-html="sim.settingsHelp">이 화면은 <b>sim 기기</b>만 관리합니다. 기기 속성은 공용 config에 저장되지만, 현재 사용할 카메라는 앱별로 따로 선택됩니다.</div>
-            <div class="sim-settings-grid">
-              <label>ID</label>
-              <input id="sim-set-id" type="text" maxlength="64" placeholder="sim-cam-03" />
-              <label>이름</label>
-              <input id="sim-set-name" type="text" placeholder="unreal-cam03" />
-
-              <label>타입</label>
-              <select id="sim-set-type">
-                <option value="hucoms">UE 시뮬레이터 (Hucoms 호환)</option>
-                <option value="reference">Baro Reference CCTV (무카메라)</option>
-              </select>
-              <span></span><span></span>
-
-              <div id="sim-set-host-fields" class="sim-settings-host-fields">
-                <label>호스트</label>
-                <input id="sim-set-host" type="text" placeholder="192.0.2.60" />
-                <label>카메라 포트</label>
-                <input id="sim-set-camport" type="number" min="1" max="65535" placeholder="8081" />
-
-                <label>MJPEG 포트</label>
-                <input id="sim-set-mjpegport" type="number" min="1" max="65535" placeholder="8091" />
-                <span></span><span></span>
-
-                <label>계정</label>
-                <input id="sim-set-user" type="text" autocomplete="username" placeholder="admin" />
-                <label>비밀번호</label>
-                <input id="sim-set-pass" type="password" autocomplete="new-password" placeholder="비밀번호" />
-
-                <label>Timeout</label>
-                <input id="sim-set-timeout" type="number" min="1000" max="120000" step="1000" placeholder="8000" />
-                <span></span><span></span>
-              </div>
-            </div>
-            <div class="sim-settings-actions">
-              <button id="sim-set-save" type="button">저장</button>
-              <button id="sim-set-cancel" type="button" hidden>추가 취소</button>
-              <button id="sim-set-delete" type="button">삭제</button>
-            </div>
-            <div id="sim-set-status" class="hint" style="margin-top:7px;">—</div>
-          </section>
-        </div>
+        <section class="sim-device-list-pane" aria-label="시뮬레이터 카메라">
+          <div class="sim-device-toolbar">
+            <strong>시뮬레이터 카메라</strong>
+            <span class="sim-mode-badge">mode: sim</span>
+          </div>
+          <div class="hint" style="margin:7px 8px 0;">이 목록은 시뮬레이터 씬에서 옵니다 — 등록해 두는 것이 아니라 씬에 실제로 있는 카메라입니다. 만들고 지우는 곳은 「카메라」 탭입니다.</div>
+          <div id="sim-set-list"></div>
+          <div id="sim-set-status" class="hint" style="margin:0 8px 8px;">—</div>
+        </section>
       </div>
     </div>
   </div>
@@ -1109,11 +1017,6 @@ const SIM_ACTIVE_CAMERA_KEY = "sim:active-camera.v1";
 const simReadyLed = document.getElementById("sim-ready-led");
 const simReadyText = document.getElementById("sim-ready-text");
 const simSetStatus = document.getElementById("sim-set-status");
-let simSettingDevices = [];    // simulator 전용 API가 반환한 mode:sim 기기만
-let simSettingActiveId = "";   // 시뮬레이터 앱이 현재 사용하는 sim 기기 id
-let simSettingSelectedId = ""; // 설정 탭에서 편집 중인 sim 기기 id
-let simSettingDraft = null;     // 아직 저장되지 않은 새 sim 기기
-let simDeviceTypes = [];       // 서버가 보낸 DEVICE_TYPES — 타입별 needsHost 판정의 정본
 let lastPtz = null;
 
 // ---- 슬롯 위치 오버레이(3D→2D 투영) 상태 ----
@@ -1371,161 +1274,81 @@ function setSimSettingsMessage(message) {
   if (simSetStatus) simSetStatus.textContent = message || "";
 }
 
-// ---- 설정 탭: 왼쪽 sim 전용 목록 + 오른쪽 상세 CRUD. 실기 기기는 브라우저로
-// 내려오지 않으며, 서버가 config 보존과 활성 런타임 교체를 한 작업으로 처리한다.
-function currentSimSettingDevice() {
-  if (simSettingDraft) return simSettingDraft;
-  return simSettingDevices.find((d) => d.id === simSettingSelectedId) || null;
+// ---- 설정 탭: 씬 주소(월드) + 씬에서 파생된 카메라 목록 ----
+// 이 목록은 **읽기 전용**이다. 카메라의 정본은 시뮬레이터 씬이고 이 화면은 그것을 비출 뿐이라,
+// 여기서 만들거나 지울 것이 없다(만드는 곳은 「카메라」 탭 → POST /api/simulator/cameras).
+//
+// 예전에는 이 자리가 기기 CRUD 였다. 그 등록이 씬의 그림자 사본이 되어 반드시 어긋났다 —
+// 시뮬을 재시작하면 스폰 카메라가 사라지고, 레벨을 고치면 저작 카메라가 사라지는데 등록만
+// 남는다. 남은 등록은 없는 포트를 가리켜 8초를 매달리다 502 를 뱉었고, 화면에는 "있지도 않은
+// 카메라"로 그려졌다. 사본을 두지 않으면 어긋날 것도 없어서, "포즈 없음" 경고 배지도 함께
+// 사라졌다 — 목록이 씬에서 오므로 포즈 없는 항목이 생길 수가 없다.
+//
+// 목록의 출처는 loadCameras() 가 채우는 simDevices 하나다. 설정 탭이 자기 사본을 따로 들면
+// 그것이 다시 어긋나는 두 번째 목록이 된다.
+
+function simBadge(text, className = "sim-device-badge") {
+  const badge = document.createElement("span");
+  badge.className = className;
+  badge.textContent = text;
+  return badge;
 }
 
-const SIM_SETTING_FIELD_IDS = [
-  "sim-set-id", "sim-set-name", "sim-set-type", "sim-set-host", "sim-set-camport",
-  "sim-set-mjpegport", "sim-set-user", "sim-set-pass", "sim-set-timeout",
-];
+function simDeviceMetaText(d) {
+  if (!d.port) return `${d.id} · ${t("무카메라")}`;
+  const mjpeg = d.mjpegPort ? ` · mjpeg :${d.mjpegPort}` : "";
+  return `${d.id} · :${d.port}${mjpeg}`;
+}
 
 function renderSimDeviceList() {
   const list = document.getElementById("sim-set-list");
+  if (!list) return;
   list.replaceChildren();
-  if (!simSettingDevices.length && !simSettingDraft) {
+  if (!simDevices.length) {
     const empty = document.createElement("div");
     empty.className = "sim-device-empty";
-    empty.textContent = t("등록된 시뮬레이터가 없습니다.");
+    empty.textContent = t("씬에 카메라가 없습니다 — 「카메라」 탭에서 세우면 여기에 나타납니다.");
     list.appendChild(empty);
     return;
   }
-  const rows = simSettingDraft ? [simSettingDraft, ...simSettingDevices] : simSettingDevices;
-  for (const d of rows) {
-    const draft = d === simSettingDraft;
+  for (const d of simDevices) {
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "sim-device-row" + ((draft || d.id === simSettingSelectedId) ? " selected" : "");
+    row.className = "sim-device-row" + (d.id === simActiveCameraId ? " selected" : "");
     const main = document.createElement("span");
     main.className = "sim-device-main";
     const name = document.createElement("span");
     name.className = "sim-device-name";
-    name.textContent = draft ? t("새 시뮬레이터") : (d.name || d.id);
+    name.textContent = d.name || d.id;
     const meta = document.createElement("span");
     meta.className = "sim-device-meta";
-    meta.textContent = `${d.id} · ${simTypeNeedsHost(d.type) ? `${d.host || "?"}:${d.port || "?"}` : t("무카메라")}`;
+    meta.textContent = simDeviceMetaText(d);
     main.append(name, meta);
     row.appendChild(main);
-    // 등록은 있는데 씬에 그 포트를 여는 카메라가 없으면, 그 기기는 조용히 502 를 뱉는다.
-    // 어제 넷이 그랬고 화면에는 아무 표시도 없었다 — 그래서 SSH 로 들어가서야 알았다.
-    if (!draft && simTypeNeedsHost(d.type) && simCameras.length
-        && !simCameras.some((c) => Number(c.hucomsPort) === Number(d.port))) {
-      const badge = document.createElement("span");
-      badge.className = "sim-device-badge warn";
-      badge.textContent = t("포즈 없음");
-      badge.title = t("씬에 이 포트를 여는 카메라가 없습니다 — 제어·프리뷰가 502 로 실패합니다.");
-      row.appendChild(badge);
-    }
-    if (draft || d.id === simSettingActiveId) {
-      const badge = document.createElement("span");
-      badge.className = "sim-device-badge";
-      badge.textContent = draft ? t("신규") : t("사용 중");
-      row.appendChild(badge);
-    }
-    row.addEventListener("click", () => {
-      if (draft) return;
-      simSettingDraft = null;
-      simSettingSelectedId = d.id;
-      renderSimDeviceList();
-      fillSimDeviceForm();
-    });
+    if (d.fixed) row.appendChild(simBadge(t("고정형")));
+    // 레벨에 저작된 카메라는 씬을 초기화해도 남는다 — 런타임 스폰과 수명이 다르다.
+    if (d.derived && d.spawned === false) row.appendChild(simBadge(t("레벨 저작")));
+    if (d.id === simActiveCameraId) row.appendChild(simBadge(t("사용 중")));
+    row.addEventListener("click", () => selectSimulatorCamera(d.id));
     list.appendChild(row);
   }
 }
 
-function fillSimDeviceForm() {
-  const d = currentSimSettingDevice();
-  const empty = !d;
-  const draft = Boolean(simSettingDraft);
-  const value = d || {};
-  document.getElementById("sim-set-id").value = value.id || "";
-  document.getElementById("sim-set-id").readOnly = !draft;
-  document.getElementById("sim-set-name").value = value.name || "";
-  document.getElementById("sim-set-type").value = value.type || "hucoms";
-  document.getElementById("sim-set-host").value = value.host || "";
-  document.getElementById("sim-set-camport").value = value.port ?? "";
-  document.getElementById("sim-set-mjpegport").value = value.mjpegPort ?? "";
-  document.getElementById("sim-set-user").value = value.username || "";
-  const pass = document.getElementById("sim-set-pass");
-  pass.value = "";
-  pass.placeholder = value.hasPassword ? t("(저장됨 · 변경 시에만 입력)") : t("비밀번호");
-  document.getElementById("sim-set-timeout").value = value.timeoutMs || 8000;
-  document.getElementById("sim-set-title").textContent = draft
-    ? t("새 시뮬레이터")
-    : value.id ? t("시뮬레이터 상세: {id}", { id: value.id }) : t("시뮬레이터 상세");
-  for (const id of SIM_SETTING_FIELD_IDS) document.getElementById(id).disabled = empty;
-  updateSimTypeFields();
-  document.getElementById("sim-set-save").disabled = empty;
-  document.getElementById("sim-set-delete").disabled = empty || draft;
-  document.getElementById("sim-set-cancel").hidden = !draft;
-  if (!simTypeNeedsHost(value.type)) setSimSettingsMessage(t("무카메라 기준기 — 씬 연결 없음(인메모리)."));
-}
-
-// 이 타입이 접속 정보(host/계정)를 갖는가. 판정은 서버가 보내주는 타입 메타(DEVICE_TYPES)로
-// 한다 — 여기에 타입 이름을 박아 두면 개명 한 번에 죽은 분기가 된다. 실제로 옛 이름 "fake" 가
-// 박혀 있어 타입이 reference 로 바뀐 뒤로 **기준기 기기를 추가·저장할 수 없었다**(호스트를
-// 요구했다). 메타가 아직 없으면(첫 로드 전) 접속형으로 본다 — 필드를 감추는 쪽이 위험하다.
-function simTypeNeedsHost(type) {
-  const meta = (simDeviceTypes || []).find((entry) => entry.type === type);
-  return meta ? meta.needsHost !== false : true;
-}
-
-function updateSimTypeFields() {
-  const empty = !currentSimSettingDevice();
-  const hostless = !simTypeNeedsHost(document.getElementById("sim-set-type").value);
-  document.getElementById("sim-set-host-fields").hidden = hostless;
-  void empty;
-}
-
-function readSimDeviceForm() {
-  const existing = simSettingDraft ? null : currentSimSettingDevice();
-  if (!simSettingDraft && !existing) throw new Error(t("시뮬레이터를 선택하거나 추가하세요."));
-  const id = document.getElementById("sim-set-id").value.trim();
-  if (!id) throw new Error(t("ID를 입력하세요"));
-  const type = document.getElementById("sim-set-type").value;
-  const out = {
-    id,
-    name: document.getElementById("sim-set-name").value.trim(),
-    type,
-    mode: "sim",
-  };
-  if (!simTypeNeedsHost(type)) return out;
-  const host = document.getElementById("sim-set-host").value.trim();
-  if (!host) throw new Error(t("호스트를 입력하세요."));
-  const username = document.getElementById("sim-set-user").value.trim();
-  if (!username) throw new Error(t("계정을 입력하세요."));
-  const password = document.getElementById("sim-set-pass").value;
-  if (!password && !(existing && existing.hasPassword)) throw new Error(t("비밀번호를 입력하세요."));
-  const readNum = (fieldId, label, { optional = false, min = 1, max = 65535 } = {}) => {
-    const raw = document.getElementById(fieldId).value.trim();
-    if (raw === "") {
-      if (optional) return "";
-      throw new Error(t("{f}를 입력하세요.", { f: label }));
-    }
-    const number = Number(raw);
-    if (!Number.isInteger(number) || number < min || number > max) throw new Error(`${label}: ${min}..${max}`);
-    return number;
-  };
-  Object.assign(out, {
-    host,
-    port: readNum("sim-set-camport", t("카메라 포트")),
-    mjpegPort: readNum("sim-set-mjpegport", t("MJPEG 포트"), { optional: true }),
-    username,
-    timeoutMs: readNum("sim-set-timeout", "Timeout", { min: 1000, max: 120000 }),
-  });
-  if (password) out.password = password;
-  return out;
+// 카메라 전환은 경로가 하나뿐이어야 한다 — 위쪽 피커의 change 핸들러가 프리뷰 재연결·PTZ
+// 재조회·오버레이 무효화까지 한 묶음으로 처리한다. 여기서 따로 POST 하면 그 뒷정리가 빠진다.
+function selectSimulatorCamera(id) {
+  if (!id || id === simActiveCameraId) return;
+  camSelect.value = id;
+  camSelect.dispatchEvent(new Event("change"));
 }
 
 async function loadSimulatorSettings() {
   try {
-    const result = await getJson(api("/simulator/devices"));
-    setSimulatorSettingsState(result, simSettingSelectedId);
-    if (!simSettingDevices.length) {
-      setSimSettingsMessage(t("등록된 시뮬레이터가 없습니다 — 왼쪽의 추가 버튼으로 등록하세요."));
+    // 목록은 loadCameras 가 서버에서 받아 simDevices 에 채운다(그리고 피커도 같이 맞춘다).
+    await loadCameras();
+    renderSimDeviceList();
+    if (!simDevices.length) {
+      setSimSettingsMessage(t("씬에 카메라가 없습니다 — 「카메라」 탭에서 세우면 여기에 나타납니다."));
       return;
     }
     const state = await refreshSimulatorStatus({ silent: true });
@@ -1535,68 +1358,16 @@ async function loadSimulatorSettings() {
   }
 }
 
-function setSimulatorSettingsState(result, preferredId = "") {
-  simSettingDevices = (result.list || []).map((device) => ({ ...device }));
-  // 타입 메타는 서버(DEVICE_TYPES)가 정본이다 — simTypeNeedsHost 가 이걸 본다.
-  if (Array.isArray(result.deviceTypes)) simDeviceTypes = result.deviceTypes;
-  simSettingActiveId = result.active || "";
-  simSettingDraft = null;
-  simSettingSelectedId = simSettingDevices.some((device) => device.id === preferredId)
-    ? preferredId
-    : simSettingDevices.some((device) => device.id === simSettingActiveId)
-      ? simSettingActiveId
-      : simSettingDevices[0]?.id || "";
-  renderSimDeviceList();
-  fillSimDeviceForm();
-}
-
-function nextSimulatorDraft() {
-  const ids = new Set(simSettingDevices.map((device) => device.id));
-  let number = 1;
-  while (ids.has(`sim-cam-${String(number).padStart(2, "0")}`)) number += 1;
-  const selected = currentSimSettingDevice() || simSettingDevices[0] || {};
-  const nextPort = (key, fallback) => {
-    const used = simSettingDevices.map((device) => Number(device[key])).filter(Number.isInteger);
-    return used.length ? Math.max(...used) + 1 : fallback;
-  };
-  return {
-    id: `sim-cam-${String(number).padStart(2, "0")}`,
-    name: "",
-    type: "hucoms",
-    mode: "sim",
-    host: selected.host || "",
-    port: nextPort("port", 8081),
-    mjpegPort: nextPort("mjpegPort", 8091),
-    timeoutMs: selected.timeoutMs || 8000,
-    username: selected.username || "admin",
-    hasPassword: false,
-  };
-}
-
-function addSimulatorDevice() {
-  simSettingDraft = nextSimulatorDraft();
-  simSettingSelectedId = "";
-  renderSimDeviceList();
-  fillSimDeviceForm();
-  setSimSettingsMessage(t("상세 정보를 입력한 뒤 저장하세요."));
-}
-
-function cancelSimulatorDevice() {
-  simSettingDraft = null;
-  simSettingSelectedId = simSettingDevices.some((device) => device.id === simSettingActiveId)
-    ? simSettingActiveId
-    : simSettingDevices[0]?.id || "";
-  renderSimDeviceList();
-  fillSimDeviceForm();
-}
-
-// ---- 씬 주소: 시뮬 월드 하나의 주소. 카메라 등록과 무관하다 ----
-// 예전에는 이 값이 카메라 기기에 얹혀 있어서, 카메라를 전부 지우면 백엔드가 시뮬을 잃고
-// 조용히 인메모리 더블로 내려갔다. 그래서 자기 화면과 자기 라우트를 준다.
+// ---- 씬 주소: 시뮬 월드 하나의 주소와 계정. 카메라와 무관하다 ----
+// 예전에는 이 값들이 카메라 기기마다 복사돼 있어서, 카메라를 전부 지우면 백엔드가 시뮬을 잃고
+// 조용히 인메모리 더블로 내려갔다. 계정도 카메라의 것이 아니라 월드의 것이라, 파생된 카메라
+// 전부가 여기 적힌 계정 하나로 붙는다.
 const endpointEl = {
   host: document.getElementById("sim-endpoint-host"),
   port: document.getElementById("sim-endpoint-port"),
   timeout: document.getElementById("sim-endpoint-timeout"),
+  user: document.getElementById("sim-endpoint-user"),
+  pass: document.getElementById("sim-endpoint-pass"),
   state: document.getElementById("sim-endpoint-state"),
   status: document.getElementById("sim-endpoint-status"),
 };
@@ -1610,7 +1381,16 @@ function readEndpointForm() {
   const host = endpointEl.host.value.trim();
   const scenePort = endpointEl.port.value.trim();
   const timeoutMs = endpointEl.timeout.value.trim();
-  return { host, scenePort, ...(timeoutMs ? { timeoutMs: Number(timeoutMs) } : {}) };
+  const username = endpointEl.user.value.trim();
+  const password = endpointEl.pass.value;
+  return {
+    host, scenePort,
+    ...(timeoutMs ? { timeoutMs: Number(timeoutMs) } : {}),
+    ...(username ? { username } : {}),
+    // 비밀번호는 서버가 내려주지 않는다. 빈 칸은 "모른다"라서 **보내지 않는 것**이 맞다 —
+    // 빈 문자열로 보내면 호스트만 고치는 저장 한 번에 월드의 계정이 지워진다.
+    ...(password ? { password } : {}),
+  };
 }
 
 async function loadSceneEndpoint() {
@@ -1620,6 +1400,9 @@ async function loadSceneEndpoint() {
     endpointEl.host.value = ep.host || "";
     endpointEl.port.value = ep.scenePort ?? "";
     endpointEl.timeout.value = ep.timeoutMs ?? "";
+    endpointEl.user.value = ep.username || "";
+    endpointEl.pass.value = "";
+    endpointEl.pass.placeholder = ep.hasPassword ? t("(저장됨 · 변경 시에만 입력)") : t("비밀번호");
     setEndpointStatus(r.configured ? `${ep.host}:${ep.scenePort}` : t("씬 주소가 없습니다 — 호스트와 씬 포트를 넣으세요."), r.configured);
   } catch (e) {
     setEndpointStatus(t("씬 주소 조회 실패") + ": " + e.message);
@@ -1646,62 +1429,11 @@ async function saveSceneEndpoint() {
     setEndpointStatus(statusTextFromSimulatorState(r.status || {}), r.configured);
     invalidateSimulatorScene({ clearSelection: true });
     await refreshSimulatorStatus();
+    // 씬이 바뀌면 카메라 목록도 통째로 바뀐다 — 목록의 정본이 그 씬이기 때문이다.
     await loadCameras();
+    await loadSceneEndpoint();   // 비밀번호 칸을 비우고 "(저장됨)" 표시를 되돌린다
   } catch (e) {
     setEndpointStatus(t("저장 실패") + ": " + e.message);
-  }
-}
-
-async function refreshAfterSimulatorDeviceMutation() {
-  const wasRunning = simPreviewRunning;
-  await preview.stop();
-  const hasCamera = await loadCameras();
-  if (hasCamera) {
-    // 껐던 프리뷰가 기기 편집만으로 되살아나면 안 된다 — 돌고 있던 경우에만 재개.
-    if (wasRunning) preview.start();
-    await loadPtz();
-    await refreshCameraPose();
-  } else {
-    lastPtz = null;
-    activeCam = null;
-    ptzEl.textContent = "—";
-    reproject();
-  }
-  simCatalog = null;
-  await loadSimulator();
-}
-
-async function saveSimulatorSettings() {
-  try {
-    const updated = readSimDeviceForm();
-    const creating = Boolean(simSettingDraft);
-    setSimSettingsMessage(t("저장 중..."));
-    const url = creating
-      ? api("/simulator/devices")
-      : api(`/simulator/devices/${encodeURIComponent(simSettingSelectedId)}`);
-    const result = await reqJson(creating ? "POST" : "PATCH", url, updated);
-    setSimulatorSettingsState(result, result.changedId || updated.id);
-    await refreshAfterSimulatorDeviceMutation();
-    await loadSimulatorSettings();
-    log(t(creating ? "시뮬레이터 추가 완료: {id}" : "시뮬레이터 설정 저장 완료: {id}", { id: updated.id }));
-  } catch (e) {
-    setSimSettingsMessage(t("저장 실패") + ": " + e.message);
-  }
-}
-
-async function deleteSimulatorDevice() {
-  const selected = currentSimSettingDevice();
-  if (!selected || simSettingDraft) return;
-  if (!confirm(t("시뮬레이터 '{name}'을(를) 삭제할까요?", { name: selected.name || selected.id }))) return;
-  try {
-    setSimSettingsMessage(t("삭제 중…"));
-    const result = await reqJson("DELETE", api(`/simulator/devices/${encodeURIComponent(selected.id)}`));
-    setSimulatorSettingsState(result, result.active || "");
-    await refreshAfterSimulatorDeviceMutation();
-    await loadSimulatorSettings();
-    log(t("시뮬레이터 삭제 완료: {id}", { id: selected.id }));
-  } catch (e) {
-    setSimSettingsMessage(t("삭제 실패") + ": " + e.message);
   }
 }
 
@@ -1727,13 +1459,8 @@ if (savedPositionNameEl) {
     if (e.key === "Enter") saveCurrentPosition();
   });
 }
-document.getElementById("sim-set-add").addEventListener("click", addSimulatorDevice);
-document.getElementById("sim-set-type").addEventListener("change", updateSimTypeFields);
 document.getElementById("sim-endpoint-probe").addEventListener("click", probeSceneEndpoint);
 document.getElementById("sim-endpoint-save").addEventListener("click", saveSceneEndpoint);
-document.getElementById("sim-set-save").addEventListener("click", saveSimulatorSettings);
-document.getElementById("sim-set-cancel").addEventListener("click", cancelSimulatorDevice);
-document.getElementById("sim-set-delete").addEventListener("click", deleteSimulatorDevice);
 renderSavedPositions();
 
 // ---- 클릭 = 센터링, 드래그 = 박스줌 (제어 페이지 로직 이관) ----
@@ -1849,6 +1576,7 @@ async function loadCameras() {
       simActiveCameraId = selectedId;
       try { localStorage.setItem(SIM_ACTIVE_CAMERA_KEY, selectedId); } catch { /* 저장소 사용 불가 */ }
       setCamInfo("");
+      renderSimDeviceList();   // 설정 탭의 목록은 이 배열 하나를 본다 — 사본을 두지 않는다
       return true;
     } else {
       await preview.stop();
@@ -1857,7 +1585,9 @@ async function loadCameras() {
       activeCam = null;
       ptzEl.textContent = "—";
       reproject();
-      setCamInfo(t('시뮬(mode:sim) 카메라가 없습니다. config에서 mode를 "sim"으로 지정하세요.'));
+      // 카메라 0 대는 고장이 아니라 정상 상태다 — 씬이 비어 있을 뿐이고, 씬 주소는 그대로다.
+      setCamInfo(t("씬에 카메라가 없습니다 — 「카메라」 탭에서 세우면 여기에 나타납니다."));
+      renderSimDeviceList();
     }
     return false;
   } catch (e) { setCamInfo(t("카메라 목록 실패") + ": " + e.message); }

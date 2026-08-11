@@ -4,17 +4,16 @@ import test from "node:test";
 
 const simulatorPageUrl = new URL("../public/simulator.html", import.meta.url);
 
-test("simulator settings provides a split list/detail CRUD surface", async () => {
+// 설정 탭에는 두 가지뿐이다: 월드(씬 주소·계정) 하나와, 그 씬에서 파생된 읽기 전용 카메라 목록.
+// 카메라를 등록하는 창은 없다 — 그 등록이 씬의 그림자 사본이 되어 반드시 어긋났기 때문이다.
+test("설정 탭은 월드 하나와 씬에서 온 읽기 전용 목록뿐이다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
-  assert.match(html, /class="sim-settings-layout"/);
   assert.match(html, /id="sim-set-list"/);
-  assert.match(html, /id="sim-set-add"/);
-  assert.match(html, /id="sim-set-id"/);
-  assert.match(html, /id="sim-set-name"/);
-  assert.match(html, /id="sim-set-type"/);
-  assert.match(html, /id="sim-set-save"/);
-  assert.match(html, /id="sim-set-delete"/);
-  assert.doesNotMatch(html, /id="sim-set-device"/, "the old edit-only device dropdown must stay removed");
+  for (const id of ["sim-set-add", "sim-set-id", "sim-set-name", "sim-set-type",
+                    "sim-set-save", "sim-set-delete", "sim-set-cancel", "sim-set-device"]) {
+    assert.doesNotMatch(html, new RegExp(`id="${id}"`), `${id} 는 기기 CRUD 의 잔재다`);
+  }
+  assert.doesNotMatch(html, /sim-settings-layout|sim-device-detail\b/, "편집 창이 붙던 레이아웃도 함께 사라진다");
 });
 
 test("simulator preview shares the first-paint waiting state", async () => {
@@ -34,12 +33,13 @@ test("simulator PTZ overlay uses the shared overlay behavior", async () => {
   assert.doesNotMatch(html, /sim-abs-ptz-card/);
 });
 
-test("simulator page uses server-owned simulator CRUD and forces sim mode", async () => {
+test("카메라 목록은 읽기만 한다 — 만들고 지우는 자리는 /simulator/cameras 다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
   assert.match(html, /getJson\(api\("\/simulator\/devices"\)\)/);
-  assert.match(html, /reqJson\(creating \? "POST" : "PATCH", url, updated\)/);
-  assert.match(html, /reqJson\("DELETE", api\(`\/simulator\/devices\//);
-  assert.match(html, /mode: "sim"/);
+  // 백엔드가 405 로 답하는 경로다. 화면에 남아 있으면 저장 버튼이 조용히 실패한다.
+  assert.doesNotMatch(html, /"(POST|PATCH|DELETE)", api\(`?\/simulator\/devices/);
+  // 씬을 고치는 자리는 카메라 라우트 하나다.
+  assert.match(html, /reqJson\("PATCH", api\(`\/simulator\/cameras\//);
   assert.doesNotMatch(html, /postJson\(api\("\/cctv\/config"\)/);
 });
 
@@ -108,7 +108,7 @@ test("세우기가 실패해도 리그를 다시 읽는다 — 롤백까지 실�
 test("simulator list rendering uses textContent for config-provided values", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
   const start = html.indexOf("function renderSimDeviceList()");
-  const end = html.indexOf("function fillSimDeviceForm()", start);
+  const end = html.indexOf("function selectSimulatorCamera(", start);
   const render = html.slice(start, end);
   assert.match(render, /name\.textContent =/);
   assert.match(render, /meta\.textContent =/);
@@ -168,7 +168,9 @@ test("카메라 배치 목록은 씬을 주기적으로 다시 읽되, 바뀐 �
 // 백엔드가 인메모리 더블로 내려가고 화면이 실제 주차장 대신 빈 씬을 그렸다.
 test("씬 주소는 카메라가 아니라 월드의 것이다 — 자기 화면과 자기 라우트를 갖는다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
+  // 계정도 월드의 것이다 — 카메라마다 복사돼 있던 것을 이 한 자리로 모았다.
   for (const id of ["sim-endpoint-host", "sim-endpoint-port", "sim-endpoint-timeout",
+                    "sim-endpoint-user", "sim-endpoint-pass",
                     "sim-endpoint-probe", "sim-endpoint-save", "sim-endpoint-status"]) {
     assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
   }
@@ -177,15 +179,21 @@ test("씬 주소는 카메라가 아니라 월드의 것이다 — 자기 화면
   // 기기 편집 폼은 더 이상 씬 포트를 보내지 않는다 — 백엔드가 400 으로 거절한다.
   assert.doesNotMatch(html, /id="sim-set-sceneport"/);
   assert.doesNotMatch(html, /scenePort: selected\.scenePort/);
+
+  // 빈 비밀번호 칸은 "모른다"이지 "지워라"가 아니다. 빈 문자열을 실어 보내면 호스트만
+  // 고치는 저장 한 번에 월드의 계정이 사라지고 모든 파생 카메라가 인증에 실패한다.
+  const start = html.indexOf("function readEndpointForm()");
+  const form = html.slice(start, html.indexOf("async function loadSceneEndpoint(", start));
+  assert.match(form, /\.\.\.\(password \? \{ password \} : \{\}\)/);
 });
 
-// 폼 필드 id 목록은 DOM 과 짝이 맞아야 한다 — fillSimDeviceForm 이 목록을 돌며
-// getElementById(id).disabled 를 쓰기 때문에, 없는 id 가 하나만 남아도 설정 탭이
-// 통째로 죽는다(입력칸을 지우면서 목록을 안 고쳐 실제로 그랬다).
-test("설정 폼 필드 목록은 실재하는 입력만 가리킨다", async () => {
+// JS 가 부르는 element id 는 전부 DOM 에 있어야 한다. getElementById(...).disabled 처럼
+// 곧바로 속성을 쓰는 자리가 많아, 없는 id 가 하나만 남아도 그 탭이 통째로 죽는다 —
+// 입력칸을 지우면서 참조를 안 고쳐 실제로 그랬다(2026-08-11).
+test("화면이 부르는 element id 는 전부 실재한다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
-  const block = html.slice(html.indexOf("const SIM_SETTING_FIELD_IDS = ["));
-  const ids = block.slice(0, block.indexOf("];")).match(/"([a-z0-9-]+)"/g).map((s) => s.replaceAll('"', ""));
-  assert.ok(ids.length >= 8, "목록을 못 읽었다");
-  for (const id of ids) assert.match(html, new RegExp(`id="${id}"`), `${id} 는 DOM 에 없다`);
+  const referenced = new Set([...html.matchAll(/getElementById\("([^"]+)"\)/g)].map((m) => m[1]));
+  const present = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
+  assert.ok(referenced.size > 50, "참조를 못 읽었다");
+  assert.deepEqual([...referenced].filter((id) => !present.has(id)), []);
 });

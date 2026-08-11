@@ -126,16 +126,24 @@ const DICT = {
 
   // simulator settings tab (씬 제어 = sim 기기 기반)
   "기기": { en: "Device", vi: "Thiết bị" },
-  "시뮬레이터 목록": { en: "Simulator list", vi: "Danh sách mô phỏng" },
   "＋ 추가": { en: "＋ Add", vi: "＋ Thêm" },
-  "시뮬레이터 상세": { en: "Simulator details", vi: "Chi tiết mô phỏng" },
-  "시뮬레이터 상세: {id}": { en: "Simulator details: {id}", vi: "Chi tiết mô phỏng: {id}" },
-  "새 시뮬레이터": { en: "New simulator", vi: "Mô phỏng mới" },
-  "신규": { en: "New", vi: "Mới" },
+  "시뮬레이터 카메라":
+    { en: "Simulator cameras", vi: "Camera mô phỏng" },
+  "시뮬레이터 월드 하나의 주소와 계정입니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.":
+    { en: "The address and credentials of the one simulator world. They are independent of cameras, so they stay put even with zero cameras.",
+      vi: "Địa chỉ và thông tin đăng nhập của một thế giới mô phỏng. Chúng độc lập với camera, nên vẫn còn ngay cả khi không có camera nào." },
+  "이 목록은 시뮬레이터 씬에서 옵니다 — 등록해 두는 것이 아니라 씬에 실제로 있는 카메라입니다. 만들고 지우는 곳은 「카메라」 탭입니다.":
+    { en: "This list comes from the simulator scene — these are the cameras that actually exist there, not registered entries. Create and remove them on the Cameras tab.",
+      vi: "Danh sách này đến từ cảnh mô phỏng — đây là những camera thực sự tồn tại ở đó, không phải mục đã đăng ký. Tạo và xoá chúng ở tab Camera." },
+  "씬에 카메라가 없습니다 — 「카메라」 탭에서 세우면 여기에 나타납니다.":
+    { en: "The scene has no cameras — place one on the Cameras tab and it appears here.",
+      vi: "Cảnh chưa có camera nào — dựng một cái ở tab Camera thì nó sẽ xuất hiện ở đây." },
+  "무카메라":
+    { en: "no camera", vi: "không camera" },
+  "고정형":
+    { en: "fixed", vi: "cố định" },
   "사용 중": { en: "Active", vi: "Đang dùng" },
-  "UE 시뮬레이터 (Hucoms 호환)": { en: "UE simulator (Hucoms-compatible)", vi: "Mô phỏng UE (tương thích Hucoms)" },
   "무카메라 mock": { en: "Camera-less mock", vi: "Mock không camera" },
-  "카메라 포트": { en: "Camera port", vi: "Cổng camera" },
   "MJPEG 포트": { en: "MJPEG port", vi: "Cổng MJPEG" },
   "씬 포트": { en: "Scene port", vi: "Cổng scene" },
   "씬 주소": { en: "Scene address", vi: "Địa chỉ scene" },
@@ -145,35 +153,18 @@ const DICT = {
     en: "No scene address yet — enter the host and scene port.",
     vi: "Chưa có địa chỉ scene — nhập host và cổng scene.",
   },
-  "시뮬레이터 월드 하나의 주소입니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.": {
-    en: "One address for the simulator world. It does not belong to any camera, so it survives a scene with zero cameras.",
-    vi: "Một địa chỉ cho thế giới mô phỏng. Nó không thuộc về camera nào, nên vẫn còn khi scene không có camera.",
-  },
   "MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 시뮬레이터 씬 주소는 기기가 아니라 시뮬레이터 화면의 「씬 주소」에서 정합니다 — 월드 하나의 값이라 카메라와 함께 지워지면 안 됩니다.": {
     en: "With an MJPEG port the backend relays that port instead of RTSP. The simulator's scene address is set on the simulator page under \"Scene address\", not here — it belongs to the world, so it must not be deleted along with a camera.",
     vi: "Nếu có cổng MJPEG, backend chuyển tiếp cổng đó thay cho RTSP. Địa chỉ scene của trình mô phỏng được đặt ở trang mô phỏng, mục \"Địa chỉ scene\" — nó thuộc về thế giới nên không được xóa cùng camera.",
   },
   "씬 연결 테스트": { en: "Test scene connection", vi: "Kiểm tra kết nối scene" },
   "저장": { en: "Save", vi: "Lưu" },
-  "추가 취소": { en: "Cancel add", vi: "Hủy thêm" },
   "저장 + 재연결": { en: "Save + Reconnect", vi: "Lưu + Kết nối lại" },
   "저장 중...": { en: "Saving...", vi: "Đang lưu..." },
   "연결 테스트 중...": { en: "Testing connection...", vi: "Đang kiểm tra kết nối..." },
   "연결 테스트 실패": { en: "Connection test failed", vi: "Kiểm tra kết nối thất bại" },
   "상태 확인 실패": { en: "Status check failed", vi: "Kiểm tra trạng thái thất bại" },
-  "{f}를 입력하세요.": { en: "Enter {f}.", vi: "Nhập {f}." },
-  "호스트를 입력하세요.": { en: "Enter the host.", vi: "Nhập host." },
-  "계정을 입력하세요.": { en: "Enter the account.", vi: "Nhập tài khoản." },
-  "비밀번호를 입력하세요.": { en: "Enter the password.", vi: "Nhập mật khẩu." },
-  "시뮬레이터를 선택하거나 추가하세요.": { en: "Select or add a simulator.", vi: "Chọn hoặc thêm mô phỏng." },
-  "등록된 시뮬레이터가 없습니다.": { en: "No simulators registered.", vi: "Chưa đăng ký mô phỏng." },
-  "등록된 시뮬레이터가 없습니다 — 왼쪽의 추가 버튼으로 등록하세요.": { en: "No simulators — add one with the button on the left.", vi: "Chưa có mô phỏng — hãy thêm bằng nút bên trái." },
-  "상세 정보를 입력한 뒤 저장하세요.": { en: "Enter the details, then save.", vi: "Nhập thông tin chi tiết rồi lưu." },
   "무카메라 mock 기기 — 씬 연결 없음(인메모리).": { en: "Camera-less mock — no scene connection (in-memory).", vi: "Mock không camera — không có kết nối scene (trong bộ nhớ)." },
-  "시뮬레이터 추가 완료: {id}": { en: "Simulator added: {id}", vi: "Đã thêm mô phỏng: {id}" },
-  "시뮬레이터 설정 저장 완료: {id}": { en: "Simulator settings saved: {id}", vi: "Đã lưu cài đặt mô phỏng: {id}" },
-  "시뮬레이터 삭제 완료: {id}": { en: "Simulator deleted: {id}", vi: "Đã xóa mô phỏng: {id}" },
-  // 카메라 배치 탭 — 씬이 정본, 등록은 파생.
   "카메라 배치": { en: "Camera layout", vi: "Bố trí camera" },
   "주차장 평면도": { en: "Parking lot map", vi: "Sơ đồ bãi đỗ" },
   "씬 카메라": { en: "Scene cameras", vi: "Camera trong scene" },
@@ -201,9 +192,6 @@ const DICT = {
     { en: "A camera authored into the level cannot be moved or removed from here.",
       vi: "Camera được tạo sẵn trong level không thể di chuyển hay xóa từ đây." },
   "포즈 없음": { en: "No camera", vi: "Không có camera" },
-  "씬에 이 포트를 여는 카메라가 없습니다 — 제어·프리뷰가 502 로 실패합니다.":
-    { en: "No camera in the scene opens this port — control and preview will fail with 502.",
-      vi: "Không có camera nào trong scene mở cổng này — điều khiển và xem trước sẽ lỗi 502." },
   "{id} · 기기 {dev}": { en: "{id} · device {dev}", vi: "{id} · thiết bị {dev}" },
   "{id} · 등록된 기기 없음 — 제어·프리뷰는 등록해야 됩니다.":
     { en: "{id} · no device registered — control and preview need one.",
@@ -305,7 +293,6 @@ const DICT = {
   "설치 갱신: {id} · {h} m": { en: "Installation updated: {id} · {h} m", vi: "Đã cập nhật lắp đặt: {id} · {h} m" },
   "옮겼습니다: {id}": { en: "Moved: {id}", vi: "Đã di chuyển: {id}" },
   "옮기기 실패": { en: "Move failed", vi: "Di chuyển thất bại" },
-  "시뮬레이터 '{name}'을(를) 삭제할까요?": { en: "Delete simulator '{name}'?", vi: "Xóa mô phỏng '{name}'?" },
   "삭제 중…": { en: "Deleting…", vi: "Đang xóa…" },
   "삭제 실패": { en: "Delete failed", vi: "Xóa thất bại" },
   "씬 포트를 입력하세요 (UE 씬 제어 HTTP 포트, 기본 8095).": { en: "Enter the scene port (UE scene-control HTTP port, default 8095).", vi: "Nhập cổng scene (cổng HTTP điều khiển scene UE, mặc định 8095)." },
@@ -863,11 +850,6 @@ const DICT = {
 
 // Elements with inline markup: key -> full innerHTML per language (data-i18n-html="<key>").
 const HTML = {
-  "sim.settingsHelp": {
-    ko: '이 화면은 <b>sim 기기</b>만 관리합니다. 기기 속성은 공용 config에 저장되지만, 현재 사용할 카메라는 앱별로 따로 선택됩니다.',
-    en: 'This screen manages <b>sim devices</b> only. Device properties are saved to the shared config, while each app selects its active camera independently.',
-    vi: 'Màn hình này chỉ quản lý <b>thiết bị sim</b>. Thuộc tính thiết bị được lưu vào config dùng chung, nhưng mỗi ứng dụng chọn camera đang dùng độc lập.',
-  },
   "replay.legend": {
     ko: '흰 박스=후보 LP · <span style="color:#16d05a">녹색=선택</span> · 빨강 십자=중앙',
     en: 'White box=candidate LP · <span style="color:#16d05a">green=selected</span> · red cross=center',
