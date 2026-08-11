@@ -4,16 +4,28 @@ import test from "node:test";
 
 const simulatorPageUrl = new URL("../public/simulator.html", import.meta.url);
 
-// 설정 탭에는 두 가지뿐이다: 월드(시뮬레이터 주소·계정) 하나와, 활성 stage 에서 파생된 읽기 전용 목록.
-// 카메라를 등록하는 창은 없다 — 그 등록이 씬의 그림자 사본이 되어 반드시 어긋났기 때문이다.
-test("설정 탭은 월드 하나와 씬에서 온 읽기 전용 목록뿐이다", async () => {
+// 설정 탭에는 **시뮬레이터 주소 하나뿐**이다.
+//
+// 카메라 목록을 여기 두지 않는 이유: 같은 목록이 이미 두 군데 있다(위쪽 카메라 피커,
+// 「카메라 배치」 탭의 목록). 설정 탭에 세 번째 사본을 두면 아무 힘도 없는 목록 하나가
+// 늘 뿐이고 — 읽기 전용이라 고칠 수도 없고 클릭은 위 피커로 위임했다 — 320px 칸을 넘겨
+// 내용이 잘렸다(실측 203px). 옛 기기 CRUD 창이 있던 자리를 채우려다 만든 사본이었다.
+test("설정 탭은 시뮬레이터 주소 하나뿐이다 — 목록 사본을 두지 않는다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
-  assert.match(html, /id="sim-set-list"/);
-  for (const id of ["sim-set-add", "sim-set-id", "sim-set-name", "sim-set-type",
-                    "sim-set-save", "sim-set-delete", "sim-set-cancel", "sim-set-device"]) {
-    assert.doesNotMatch(html, new RegExp(`id="${id}"`), `${id} 는 기기 CRUD 의 잔재다`);
+  const panel = html.slice(
+    html.indexOf(`id="sim-settings-panel"`),
+    html.indexOf("<!-- 우: 씬 셋업 -->"),
+  );
+  assert.ok(panel.length > 200, "설정 패널을 못 읽었다");
+  assert.match(panel, /id="sim-endpoint-host"/);
+  for (const id of ["sim-set-list", "sim-set-status", "sim-set-add", "sim-set-id",
+                    "sim-set-save", "sim-set-delete"]) {
+    assert.doesNotMatch(panel, new RegExp(`id="${id}"`), `${id} 는 기기 CRUD 시절의 잔재다`);
   }
   assert.doesNotMatch(html, /sim-settings-layout|sim-device-detail\b/, "편집 창이 붙던 레이아웃도 함께 사라진다");
+
+  // 넘치면 스크롤한다. overflow:hidden 이면 스크롤바도 없이 잘려서, 잘린 줄 모른다.
+  assert.doesNotMatch(html, /#sim-settings-panel,\s*\n#sim-rig-panel \{\s*\n\s*overflow: hidden/);
 });
 
 test("simulator preview shares the first-paint waiting state", async () => {
@@ -106,13 +118,16 @@ test("세우기는 씬만 건드린다 — 기기를 따로 만들지 않고, �
   assert.match(spawn, /catch \(e\) \{[\s\S]*await refreshRig\(\)/);
 });
 
-test("simulator list rendering uses textContent for config-provided values", async () => {
+// 씬이 준 이름·라벨을 그리는 유일한 목록이다. innerHTML 로 붙이면 씬의 문자열이 곧 마크업이 된다.
+test("카메라 목록은 씬이 준 값을 textContent 로 그린다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
-  const start = html.indexOf("function renderSimDeviceList()");
-  const end = html.indexOf("function selectSimulatorCamera(", start);
+  const start = html.indexOf("function renderSceneCameraList()");
+  const end = html.indexOf("async function startCameraEdit(", start) > 0
+    ? html.indexOf("async function startCameraEdit(", start)
+    : html.indexOf("function startCameraEdit(", start);
   const render = html.slice(start, end);
-  assert.match(render, /name\.textContent =/);
-  assert.match(render, /meta\.textContent =/);
+  assert.ok(render.length > 200, "목록 렌더러를 못 읽었다");
+  assert.match(render, /\.textContent =/);
   assert.doesNotMatch(render, /innerHTML/);
 });
 

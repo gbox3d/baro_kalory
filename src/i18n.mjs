@@ -130,11 +130,6 @@ const DICT = {
   "시뮬레이터(월드) 하나의 주소와 계정입니다. 제어 포트는 시뮬레이터 전체가 하나 가지며 stage 마다 있는 것이 아닙니다 — 활성 stage 도 이 포트로 고릅니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.":
     { en: "The address and account of the one simulator (world). The control port belongs to the simulator as a whole, not one per stage — the active stage is chosen over this same port. It is independent of cameras, so it stays put even with zero cameras.",
       vi: "Địa chỉ và tài khoản của một trình mô phỏng (thế giới) duy nhất. Cổng điều khiển thuộc về toàn bộ trình mô phỏng, không phải mỗi stage một cổng — stage đang hoạt động cũng được chọn qua chính cổng này. Nó độc lập với camera nên vẫn còn ngay cả khi không có camera nào." },
-  "시뮬레이터 카메라":
-    { en: "Simulator cameras", vi: "Camera mô phỏng" },
-  "이 목록은 시뮬레이터 씬에서 옵니다 — 등록해 두는 것이 아니라 씬에 실제로 있는 카메라입니다. 만들고 지우는 곳은 「카메라」 탭입니다.":
-    { en: "This list comes from the simulator scene — these are the cameras that actually exist there, not registered entries. Create and remove them on the Cameras tab.",
-      vi: "Danh sách này đến từ cảnh mô phỏng — đây là những camera thực sự tồn tại ở đó, không phải mục đã đăng ký. Tạo và xoá chúng ở tab Camera." },
   "씬에 카메라가 없습니다 — 「카메라」 탭에서 세우면 여기에 나타납니다.":
     { en: "The scene has no cameras — place one on the Cameras tab and it appears here.",
       vi: "Cảnh chưa có camera nào — dựng một cái ở tab Camera thì nó sẽ xuất hiện ở đây." },
@@ -142,7 +137,6 @@ const DICT = {
     { en: "no camera", vi: "không camera" },
   "고정형":
     { en: "fixed", vi: "cố định" },
-  "사용 중": { en: "Active", vi: "Đang dùng" },
   "무카메라 mock": { en: "Camera-less mock", vi: "Mock không camera" },
   "MJPEG 포트": { en: "MJPEG port", vi: "Cổng MJPEG" },
   "제어 포트": { en: "Control port", vi: "Cổng điều khiển" },
