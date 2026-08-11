@@ -178,3 +178,14 @@ test("씬 주소는 카메라가 아니라 월드의 것이다 — 자기 화면
   assert.doesNotMatch(html, /id="sim-set-sceneport"/);
   assert.doesNotMatch(html, /scenePort: selected\.scenePort/);
 });
+
+// 폼 필드 id 목록은 DOM 과 짝이 맞아야 한다 — fillSimDeviceForm 이 목록을 돌며
+// getElementById(id).disabled 를 쓰기 때문에, 없는 id 가 하나만 남아도 설정 탭이
+// 통째로 죽는다(입력칸을 지우면서 목록을 안 고쳐 실제로 그랬다).
+test("설정 폼 필드 목록은 실재하는 입력만 가리킨다", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  const block = html.slice(html.indexOf("const SIM_SETTING_FIELD_IDS = ["));
+  const ids = block.slice(0, block.indexOf("];")).match(/"([a-z0-9-]+)"/g).map((s) => s.replaceAll('"', ""));
+  assert.ok(ids.length >= 8, "목록을 못 읽었다");
+  for (const id of ids) assert.match(html, new RegExp(`id="${id}"`), `${id} 는 DOM 에 없다`);
+});
