@@ -153,6 +153,22 @@ test("세워 둔 카메라의 설치를 고칠 수 있다 — 높이는 지면 �
   // 씬이 정본이다 — 실패해도 일부는 반영됐을 수 있으므로 화면을 씬으로 되맞춘다.
   assert.match(apply, /catch \(e\) \{[\s\S]*await refreshRig\(\)/);
 
+  // 자리(x·y)는 이 폼이 아니라 평면도에서 끌어 옮긴다. 두 자리에서 같은 것을 고치면
+  // 어느 쪽이 이겼는지가 화면에 안 보인다.
+  const drag = html.slice(html.indexOf("function beginCameraDrag("), html.indexOf("if (mapEl) {"));
+  assert.ok(drag.length > 400, "드래그 이동 코드를 못 읽었다");
+  // 씬은 손을 뗄 때 한 번만 바뀐다 — 끄는 동안 PATCH 를 흘리면 프레임마다 액터가 움직이고
+  // 중간에 실패하면 카메라가 어디에 있는지 아무도 모른다.
+  assert.equal(drag.match(/reqJson\("PATCH"/g)?.length, 1);
+  // 높이는 그대로 되돌려보낸다. 자리만 옮겼는데 설치 높이가 조용히 달라지면 안 된다.
+  assert.match(drag, /location: \{ x: to\.x, y: to\.y, z: drag\.from\.z \}/);
+  // 안 움직였으면 그냥 클릭(선택)이다.
+  assert.match(drag, /if \(!drag\.moved\) \{ selectSceneCamera\(drag\.cam\.id\); return; \}/);
+  // 레벨 저작 카메라는 옮길 수 없다(백엔드 403).
+  assert.match(drag, /drag\.cam\.spawned === false/);
+  // 실패해도 씬이 정본이다.
+  assert.match(drag, /finally \{[\s\S]*await refreshRig\(\)/);
+
   // 레벨에 저작된 카메라는 옮길 수 없다 — 삭제와 같은 자리에서 함께 가려야 한다.
   const listStart = html.indexOf("function renderSceneCameraList()");
   const listEnd = html.indexOf("async function startCameraEdit(", listStart) > 0
@@ -172,7 +188,8 @@ test("카메라 배치 목록은 씬을 주기적으로 다시 읽되, 바뀐 �
   assert.match(poll, /document\.hidden \|\| !rigTabVisible\(\)/);
   // 사람이 배치·편집 중이거나 조작이 도는 중에는 목록을 다시 만들지 않는다 — setBusy 가
   // 모든 버튼의 disabled 를 되돌리므로 잠가 둔 버튼이 되살아난다.
-  assert.match(poll, /placing \|\| editingCameraId \|\| busyEl\.textContent/);
+  // 끄는 중에 지도를 다시 만들면 끌던 것이 손 아래에서 사라진다.
+  assert.match(poll, /placing \|\| dragCam \|\| editingCameraId \|\| busyEl\.textContent/);
   // 바뀐 게 없으면 그리지 않는다(스크롤·커서 튐 방지).
   assert.match(poll, /if \(rigSignature\(\) === before\) return;/);
   // 등록부는 주기 호출 대상이 아니다 — loadCameras 는 활성 기기를 서버에 쓴다.

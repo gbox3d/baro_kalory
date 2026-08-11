@@ -165,7 +165,6 @@ const DICT = {
   "방위": { en: "Bearing", vi: "Hướng" },
   "씬에서 받은 주차면·카메라가 없습니다.": { en: "The scene reported no slots or cameras.", vi: "Scene không báo chỗ đỗ hay camera nào." },
   "씬에 카메라가 없습니다.": { en: "No cameras in the scene.", vi: "Không có camera trong scene." },
-  "카메라를 클릭하면 선택됩니다.": { en: "Click a camera to select it.", vi: "Nhấp vào camera để chọn." },
   "카메라를 세울 자리를 평면도에서 클릭하세요.": { en: "Click the map where the camera should stand.", vi: "Nhấp lên sơ đồ nơi đặt camera." },
   "이 카메라가 바라볼 지면 지점을 클릭하세요 (드래그해도 됩니다).":
     { en: "Click the ground point this camera should look at (dragging works too).",
@@ -275,6 +274,20 @@ const DICT = {
       vi: "Scene không cung cấp tọa độ lắp đặt của camera này." },
   "바뀐 값이 없습니다.": { en: "Nothing changed.", vi: "Không có gì thay đổi." },
   "카메라를 옮기는 중…": { en: "Moving the camera…", vi: "Đang di chuyển camera…" },
+  "카메라를 클릭하면 선택되고, 끌면 자리를 옮깁니다.":
+    { en: "Click a camera to select it; drag it to move it.",
+      vi: "Nhấp vào camera để chọn; kéo để di chuyển." },
+  "설치 높이·방위·하향각을 고칩니다 (자리는 평면도에서 끌어 옮깁니다)":
+    { en: "Edit mount height, bearing and downtilt (drag on the map to move it)",
+      vi: "Sửa độ cao lắp đặt, hướng và góc cúi (kéo trên bản đồ để di chuyển)" },
+  "옮겼습니다 — {d} m":
+    { en: "Moved — {d} m", vi: "Đã di chuyển — {d} m" },
+  "카메라 이동: {id} → ({x}, {y})":
+    { en: "Camera moved: {id} → ({x}, {y})", vi: "Camera đã dời: {id} → ({x}, {y})" },
+  "평면도 안에서 놓아야 옮겨집니다.":
+    { en: "Drop it inside the map to move it.", vi: "Hãy thả bên trong bản đồ để di chuyển." },
+  "레벨에 저작된 카메라는 옮길 수 없습니다.":
+    { en: "A level-authored camera cannot be moved.", vi: "Không thể di chuyển camera được tạo trong level." },
   "옮기는 중…": { en: "Moving…", vi: "Đang di chuyển…" },
   "설치 갱신: {id} · {h} m": { en: "Installation updated: {id} · {h} m", vi: "Đã cập nhật lắp đặt: {id} · {h} m" },
   "옮겼습니다: {id}": { en: "Moved: {id}", vi: "Đã di chuyển: {id}" },

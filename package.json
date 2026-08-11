@@ -1,6 +1,6 @@
 {
   "name": "baro-kalory",
-  "version": "0.8.20",
+  "version": "0.8.21",
   "private": false,
   "type": "module",
   "description": "PTZ CCTV 커미셔닝 콘솔 웹 UI — 무빌드 바닐라, 정적 호스팅.",

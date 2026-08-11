@@ -490,6 +490,15 @@ header h1 .ver {
   stroke: var(--color-bg);
 }
 
+/* 끌어 옮길 수 있다는 사실은 커서로만 알려진다 — 레벨 저작 카메라(.authored)에는 없다. */
+.map-cam.movable {
+  cursor: grab;
+}
+
+.map-cam.movable:active {
+  cursor: grabbing;
+}
+
 /* 레벨에 저작된 카메라 — 이 화면에서 옮기거나 지울 수 없는 부류라 색이 달라야 한다. */
 .map-cam.authored {
   fill: var(--color-muted);
@@ -1905,6 +1914,10 @@ let mapSelectedCameraId = "";
 let mapView = null;      // { minX, minY, width, height } (평면도 좌표계)
 let placing = null;      // { stage: "position"|"aim", location?, aim? } — 배치 진행 상태
 let editingCameraId = ""; // 설치를 고치는 중인 카메라(씬 id). "" = 편집 안 함
+// 평면도에서 끌고 있는 카메라. { cam, from:{x,y,z}, to, moved, clientX, clientY }
+// 자리는 세울 때 한 번 정하고 끝이 아니다 — 그러면 옮기려고 지웠다 다시 세워야 하고,
+// 그 사이 포트가 바뀌면 기기 id 까지 갈린다(sim-cam-<포트>).
+let dragCam = null;
 
 function svgEl(name, attrs = {}, cls = "") {
   const node = document.createElementNS(SVG_NS, name);
@@ -2027,7 +2040,7 @@ function renderMap() {
   // 비어 있던 순간의 문장("…없습니다")이 그대로 남으면, 24면이 그려진 지도 밑에서 화면이
   // 아무것도 못 받았다고 말한다. 그릴 것이 생겼으면 그 자리에서 되돌린다 — 배치 중에는
   // 그쪽 안내가 이기므로 건드리지 않는다.
-  if (!placing) mapHint(t("카메라를 클릭하면 선택됩니다."));
+  if (!placing) mapHint(t("카메라를 클릭하면 선택되고, 끌면 자리를 옮깁니다."));
   mapEl.setAttribute("viewBox", `${mapView.minX} ${mapView.minY} ${mapView.width} ${mapView.height}`);
   mapEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
   // 화면상의 크기는 전부 이 span 에서 파생된다 — 어떤 레벨이든, 주차장이 20m 든 200m 든
@@ -2113,13 +2126,18 @@ function renderMap() {
     mapEl.appendChild(svgEl("path", {
       d: `M ${p.x} ${p.y} L ${a.x} ${a.y} A ${coneLen} ${coneLen} 0 0 1 ${b.x} ${b.y} Z`,
     }, "map-cone"));
+    const movable = cam.spawned !== false;
     const marker = svgEl("circle", {
       cx: p.x, cy: p.y, r: dot, "vector-effect": "non-scaling-stroke",
-    }, "map-cam" + (cam.spawned === false ? " authored" : "") + (cam.id === mapSelectedCameraId ? " sel" : ""));
-    marker.addEventListener("click", (e) => {
-      if (placing) return;
-      e.stopPropagation();
-      selectSceneCamera(cam.id);
+    }, "map-cam" + (cam.spawned === false ? " authored" : "")
+       + (cam.id === mapSelectedCameraId ? " sel" : "")
+       + (movable ? " movable" : ""));
+    // 누르면 선택, 끌면 자리 옮기기. 둘을 mousedown 한 자리에서 가르는 이유는, click 으로
+    // 선택을 받으면 드래그 뒤에도 click 이 따라와 "옮기고 나서 선택"이 겹치기 때문이다.
+    marker.addEventListener("mousedown", (e) => {
+      if (placing || e.button !== 0) return;
+      e.stopPropagation();          // 지도 배경의 배치 핸들러가 같이 받지 않게
+      beginCameraDrag(cam, e);
     });
     const heightM = cameraHeightM(cam);
     const title = svgEl("title");
@@ -2132,6 +2150,19 @@ function renderMap() {
   }
 
   renderPlacingGhost(span);
+  renderDragGhost(span);
+}
+
+// 끄는 중 미리보기: 원래 자리에서 지금 커서까지. 씬은 아직 그대로다 — 손을 떼야 옮긴다.
+function renderDragGhost(span) {
+  if (!dragCam || !dragCam.moved || !dragCam.to) return;
+  const from = toMap(dragCam.from);
+  const to = toMap(dragCam.to);
+  const dot = span / 80;
+  mapEl.appendChild(svgEl("line", {
+    x1: from.x, y1: from.y, x2: to.x, y2: to.y, "vector-effect": "non-scaling-stroke",
+  }, "map-ghost"));
+  mapEl.appendChild(svgEl("circle", { cx: to.x, cy: to.y, r: dot }, "map-ghost-dot"));
 }
 
 // 배치 중 미리보기: 세울 자리와 조준선. 아직 씬에는 아무것도 없다.
@@ -2224,7 +2255,7 @@ function cancelPlacing() {
   camFormEl.hidden = true;
   document.getElementById("sim-cam-cancel").hidden = true;
   document.getElementById("sim-cam-add").hidden = false;
-  mapHint(t("카메라를 클릭하면 선택됩니다."));
+  mapHint(t("카메라를 클릭하면 선택되고, 끌면 자리를 옮깁니다."));
   renderMap();
 }
 
@@ -2239,6 +2270,53 @@ function finishPlacing() {
   camFormEl.hidden = false;
   mapHint(t("높이를 확인하고 세우세요 — 하향각은 높이에서 다시 계산됩니다."));
   renderMap();
+}
+
+// ── 평면도에서 카메라 끌어 옮기기 ────────────────────────────────────────────────
+// 씬은 손을 뗄 때 한 번만 바뀐다. 끄는 동안 PATCH 를 흘리면 시뮬이 프레임마다 액터를
+// 옮기고, 중간에 실패하면 카메라가 어디에 있는지 아무도 모르는 상태가 된다.
+function beginCameraDrag(cam, event) {
+  const loc = cam?.mount?.location;
+  const x = num(loc?.x), y = num(loc?.y), z = num(loc?.z);
+  // 좌표 셋이 다 있어야 옮길 수 있다 — 축 하나만 보내면 나머지를 sim 이 0 으로 읽어
+  // 카메라가 원점으로 날아간다(applyCameraEdit 과 같은 이유).
+  if (x === null || y === null || z === null) { selectSceneCamera(cam.id); return; }
+  dragCam = { cam, from: { x, y, z }, to: null, moved: false, clientX: event.clientX, clientY: event.clientY };
+}
+
+function cancelCameraDrag() {
+  if (!dragCam) return;
+  dragCam = null;
+  renderMap();
+}
+
+async function finishCameraDrag(event) {
+  const drag = dragCam;
+  dragCam = null;
+  if (!drag) return;
+  if (!drag.moved) { selectSceneCamera(drag.cam.id); return; }   // 안 움직였으면 그냥 클릭이다
+  // 레벨에 저작된 카메라는 옮길 수 없다(백엔드 403). 끌리지도 않게 막아 두었지만,
+  // 여기서도 한 번 더 본다 — 목록이 갱신되는 사이에 성질이 바뀌었을 수 있다.
+  if (drag.cam.spawned === false) { setCamStatus(t("레벨에 저작된 카메라는 옮길 수 없습니다.")); renderMap(); return; }
+  const to = (event && worldAtEvent(event)) || drag.to;
+  if (!to) { renderMap(); return; }
+
+  setBusy(true, "카메라를 옮기는 중…");
+  setCamStatus(t("옮기는 중…"));
+  try {
+    // z 는 그대로 되돌려보낸다. 평면도는 자리(x·y)만 다루고 높이는 편집 폼의 몫이다 —
+    // 여기서 높이까지 건드리면 자리를 옮겼을 뿐인데 설치 높이가 조용히 달라진다.
+    await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(drag.cam.id)}`),
+      { location: { x: to.x, y: to.y, z: drag.from.z } });
+    const moved = Math.hypot(to.x - drag.from.x, to.y - drag.from.y) / 100;
+    setCamStatus(t("옮겼습니다 — {d} m", { d: moved.toFixed(2) }));
+    log(t("카메라 이동: {id} → ({x}, {y})", { id: drag.cam.id, x: Math.round(to.x), y: Math.round(to.y) }));
+  } catch (e) {
+    setCamStatus(t("옮기기 실패") + ": " + e.message);
+  } finally {
+    setBusy(false);
+    await refreshRig();   // 성공이든 실패든 씬이 정본이다
+  }
 }
 
 if (mapEl) {
@@ -2261,14 +2339,28 @@ if (mapEl) {
   // 조준선은 프레임마다 한 번만 다시 그린다 — mousemove 마다 SVG 를 통째로 재구성하면
   // 슬롯 스무 개 남짓에도 끌리는 게 눈에 보인다.
   let ghostRaf = 0;
+  const scheduleGhost = () => {
+    if (ghostRaf) return;
+    ghostRaf = requestAnimationFrame(() => { ghostRaf = 0; renderMap(); });
+  };
   mapEl.addEventListener("mousemove", (event) => {
+    if (dragCam) {
+      // 손떨림을 이동으로 읽지 않는다 — 문턱을 넘기 전까지는 아직 클릭(선택)이다.
+      if (!dragCam.moved
+          && Math.hypot(event.clientX - dragCam.clientX, event.clientY - dragCam.clientY) <= 4) return;
+      const world = worldAtEvent(event);
+      if (!world) return;
+      dragCam.moved = true;
+      dragCam.to = world;
+      scheduleGhost();
+      return;
+    }
     if (!placing || !placing.location) return;
     if (placing.stage !== "aim" && !downAt) return;   // ready 에서는 끌 때만 미리보기
     const world = worldAtEvent(event);
     if (!world) return;
     placing.aim = world;
-    if (ghostRaf) return;
-    ghostRaf = requestAnimationFrame(() => { ghostRaf = 0; renderMap(); });
+    scheduleGhost();
   });
   // 뗄 때는 window 로 받는다 — 지도 밖으로 끌고 나갔다 돌아오는 드래그를 놓치지 않으려면
   // 그래야 한다. 대신 **뗀 자리가 평면도 안인지 반드시 확인한다.** 그 검사가 없으면 배치
@@ -2276,6 +2368,17 @@ if (mapEl) {
   // 외삽된 주차장 바깥 점이라, 사람이 찍은 적 없는 방위와 클램프된 하향각으로 카메라가
   // 세워진다(2026-08-10 리뷰에서 확인).
   window.addEventListener("mouseup", (event) => {
+    if (dragCam) {
+      // 지도 밖에서 뗐으면 옮기지 않는다 — 그 좌표는 SVG 밖으로 외삽된 주차장 바깥 점이라,
+      // 사람이 찍은 적 없는 자리로 카메라가 날아간다(배치의 조준점과 같은 함정).
+      if (dragCam.moved && !mapEl.contains(event.target)) {
+        setCamStatus(t("평면도 안에서 놓아야 옮겨집니다."));
+        cancelCameraDrag();
+        return;
+      }
+      finishCameraDrag(event);
+      return;
+    }
     if (!placing || !placing.location) { downAt = null; return; }
     const start = downAt;
     downAt = null;
@@ -2355,8 +2458,8 @@ function renderSceneCameraList() {
     if (cam.spawned !== false) {
       const edit = document.createElement("button");
       edit.type = "button";
-      edit.textContent = t("설치");
-      edit.title = t("설치 높이·방위·하향각을 고칩니다");
+      edit.textContent = t("편집");
+      edit.title = t("설치 높이·방위·하향각을 고칩니다 (자리는 평면도에서 끌어 옮깁니다)");
       edit.addEventListener("click", () => startCameraEdit(cam));
       row.appendChild(edit);
 
@@ -2372,8 +2475,11 @@ function renderSceneCameraList() {
 
 // ── 세워 둔 카메라의 설치 고치기 ──────────────────────────────────────────────────
 // 세우기와 값은 같지만 근거가 다르다. 세울 때는 사람이 찍은 두 점에서 방위·하향각이 나오고,
-// 고칠 때는 **씬이 보고한 지금의 설치**가 출발점이다. 그래서 x·y 는 손대지 않는다 — 자리를
-// 옮기는 것은 다시 세우는 일이고, 여기서 다루는 것은 그 자리에서의 설치(높이·자세)다.
+// 고칠 때는 **씬이 보고한 지금의 설치**가 출발점이다.
+//
+// 이 폼은 높이·방위·하향각만 다룬다. **자리(x·y)는 평면도에서 카메라를 끌어 옮긴다** —
+// 숫자로 적을 값이 아니라 보면서 고를 값이고, 두 자리에서 같은 것을 고치면 어느 쪽이
+// 이겼는지가 화면에 안 보인다.
 function startCameraEdit(cam) {
   if (placing) cancelPlacing();
   editingCameraId = cam.id;
@@ -2523,7 +2629,7 @@ async function refreshRig() {
   }
   renderMap();
   renderSceneCameraList();
-  if (!placing) mapHint(t("카메라를 클릭하면 선택됩니다."));
+  if (!placing) mapHint(t("카메라를 클릭하면 선택되고, 끌면 자리를 옮깁니다."));
 }
 
 // ---- 씬 스냅샷: 리그의 유일한 내구 기록 ----
@@ -2652,7 +2758,7 @@ async function pollRig() {
   if (document.hidden || !rigTabVisible()) return;
   // 사람이 뭔가 하고 있는 중이면 손대지 않는다. 특히 setBusy 는 모든 버튼의 disabled 를
   // 되돌리므로, 그 사이에 목록을 다시 만들면 잠가 둔 버튼이 되살아난다.
-  if (placing || editingCameraId || busyEl.textContent) return;
+  if (placing || dragCam || editingCameraId || busyEl.textContent) return;
   const before = rigSignature();
   await fetchSimCameras();
   if (rigSignature() === before) return;
