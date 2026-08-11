@@ -115,3 +115,51 @@ test("simulator list rendering uses textContent for config-provided values", asy
   assert.match(render, /meta\.textContent =/);
   assert.doesNotMatch(render, /innerHTML/);
 });
+
+test("세워 둔 카메라의 설치를 고칠 수 있다 — 높이는 지면 기준, 좌표는 씬이 준 그대로", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  assert.match(html, /id="sim-cam-edit-form"/);
+  assert.match(html, /id="sim-cam-edit-height"/);
+  // 하향각은 씬이 주지 않는 값이라(PTZ tilt) 비워 두는 것이 "그대로"여야 한다. 추측을 폼에
+  // 채워 두면 손대지 않은 칸이 카메라를 돌린다.
+  assert.match(html, /id="sim-cam-edit-pitch"[^>]*placeholder="그대로"/);
+
+  const start = html.indexOf("async function applyCameraEdit(");
+  const end = html.indexOf("async function spawnSceneCamera(", start);
+  assert.ok(start > 0 && end > start, "편집 적용 함수가 있어야 한다");
+  const apply = html.slice(start, end);
+  // 지면을 모르면 세우지 않는 것과 같은 이유로 옮기지도 않는다 — 0 으로 가정하면 지면이
+  // z=0 이 아닌 레벨에서 그 차이가 통째로 높이 오차가 된다.
+  assert.match(apply, /sceneGroundZcm\(\)/);
+  assert.match(apply, /ground === null/);
+  // x·y 는 씬이 준 값 그대로. 축 하나만 보내면 나머지를 sim 이 0 으로 읽어 카메라가 원점으로 간다.
+  assert.match(apply, /patch\.location = \{ x, y, z: heightM \* 100 \+ ground \}/);
+  assert.match(apply, /reqJson\("PATCH", api\(`\/simulator\/cameras\//);
+  // 씬이 정본이다 — 실패해도 일부는 반영됐을 수 있으므로 화면을 씬으로 되맞춘다.
+  assert.match(apply, /catch \(e\) \{[\s\S]*await refreshRig\(\)/);
+
+  // 레벨에 저작된 카메라는 옮길 수 없다 — 삭제와 같은 자리에서 함께 가려야 한다.
+  const listStart = html.indexOf("function renderSceneCameraList()");
+  const listEnd = html.indexOf("async function startCameraEdit(", listStart) > 0
+    ? html.indexOf("async function startCameraEdit(", listStart)
+    : html.indexOf("function startCameraEdit(", listStart);
+  const list = html.slice(listStart, listEnd);
+  assert.match(list, /if \(cam\.spawned !== false\) \{[\s\S]*startCameraEdit\(cam\)/);
+});
+
+test("카메라 배치 목록은 씬을 주기적으로 다시 읽되, 바뀐 게 없으면 다시 그리지 않는다", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  const start = html.indexOf("async function pollRig()");
+  const end = html.indexOf("setInterval(", start);
+  assert.ok(start > 0 && end > start, "주기 갱신 함수가 있어야 한다");
+  const poll = html.slice(start, end);
+  // 안 보는 탭이 시뮬 게임스레드를 계속 깨우면 안 된다.
+  assert.match(poll, /document\.hidden \|\| !rigTabVisible\(\)/);
+  // 사람이 배치·편집 중이거나 조작이 도는 중에는 목록을 다시 만들지 않는다 — setBusy 가
+  // 모든 버튼의 disabled 를 되돌리므로 잠가 둔 버튼이 되살아난다.
+  assert.match(poll, /placing \|\| editingCameraId \|\| busyEl\.textContent/);
+  // 바뀐 게 없으면 그리지 않는다(스크롤·커서 튐 방지).
+  assert.match(poll, /if \(rigSignature\(\) === before\) return;/);
+  // 등록부는 주기 호출 대상이 아니다 — loadCameras 는 활성 기기를 서버에 쓴다.
+  assert.doesNotMatch(poll, /loadCameras\(/);
+});

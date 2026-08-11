@@ -310,3 +310,27 @@ test("캘리브레이션 페이지 — 발행 게이트 거절에 화면 안의 
   assert.doesNotMatch(html, /피팅 오차 \$\{r\.residual\.fitRmsPx\}px/, "최댓값을 스윕 성적처럼 적으면 안 된다");
   assert.match(html, /fitRmsMedianPx/, "대표값을 함께 보여야 한다");
 });
+
+// 설치 높이는 기기 config 의 필드가 아니라 발행본(프로파일)의 값이다. 그 차이를 화면이
+// 지키지 않으면 "저장했는데 왜 안 남지" 또는 "왜 리비전이 하나 더 생겼지"가 된다.
+test("설정 › 기기 속성 — 설치 높이는 발행 창구로 나간다", async () => {
+  const html = await read("../public/settings.html");
+  assert.match(html, /id="dev-height"/, "높이 입력 칸이 있어야 한다");
+  assert.match(html, /id="dev-height-hint"/, "지금 발행본이 무엇인지 말해야 한다");
+
+  // 읽기는 config 가 아니라 프로파일에서 — config 왕복에는 이 값이 없다.
+  assert.match(html, /getJson\(api\(`\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}`\)\)/);
+  // 404 는 장애가 아니라 "아직 발행본이 없다"는 정상 상태다.
+  assert.match(html, /e\.status === 404[\s\S]*캘리브레이션을 먼저 발행/);
+  // 쓰기는 덮어쓰기가 아니라 새 리비전 발행이라 사람이 확인해야 한다.
+  assert.match(html, /confirm\(t\("\{id\} 의 설치 높이를 \{v\} m 로 발행합니다/);
+  assert.match(html, /postJson\(api\(`\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/extrinsic`\)/);
+  // 이 창구의 값은 사람이 잰 것이다 — measured 로 나가면 다음 사람이 근거 없는 값을 실측으로 읽는다.
+  assert.match(html, /source: "manual"/);
+  // 빈칸은 "지운다"가 아니다. 발행본은 지울 수 없다.
+  assert.match(html, /if \(raw === ""\) return "";/);
+  // 빌려온 리비전 위에 얹혀야 하므로 복사 다음이어야 한다.
+  const save = html.slice(html.indexOf("async function saveEditor()"), html.indexOf("function addDevice()"));
+  assert.ok(save.indexOf("staged.borrowFrom") < save.indexOf("publishHeightIfChanged"),
+    "높이 발행은 프로파일 빌려오기 다음이어야 한다");
+});

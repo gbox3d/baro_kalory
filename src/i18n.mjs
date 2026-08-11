@@ -266,6 +266,30 @@ const DICT = {
   "이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다.":
     { en: "This scene's ground level is unknown — it needs at least one parking slot or camera.",
       vi: "Không biết cao độ mặt đất của scene này — cần ít nhất một chỗ đỗ hoặc camera." },
+  // 세워 둔 카메라의 설치 고치기(높이·방위·하향각)
+  "설치": { en: "Install", vi: "Lắp đặt" },
+  "설치 높이·방위·하향각을 고칩니다":
+    { en: "Change the installed height, azimuth and downtilt",
+      vi: "Sửa chiều cao lắp đặt, phương vị và góc chúc" },
+  "{name} · 설치": { en: "{name} · installation", vi: "{name} · lắp đặt" },
+  "그대로": { en: "unchanged", vi: "giữ nguyên" },
+  "높이만 바꾸면 하향각은 그대로라 조준점이 멀어집니다 — 같은 곳을 보게 하려면 하향각도 함께 넣으세요.":
+    { en: "Changing only the height leaves the downtilt as it was, so the aim point moves further away — enter a downtilt too if it should keep looking at the same place.",
+      vi: "Chỉ đổi chiều cao thì góc chúc giữ nguyên nên điểm ngắm lùi ra xa — hãy nhập cả góc chúc nếu muốn nhìn đúng chỗ cũ." },
+  "옮기기": { en: "Move it", vi: "Di chuyển" },
+  "고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.":
+    { en: "The camera to edit was not found — reload the list.",
+      vi: "Không tìm thấy camera cần sửa — hãy tải lại danh sách." },
+  "높이는 0 보다 커야 합니다.": { en: "The height must be greater than 0.", vi: "Chiều cao phải lớn hơn 0." },
+  "씬이 이 카메라의 설치 좌표를 주지 않았습니다.":
+    { en: "The scene did not report this camera's installed coordinates.",
+      vi: "Scene không cung cấp tọa độ lắp đặt của camera này." },
+  "바뀐 값이 없습니다.": { en: "Nothing changed.", vi: "Không có gì thay đổi." },
+  "카메라를 옮기는 중…": { en: "Moving the camera…", vi: "Đang di chuyển camera…" },
+  "옮기는 중…": { en: "Moving…", vi: "Đang di chuyển…" },
+  "설치 갱신: {id} · {h} m": { en: "Installation updated: {id} · {h} m", vi: "Đã cập nhật lắp đặt: {id} · {h} m" },
+  "옮겼습니다: {id}": { en: "Moved: {id}", vi: "Đã di chuyển: {id}" },
+  "옮기기 실패": { en: "Move failed", vi: "Di chuyển thất bại" },
   "시뮬레이터 '{name}'을(를) 삭제할까요?": { en: "Delete simulator '{name}'?", vi: "Xóa mô phỏng '{name}'?" },
   "삭제 중…": { en: "Deleting…", vi: "Đang xóa…" },
   "삭제 실패": { en: "Delete failed", vi: "Xóa thất bại" },
@@ -290,6 +314,29 @@ const DICT = {
   "활성 기기": { en: "Active device", vi: "Thiết bị đang dùng" },
   "＋ 기기 추가": { en: "＋ Add device", vi: "＋ Thêm thiết bị" },
   "기기 편집": { en: "Edit device", vi: "Sửa thiết bị" },
+  // 기기 속성의 설치 높이 — 값은 config 가 아니라 발행본(프로파일)에 있다.
+  "예: 6.00": { en: "e.g. 6.00", vi: "vd: 6.00" },
+  "기기를 저장한 뒤에 넣을 수 있습니다.":
+    { en: "Available once the device has been saved.", vi: "Có thể nhập sau khi đã lưu thiết bị." },
+  "읽는 중…": { en: "Reading…", vi: "Đang đọc…" },
+  "발행본 rev {rev} · {src}": { en: "Published rev {rev} · {src}", vi: "Bản phát hành rev {rev} · {src}" },
+  "출처 없음": { en: "no source", vi: "không rõ nguồn" },
+  "아직 없습니다 — 시공 때 잰 값을 넣으면 저장할 때 새 리비전으로 발행됩니다.":
+    { en: "Not entered yet — put in the value measured at installation and saving publishes it as a new revision.",
+      vi: "Chưa có — nhập giá trị đo lúc lắp đặt, khi lưu sẽ phát hành thành bản sửa đổi mới." },
+  "발행된 프로파일이 없습니다 — 캘리브레이션을 먼저 발행해야 높이를 얹을 수 있습니다.":
+    { en: "No published profile — publish a calibration first, then the height can sit on top of it.",
+      vi: "Chưa có hồ sơ được phát hành — hãy phát hành hiệu chuẩn trước rồi mới đặt được chiều cao." },
+  "설치 높이를 읽지 못했습니다": { en: "Could not read the installed height", vi: "Không đọc được chiều cao lắp đặt" },
+  "설치 높이가 숫자가 아닙니다 — 발행하지 않았습니다":
+    { en: "The installed height is not a number — nothing was published",
+      vi: "Chiều cao lắp đặt không phải là số — chưa phát hành gì" },
+  "설치 높이는 발행하지 않았습니다": { en: "The installed height was not published", vi: "Chưa phát hành chiều cao lắp đặt" },
+  "설치 높이 {v} m 발행": { en: "Installed height {v} m published", vi: "Đã phát hành chiều cao lắp đặt {v} m" },
+  "설치 높이 {v} m · rev {rev} 발행":
+    { en: "Installed height {v} m published as rev {rev}",
+      vi: "Đã phát hành chiều cao lắp đặt {v} m · rev {rev}" },
+  "설치 높이 발행 실패": { en: "Publishing the installed height failed", vi: "Phát hành chiều cao lắp đặt thất bại" },
   "이름": { en: "Name", vi: "Tên" },
   "타입": { en: "Type", vi: "Loại" },
   "정문 CCTV": { en: "Front-gate CCTV", vi: "CCTV cổng chính" },
