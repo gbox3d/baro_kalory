@@ -10,9 +10,14 @@ import { PAGES, getPage, pageHref } from "./pages.mjs";
 // 프런트만 따로 배포하면 backend 가 아는 값은 브라우저가 실제로 도는 버전과 어긋난다).
 // 주의: 상대경로 문자열로 fetch 하면 모듈 URL(/web/) 기준으로 풀려 404 가 되므로
 // import.meta.url 에서 한 단계 올라간다. `<mount>/web/` → `<mount>/`, dist/web/ → dist/.
+//
+// 캐시는 매번 서버에 되묻는다(no-cache). 이 파일은 수백 바이트인데, 정적 호스팅(GitHub
+// Pages 등)의 CDN TTL 동안 옛 사본이 걸리면 배포 직후 배지가 **이전 버전을 우긴다** —
+// 배포가 됐는지 확인하는 데 쓰는 표시가 그때 가장 못 믿을 값이 된다. 실측 2026-08-11:
+// 페이지 코드는 새것인데 배지만 10분 넘게 옛 번호였다.
 async function fetchOwnVersions() {
   try {
-    const r = await fetch(new URL("../app-versions.json", import.meta.url));
+    const r = await fetch(new URL("../app-versions.json", import.meta.url), { cache: "no-cache" });
     return await r.json();
   } catch { return {}; }
 }
