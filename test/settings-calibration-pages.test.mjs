@@ -12,7 +12,7 @@ test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
     "dev-active", "dev-list", "set-cam-id", "dev-name", "dev-type", "dev-mode",  // 기기 탭: 목록·폼
     "dev-host-fields", "set-cam-host", "set-cam-port", "set-cam-user", "set-cam-pass",
     "dev-scheme", "dev-advanced", "dev-rtsp-path", "dev-rtsp-port", "dev-stream-fps",
-    "dev-mjpeg-port", "dev-scene-port", "dev-timeout", "dev-insecure-tls",
+    "dev-mjpeg-port", "dev-timeout", "dev-insecure-tls",
     "dev-fwmodid", "dev-portid", "dev-ptzportid", "dev-streamindex",
     "dev-vptz", "dev-vptz-on", "dev-vptz-hfov", "dev-vptz-maxmag", "dev-vptz-w", "dev-vptz-h",
     "dev-add", "dev-save", "dev-del", "dev-cancel", "set-probe",                // 기기 탭: 조작 한 줄
@@ -66,10 +66,14 @@ test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
   // 접속 옵션은 전부 편집기가 다뤄야 한다. 프론트가 못 채우는 필드가 있으면 그 기기는
   // "연결 테스트는 통과하는데 화면은 안 나오는" 상태로 등록된다(IDIS 실기에서 그대로 겪었다:
   // scheme 이 없어 평문 포트에 TLS, rtspPath 가 없어 프리뷰 501).
-  for (const key of ["scheme", "mjpegPort", "scenePort", "timeoutMs", "rtspPath", "rtspPort",
+  for (const key of ["scheme", "mjpegPort", "timeoutMs", "rtspPath", "rtspPort",
                      "streamFps", "insecureTls", "fwModId", "portId", "ptzPortId", "streamIndex"]) {
     assert.match(html, new RegExp(`DEV_CONN_KEYS[\\s\\S]{0,400}"${key}"`), `${key} 를 저장 payload 가 실어야 한다`);
   }
+  // 씬 주소는 예외다 — 카메라의 값이 아니라 시뮬 월드 하나의 값이라 기기 편집기가 다루지
+  // 않는다(백엔드가 400 으로 거절한다). 시뮬레이터 화면의 「씬 주소」가 그 자리다.
+  assert.doesNotMatch(html, /id="dev-scene-port"/);
+  assert.doesNotMatch(html, /"scenePort"/);
   assert.match(html, /for \(const k of DEV_CONN_KEYS\) if \(x\[k\] !== undefined\) e\[k\] = x\[k\]/,
     "접속 필드는 명시로 되돌려보내야 한다 — 흘리면 조용히 옛 값에 묶인다");
   // 빈칸의 뜻이 둘로 갈린다: 원래 있던 값을 지우는 것과, 화면이 그 값을 모르는 것. 백엔드가

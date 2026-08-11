@@ -184,10 +184,9 @@
                 <div class="hint" style="margin-bottom:8px;">비우면 스냅샷 폴링으로 내려갑니다. 경로는 벤더 규약이고 번호가 무슨 코덱인지는 기기 설정이 정합니다 — ffprobe 로 확인한 값을 넣으세요. fps 는 기기 실제 fps 를 넣으면 중복 프레임이 사라집니다.</div>
                 <div class="row" style="margin-bottom:6px;">
                   <label>MJPEG 포트</label><input id="dev-mjpeg-port" type="number" style="width:70px" placeholder="없음" />
-                  <label>씬 포트</label><input id="dev-scene-port" type="number" style="width:70px" placeholder="없음" />
                   <label>타임아웃</label><input id="dev-timeout" type="number" style="width:70px" placeholder="ms" />
                 </div>
-                <div class="hint" style="margin-bottom:8px;">MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 씬 포트는 시뮬레이터의 주차·차량 배치 제어 창구입니다.</div>
+                <div class="hint" style="margin-bottom:8px;">MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 시뮬레이터 씬 주소는 기기가 아니라 시뮬레이터 화면의 「씬 주소」에서 정합니다 — 월드 하나의 값이라 카메라와 함께 지워지면 안 됩니다.</div>
                 <div class="row" style="margin-bottom:6px;">
                   <label style="width:auto;"><input id="dev-insecure-tls" type="checkbox" /> TLS 인증서 검증 안 함</label>
                 </div>
@@ -415,7 +414,8 @@ function devTypeNeedsHost(type) {
 function devMsg(text) { document.getElementById("dev-msg").textContent = text; }
 
 // 접속 상세 — host 기기에만 의미가 있는 필드들. 백엔드가 정규화하는 이름 그대로 쓴다.
-const DEV_CONN_KEYS = ["scheme", "mjpegPort", "scenePort", "timeoutMs",
+// scenePort 는 여기 없다 — 씬 주소는 카메라가 아니라 시뮬 월드의 것이다(config.simulator).
+const DEV_CONN_KEYS = ["scheme", "mjpegPort", "timeoutMs",
                        "rtspPath", "rtspPort", "streamFps", "insecureTls",
                        "fwModId", "portId", "ptzPortId", "streamIndex"];
 
@@ -646,7 +646,6 @@ function fillEditor(d, idReadonly) {
   setVal("dev-rtsp-port", d.rtspPort);
   setVal("dev-stream-fps", d.streamFps);
   setVal("dev-mjpeg-port", d.mjpegPort);
-  setVal("dev-scene-port", d.scenePort);
   setVal("dev-timeout", d.timeoutMs);
   document.getElementById("dev-insecure-tls").checked = d.insecureTls === true;
   setVal("dev-fwmodid", d.fwModId);
@@ -854,7 +853,6 @@ function readEditor() {
     putField(d, base, "rtspPort", numOrBlank("dev-rtsp-port"));
     putField(d, base, "streamFps", numOrBlank("dev-stream-fps"));
     putField(d, base, "mjpegPort", numOrBlank("dev-mjpeg-port"));
-    putField(d, base, "scenePort", numOrBlank("dev-scene-port"));
     putField(d, base, "timeoutMs", numOrBlank("dev-timeout"));
     putField(d, base, "insecureTls", document.getElementById("dev-insecure-tls").checked ? true : "");
     putField(d, base, "fwModId", numOrBlank("dev-fwmodid"));

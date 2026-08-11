@@ -969,6 +969,24 @@ header h1 .ver {
         </div>
       </div>
       <div id="sim-settings-panel" class="sim-tab-panel" data-sim-tab-panel="settings">
+        <section class="sim-scene-endpoint" aria-label="씬 주소">
+          <div class="sim-device-detail-head">
+            <strong>씬 주소</strong>
+            <span id="sim-endpoint-state" class="sim-mode-badge">—</span>
+          </div>
+          <div class="hint" style="margin:0 0 7px;">시뮬레이터 월드 하나의 주소입니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.</div>
+          <div class="row">
+            <label>호스트</label>
+            <input id="sim-endpoint-host" type="text" placeholder="192.0.2.60" style="width:150px" />
+            <label>씬 포트</label>
+            <input id="sim-endpoint-port" type="number" min="1" max="65535" placeholder="8095" style="width:80px" />
+            <label>Timeout</label>
+            <input id="sim-endpoint-timeout" type="number" min="1000" max="120000" step="1000" placeholder="8000" style="width:90px" />
+            <button id="sim-endpoint-probe" type="button">연결 테스트</button>
+            <button id="sim-endpoint-save" type="button">저장</button>
+          </div>
+          <div id="sim-endpoint-status" class="hint" style="margin-top:7px;">—</div>
+        </section>
         <div class="sim-settings-layout">
           <section class="sim-device-list-pane" aria-label="시뮬레이터 목록">
             <div class="sim-device-toolbar">
@@ -1004,8 +1022,7 @@ header h1 .ver {
 
                 <label>MJPEG 포트</label>
                 <input id="sim-set-mjpegport" type="number" min="1" max="65535" placeholder="8091" />
-                <label>씬 포트</label>
-                <input id="sim-set-sceneport" type="number" min="1" max="65535" placeholder="8095" />
+                <span></span><span></span>
 
                 <label>계정</label>
                 <input id="sim-set-user" type="text" autocomplete="username" placeholder="admin" />
@@ -1018,7 +1035,6 @@ header h1 .ver {
               </div>
             </div>
             <div class="sim-settings-actions">
-              <button id="sim-set-probe" type="button">씬 연결 테스트</button>
               <button id="sim-set-save" type="button">저장</button>
               <button id="sim-set-cancel" type="button" hidden>추가 취소</button>
               <button id="sim-set-delete" type="button">삭제</button>
@@ -1106,6 +1122,7 @@ let lastPtz = null;
 let simDevices = [];   // mode:sim config 기기(카메라 포즈 조인용 port 포함)
 let simActiveCameraId = "";
 let simCameras = [];   // /api/simulator/cameras 포즈 목록
+let simEndpointPort = null;  // 씬 포트(config.simulator). 스폰 포트가 이 번호를 피하려고 안다.
 let activeCam = null;  // 현재 뷰 카메라의 포즈(투영 파라미터)
 let simSlotList = [];  // 최근 슬롯 목록(transform.location 포함) — 투영 대상
 let showAllSlots = false;
@@ -1133,7 +1150,7 @@ document.querySelectorAll("[data-sim-tab]").forEach((tab) => {
       logEl.scrollTop = 0;
       if (logPanel) logPanel.scrollTop = 0;
     }
-    if (key === "settings") loadSimulatorSettings();
+    if (key === "settings") { loadSceneEndpoint(); loadSimulatorSettings(); }
     if (key === "rig") refreshRig();
   });
 });
@@ -1311,6 +1328,7 @@ function renderSavedPositions() {
 }
 
 function setSimulatorReadyState(state = {}) {
+  simEndpointPort = Number(state?.endpoint?.port) || null;
   const mode = state.mode || "";
   const ready = Boolean(state.ready);
   simReadyLed.classList.toggle("ready", ready);
@@ -1430,7 +1448,6 @@ function fillSimDeviceForm() {
   document.getElementById("sim-set-host").value = value.host || "";
   document.getElementById("sim-set-camport").value = value.port ?? "";
   document.getElementById("sim-set-mjpegport").value = value.mjpegPort ?? "";
-  document.getElementById("sim-set-sceneport").value = value.scenePort ?? "";
   document.getElementById("sim-set-user").value = value.username || "";
   const pass = document.getElementById("sim-set-pass");
   pass.value = "";
@@ -1460,7 +1477,7 @@ function updateSimTypeFields() {
   const empty = !currentSimSettingDevice();
   const hostless = !simTypeNeedsHost(document.getElementById("sim-set-type").value);
   document.getElementById("sim-set-host-fields").hidden = hostless;
-  document.getElementById("sim-set-probe").disabled = empty || hostless;
+  void empty;
 }
 
 function readSimDeviceForm() {
@@ -1496,7 +1513,6 @@ function readSimDeviceForm() {
     host,
     port: readNum("sim-set-camport", t("카메라 포트")),
     mjpegPort: readNum("sim-set-mjpegport", t("MJPEG 포트"), { optional: true }),
-    scenePort: readNum("sim-set-sceneport", t("씬 포트"), { optional: true }),
     username,
     timeoutMs: readNum("sim-set-timeout", "Timeout", { min: 1000, max: 120000 }),
   });
@@ -1551,7 +1567,6 @@ function nextSimulatorDraft() {
     host: selected.host || "",
     port: nextPort("port", 8081),
     mjpegPort: nextPort("mjpegPort", 8091),
-    scenePort: selected.scenePort || 8095,
     timeoutMs: selected.timeoutMs || 8000,
     username: selected.username || "admin",
     hasPassword: false,
@@ -1575,16 +1590,65 @@ function cancelSimulatorDevice() {
   fillSimDeviceForm();
 }
 
-async function probeSimDeviceFromForm() {
+// ---- 씬 주소: 시뮬 월드 하나의 주소. 카메라 등록과 무관하다 ----
+// 예전에는 이 값이 카메라 기기에 얹혀 있어서, 카메라를 전부 지우면 백엔드가 시뮬을 잃고
+// 조용히 인메모리 더블로 내려갔다. 그래서 자기 화면과 자기 라우트를 준다.
+const endpointEl = {
+  host: document.getElementById("sim-endpoint-host"),
+  port: document.getElementById("sim-endpoint-port"),
+  timeout: document.getElementById("sim-endpoint-timeout"),
+  state: document.getElementById("sim-endpoint-state"),
+  status: document.getElementById("sim-endpoint-status"),
+};
+
+function setEndpointStatus(text, configured) {
+  endpointEl.status.textContent = text;
+  if (configured !== undefined) endpointEl.state.textContent = configured ? t("설정됨") : t("미설정");
+}
+
+function readEndpointForm() {
+  const host = endpointEl.host.value.trim();
+  const scenePort = endpointEl.port.value.trim();
+  const timeoutMs = endpointEl.timeout.value.trim();
+  return { host, scenePort, ...(timeoutMs ? { timeoutMs: Number(timeoutMs) } : {}) };
+}
+
+async function loadSceneEndpoint() {
   try {
-    const d = readSimDeviceForm();
-    if (!simTypeNeedsHost(d.type)) throw new Error(t("무카메라 기준기는 연결 설정이 없습니다."));
-    if (d.scenePort === "") throw new Error(t("씬 포트를 입력하세요 (UE 씬 제어 HTTP 포트, 기본 8095)."));
-    setSimSettingsMessage(t("연결 테스트 중..."));
-    const state = await postJson(api("/simulator/probe"), { host: d.host, scenePort: d.scenePort, timeoutMs: d.timeoutMs });
-    setSimSettingsMessage(statusTextFromSimulatorState(state));
+    const r = await getJson(api("/simulator/endpoint"));
+    const ep = r.endpoint || {};
+    endpointEl.host.value = ep.host || "";
+    endpointEl.port.value = ep.scenePort ?? "";
+    endpointEl.timeout.value = ep.timeoutMs ?? "";
+    setEndpointStatus(r.configured ? `${ep.host}:${ep.scenePort}` : t("씬 주소가 없습니다 — 호스트와 씬 포트를 넣으세요."), r.configured);
   } catch (e) {
-    setSimSettingsMessage(t("연결 테스트 실패") + ": " + e.message);
+    setEndpointStatus(t("씬 주소 조회 실패") + ": " + e.message);
+  }
+}
+
+async function probeSceneEndpoint() {
+  try {
+    const d = readEndpointForm();
+    if (!d.host || !d.scenePort) throw new Error(t("씬 포트를 입력하세요 (UE 씬 제어 HTTP 포트, 기본 8095)."));
+    setEndpointStatus(t("연결 테스트 중..."));
+    const state = await postJson(api("/simulator/probe"), d);
+    setEndpointStatus(statusTextFromSimulatorState(state));
+  } catch (e) {
+    setEndpointStatus(t("연결 테스트 실패") + ": " + e.message);
+  }
+}
+
+async function saveSceneEndpoint() {
+  try {
+    setEndpointStatus(t("저장 중..."));
+    // 저장과 연결은 다른 말이다 — 백엔드가 실제 연결 결과를 함께 준다.
+    const r = await reqJson("PUT", api("/simulator/endpoint"), readEndpointForm());
+    setEndpointStatus(statusTextFromSimulatorState(r.status || {}), r.configured);
+    invalidateSimulatorScene({ clearSelection: true });
+    await refreshSimulatorStatus();
+    await loadCameras();
+  } catch (e) {
+    setEndpointStatus(t("저장 실패") + ": " + e.message);
   }
 }
 
@@ -1665,7 +1729,8 @@ if (savedPositionNameEl) {
 }
 document.getElementById("sim-set-add").addEventListener("click", addSimulatorDevice);
 document.getElementById("sim-set-type").addEventListener("change", updateSimTypeFields);
-document.getElementById("sim-set-probe").addEventListener("click", probeSimDeviceFromForm);
+document.getElementById("sim-endpoint-probe").addEventListener("click", probeSceneEndpoint);
+document.getElementById("sim-endpoint-save").addEventListener("click", saveSceneEndpoint);
 document.getElementById("sim-set-save").addEventListener("click", saveSimulatorSettings);
 document.getElementById("sim-set-cancel").addEventListener("click", cancelSimulatorDevice);
 document.getElementById("sim-set-delete").addEventListener("click", deleteSimulatorDevice);
@@ -1741,11 +1806,9 @@ window.addEventListener("mouseup", async (e) => {
 // ---- 시뮬 카메라 피커: config 기기 중 mode==="sim" 만 노출 ----
 const camSelect = document.getElementById("cam-select");
 const camInfo = document.getElementById("cam-info");
-function simulatorSceneKey(device = {}) {
-  // 접속 정보가 없는 타입은 씬 출처를 host:port 로 구분할 수 없다 — 인메모리 하나뿐이다.
-  if (!simTypeNeedsHost(device.type)) return "hostless";
-  return `${String(device.host || "").trim().toLowerCase()}:${String(device.scenePort ?? "").trim()}`;
-}
+// 카메라를 바꿔도 씬은 그대로다 — 한 백엔드는 씬 주소를 하나만 보고(config.simulator),
+// 그 주소는 어느 카메라를 고르든 바뀌지 않는다. 씬이 바뀌는 유일한 순간은 씬 주소를
+// 저장할 때이고, 그 자리에서 직접 무효화한다(saveSceneEndpoint).
 function invalidateSimulatorScene({ clearSelection = false } = {}) {
   simCatalog = null;
   simCameras = [];
@@ -1803,14 +1866,10 @@ async function loadCameras() {
 camSelect.addEventListener("change", async () => {
   setBusy(true);
   try {
-    const previousDevice = simDevices.find((d) => d.id === simActiveCameraId);
     await postJson(api("/simulator/active"), { id: camSelect.value });
     simActiveCameraId = camSelect.value;
     try { localStorage.setItem(SIM_ACTIVE_CAMERA_KEY, camSelect.value); } catch { /* 저장소 사용 불가 */ }
-    const nextDevice = simDevices.find((d) => d.id === camSelect.value);
-    invalidateSimulatorScene({
-      clearSelection: simulatorSceneKey(previousDevice) !== simulatorSceneKey(nextDevice),
-    });
+    invalidateSimulatorScene();
     await preview.stop();       // 이전 스트림 완전 종료 대기 후 새 카메라 시작(중복 방지)
     if (simPreviewRunning) preview.start();   // 정지 상태였으면 카메라만 바꾸고 켜지는 않는다
     await Promise.all([
@@ -2573,11 +2632,15 @@ function suggestPorts() {
     if (Number.isFinite(Number(cam.mjpegPort))) used.add(Number(cam.mjpegPort));
   }
   for (const d of simDevices) {
-    for (const key of ["port", "mjpegPort", "scenePort"]) {
+    for (const key of ["port", "mjpegPort"]) {
       const p = Number(d[key]);
       if (Number.isFinite(p)) used.add(p);
     }
   }
+  // 씬 포트는 기기 목록에 없다(월드 전역이라 config.simulator 소유) — 그래도 카메라가
+  // 그 번호를 집으면 UE 가 400 으로 거절하므로 쓰인 번호로 함께 센다.
+  const scenePort = Number(simEndpointPort);
+  if (Number.isFinite(scenePort)) used.add(scenePort);
   // 낮은 쪽부터 찾는다. 「쓰인 것 중 최대 + 1」로 늘리면 CGI 포트가 MJPEG 대역(83xx)으로
   // 흘러들어가 두 대역이 섞이고, 지웠다 만들기를 반복할수록 번호가 실제 대수와 멀어진다.
   // 짝은 이 씬의 관례대로 CGI + 100 = MJPEG.

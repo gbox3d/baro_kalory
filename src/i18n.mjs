@@ -138,6 +138,21 @@ const DICT = {
   "카메라 포트": { en: "Camera port", vi: "Cổng camera" },
   "MJPEG 포트": { en: "MJPEG port", vi: "Cổng MJPEG" },
   "씬 포트": { en: "Scene port", vi: "Cổng scene" },
+  "씬 주소": { en: "Scene address", vi: "Địa chỉ scene" },
+  "설정됨": { en: "Set", vi: "Đã đặt" },
+  "씬 주소 조회 실패": { en: "Could not read the scene address", vi: "Không đọc được địa chỉ scene" },
+  "씬 주소가 없습니다 — 호스트와 씬 포트를 넣으세요.": {
+    en: "No scene address yet — enter the host and scene port.",
+    vi: "Chưa có địa chỉ scene — nhập host và cổng scene.",
+  },
+  "시뮬레이터 월드 하나의 주소입니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.": {
+    en: "One address for the simulator world. It does not belong to any camera, so it survives a scene with zero cameras.",
+    vi: "Một địa chỉ cho thế giới mô phỏng. Nó không thuộc về camera nào, nên vẫn còn khi scene không có camera.",
+  },
+  "MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 시뮬레이터 씬 주소는 기기가 아니라 시뮬레이터 화면의 「씬 주소」에서 정합니다 — 월드 하나의 값이라 카메라와 함께 지워지면 안 됩니다.": {
+    en: "With an MJPEG port the backend relays that port instead of RTSP. The simulator's scene address is set on the simulator page under \"Scene address\", not here — it belongs to the world, so it must not be deleted along with a camera.",
+    vi: "Nếu có cổng MJPEG, backend chuyển tiếp cổng đó thay cho RTSP. Địa chỉ scene của trình mô phỏng được đặt ở trang mô phỏng, mục \"Địa chỉ scene\" — nó thuộc về thế giới nên không được xóa cùng camera.",
+  },
   "씬 연결 테스트": { en: "Test scene connection", vi: "Kiểm tra kết nối scene" },
   "저장": { en: "Save", vi: "Lưu" },
   "추가 취소": { en: "Cancel add", vi: "Hủy thêm" },
@@ -455,9 +470,6 @@ const DICT = {
       vi: "Để trống sẽ quay về lấy ảnh tĩnh. Đường dẫn là quy ước của hãng và số nào ứng với codec nào do thiết bị quyết định — hãy nhập giá trị ffprobe báo. Đặt fps đúng tốc độ thật sẽ hết khung trùng." },
   "타임아웃": { en: "Timeout", vi: "Hết giờ" },
   "없음": { en: "none", vi: "không có" },
-  "MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 씬 포트는 시뮬레이터의 주차·차량 배치 제어 창구입니다.":
-    { en: "With an MJPEG port set, that port is proxied directly instead of RTSP. The scene port is the simulator's parking/vehicle placement control.",
-      vi: "Nếu có cổng MJPEG, cổng đó được chuyển tiếp trực tiếp thay cho RTSP. Cổng cảnh điều khiển bố trí bãi/xe của mô phỏng." },
   "TLS 인증서 검증 안 함": { en: "Skip TLS certificate verification", vi: "Bỏ qua xác minh chứng chỉ TLS" },
   "공장 자체서명 인증서를 쓰는 HTTPS 기기에만. 이 기기 하나에만 적용됩니다.":
     { en: "Only for HTTPS devices with a factory self-signed certificate. Applies to this device alone.",

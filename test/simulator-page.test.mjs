@@ -60,7 +60,6 @@ test("simulator camera selection and control stay isolated from CCTV active stat
 
 test("simulator camera switch refreshes scene data for the selected simulator", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
-  assert.match(html, /function simulatorSceneKey\(/);
   assert.match(html, /function invalidateSimulatorScene\(/);
   assert.match(html, /simCatalog = null/);
   assert.match(html, /getJson\(api\("\/simulator\/catalog"\)\)/);
@@ -162,4 +161,20 @@ test("카메라 배치 목록은 씬을 주기적으로 다시 읽되, 바뀐 �
   assert.match(poll, /if \(rigSignature\(\) === before\) return;/);
   // 등록부는 주기 호출 대상이 아니다 — loadCameras 는 활성 기기를 서버에 쓴다.
   assert.doesNotMatch(poll, /loadCameras\(/);
+});
+
+// 씬 주소는 카메라와 별개다 — 카메라를 전부 지워도 시뮬 연결이 남아야 한다.
+// 회귀(2026-08-11): 주소가 카메라 기기의 scenePort 에 얹혀 있어서, 기기를 전부 지우자
+// 백엔드가 인메모리 더블로 내려가고 화면이 실제 주차장 대신 빈 씬을 그렸다.
+test("씬 주소는 카메라가 아니라 월드의 것이다 — 자기 화면과 자기 라우트를 갖는다", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  for (const id of ["sim-endpoint-host", "sim-endpoint-port", "sim-endpoint-timeout",
+                    "sim-endpoint-probe", "sim-endpoint-save", "sim-endpoint-status"]) {
+    assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
+  }
+  assert.match(html, /getJson\(api\("\/simulator\/endpoint"\)\)/, "씬 주소를 읽어 와야 한다");
+  assert.match(html, /reqJson\("PUT", api\("\/simulator\/endpoint"\)/, "씬 주소는 PUT 으로 저장한다");
+  // 기기 편집 폼은 더 이상 씬 포트를 보내지 않는다 — 백엔드가 400 으로 거절한다.
+  assert.doesNotMatch(html, /id="sim-set-sceneport"/);
+  assert.doesNotMatch(html, /scenePort: selected\.scenePort/);
 });
