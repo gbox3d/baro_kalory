@@ -186,7 +186,7 @@
                   <label>MJPEG 포트</label><input id="dev-mjpeg-port" type="number" style="width:70px" placeholder="없음" />
                   <label>타임아웃</label><input id="dev-timeout" type="number" style="width:70px" placeholder="ms" />
                 </div>
-                <div class="hint" style="margin-bottom:8px;">MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 시뮬레이터 씬 주소는 기기가 아니라 시뮬레이터 화면의 「씬 주소」에서 정합니다 — 월드 하나의 값이라 카메라와 함께 지워지면 안 됩니다.</div>
+                <div class="hint" style="margin-bottom:8px;">MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 시뮬레이터 주소는 기기가 아니라 시뮬레이터 화면의 「시뮬레이터 주소」에서 정합니다 — 월드 하나의 값이라 카메라와 함께 지워지면 안 됩니다.</div>
                 <div class="row" style="margin-bottom:6px;">
                   <label style="width:auto;"><input id="dev-insecure-tls" type="checkbox" /> TLS 인증서 검증 안 함</label>
                 </div>
@@ -414,7 +414,7 @@ function devTypeNeedsHost(type) {
 function devMsg(text) { document.getElementById("dev-msg").textContent = text; }
 
 // 접속 상세 — host 기기에만 의미가 있는 필드들. 백엔드가 정규화하는 이름 그대로 쓴다.
-// scenePort 는 여기 없다 — 씬 주소는 카메라가 아니라 시뮬 월드의 것이다(config.simulator).
+// 제어 포트는 여기 없다 — 주소는 카메라가 아니라 시뮬레이터(월드)의 것이다(config.simulator).
 const DEV_CONN_KEYS = ["scheme", "mjpegPort", "timeoutMs",
                        "rtspPath", "rtspPort", "streamFps", "insecureTls",
                        "fwModId", "portId", "ptzPortId", "streamIndex"];

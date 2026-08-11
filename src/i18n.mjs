@@ -127,11 +127,11 @@ const DICT = {
   // simulator settings tab (씬 제어 = sim 기기 기반)
   "기기": { en: "Device", vi: "Thiết bị" },
   "＋ 추가": { en: "＋ Add", vi: "＋ Thêm" },
+  "시뮬레이터(월드) 하나의 주소와 계정입니다. 제어 포트는 시뮬레이터 전체가 하나 가지며 stage 마다 있는 것이 아닙니다 — 활성 stage 도 이 포트로 고릅니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.":
+    { en: "The address and account of the one simulator (world). The control port belongs to the simulator as a whole, not one per stage — the active stage is chosen over this same port. It is independent of cameras, so it stays put even with zero cameras.",
+      vi: "Địa chỉ và tài khoản của một trình mô phỏng (thế giới) duy nhất. Cổng điều khiển thuộc về toàn bộ trình mô phỏng, không phải mỗi stage một cổng — stage đang hoạt động cũng được chọn qua chính cổng này. Nó độc lập với camera nên vẫn còn ngay cả khi không có camera nào." },
   "시뮬레이터 카메라":
     { en: "Simulator cameras", vi: "Camera mô phỏng" },
-  "시뮬레이터 월드 하나의 주소와 계정입니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.":
-    { en: "The address and credentials of the one simulator world. They are independent of cameras, so they stay put even with zero cameras.",
-      vi: "Địa chỉ và thông tin đăng nhập của một thế giới mô phỏng. Chúng độc lập với camera, nên vẫn còn ngay cả khi không có camera nào." },
   "이 목록은 시뮬레이터 씬에서 옵니다 — 등록해 두는 것이 아니라 씬에 실제로 있는 카메라입니다. 만들고 지우는 곳은 「카메라」 탭입니다.":
     { en: "This list comes from the simulator scene — these are the cameras that actually exist there, not registered entries. Create and remove them on the Cameras tab.",
       vi: "Danh sách này đến từ cảnh mô phỏng — đây là những camera thực sự tồn tại ở đó, không phải mục đã đăng ký. Tạo và xoá chúng ở tab Camera." },
@@ -145,18 +145,16 @@ const DICT = {
   "사용 중": { en: "Active", vi: "Đang dùng" },
   "무카메라 mock": { en: "Camera-less mock", vi: "Mock không camera" },
   "MJPEG 포트": { en: "MJPEG port", vi: "Cổng MJPEG" },
-  "씬 포트": { en: "Scene port", vi: "Cổng scene" },
-  "씬 주소": { en: "Scene address", vi: "Địa chỉ scene" },
+  "제어 포트": { en: "Control port", vi: "Cổng điều khiển" },
+  "시뮬레이터 주소": { en: "Simulator address", vi: "Địa chỉ trình mô phỏng" },
   "설정됨": { en: "Set", vi: "Đã đặt" },
-  "씬 주소 조회 실패": { en: "Could not read the scene address", vi: "Không đọc được địa chỉ scene" },
-  "씬 주소가 없습니다 — 호스트와 씬 포트를 넣으세요.": {
-    en: "No scene address yet — enter the host and scene port.",
-    vi: "Chưa có địa chỉ scene — nhập host và cổng scene.",
-  },
-  "MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 시뮬레이터 씬 주소는 기기가 아니라 시뮬레이터 화면의 「씬 주소」에서 정합니다 — 월드 하나의 값이라 카메라와 함께 지워지면 안 됩니다.": {
-    en: "With an MJPEG port the backend relays that port instead of RTSP. The simulator's scene address is set on the simulator page under \"Scene address\", not here — it belongs to the world, so it must not be deleted along with a camera.",
-    vi: "Nếu có cổng MJPEG, backend chuyển tiếp cổng đó thay cho RTSP. Địa chỉ scene của trình mô phỏng được đặt ở trang mô phỏng, mục \"Địa chỉ scene\" — nó thuộc về thế giới nên không được xóa cùng camera.",
-  },
+  "시뮬레이터 주소 조회 실패": { en: "Could not read the simulator address", vi: "Không đọc được địa chỉ trình mô phỏng" },
+  "시뮬레이터 주소가 없습니다 — 호스트와 제어 포트를 넣으세요.":
+    { en: "No simulator address — enter the host and control port.",
+      vi: "Chưa có địa chỉ trình mô phỏng — nhập host và cổng điều khiển." },
+  "MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 시뮬레이터 주소는 기기가 아니라 시뮬레이터 화면의 「시뮬레이터 주소」에서 정합니다 — 월드 하나의 값이라 카메라와 함께 지워지면 안 됩니다.":
+    { en: "With an MJPEG port the server relays that port instead of RTSP. The simulator address is not a device field — set it under 「Simulator address」 on the simulator page; it belongs to the one world and must not vanish with a camera.",
+      vi: "Nếu có cổng MJPEG, máy chủ chuyển tiếp cổng đó thay cho RTSP. Địa chỉ trình mô phỏng không thuộc thiết bị — đặt ở 「Địa chỉ trình mô phỏng」 trên trang mô phỏng; nó thuộc về một thế giới duy nhất." },
   "씬 연결 테스트": { en: "Test scene connection", vi: "Kiểm tra kết nối scene" },
   "저장": { en: "Save", vi: "Lưu" },
   "저장 + 재연결": { en: "Save + Reconnect", vi: "Lưu + Kết nối lại" },
@@ -289,7 +287,9 @@ const DICT = {
   "옮기기 실패": { en: "Move failed", vi: "Di chuyển thất bại" },
   "삭제 중…": { en: "Deleting…", vi: "Đang xóa…" },
   "삭제 실패": { en: "Delete failed", vi: "Xóa thất bại" },
-  "씬 포트를 입력하세요 (UE 씬 제어 HTTP 포트, 기본 8095).": { en: "Enter the scene port (UE scene-control HTTP port, default 8095).", vi: "Nhập cổng scene (cổng HTTP điều khiển scene UE, mặc định 8095)." },
+  "제어 포트를 입력하세요 (시뮬레이터 제어 HTTP 포트, 기본 8095).":
+    { en: "Enter the control port (the simulator's control HTTP port, default 8095).",
+      vi: "Nhập cổng điều khiển (cổng HTTP điều khiển của trình mô phỏng, mặc định 8095)." },
   "sim 기기가 없습니다 — CCTV 설정 탭에서 기기를 먼저 등록하세요.": { en: "No sim device — register one in the CCTV settings tab first.", vi: "Không có thiết bị sim — hãy đăng ký trong tab cài đặt CCTV trước." },
   "무카메라 mock 기기 — 씬 연결 없음(인메모리). UE에 붙이려면 hucoms 타입 sim 기기를 사용하세요.": { en: "Camera-less mock device — no scene connection (in-memory). Use a hucoms-type sim device to attach to UE.", vi: "Thiết bị mock không camera — không có kết nối scene (trong bộ nhớ). Dùng thiết bị sim loại hucoms để nối UE." },
   "무카메라 mock 기기는 연결 설정이 없습니다.": { en: "A camera-less mock device has no connection settings.", vi: "Thiết bị mock không camera không có cài đặt kết nối." },

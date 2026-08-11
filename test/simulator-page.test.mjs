@@ -4,7 +4,7 @@ import test from "node:test";
 
 const simulatorPageUrl = new URL("../public/simulator.html", import.meta.url);
 
-// 설정 탭에는 두 가지뿐이다: 월드(씬 주소·계정) 하나와, 그 씬에서 파생된 읽기 전용 카메라 목록.
+// 설정 탭에는 두 가지뿐이다: 월드(시뮬레이터 주소·계정) 하나와, 활성 stage 에서 파생된 읽기 전용 목록.
 // 카메라를 등록하는 창은 없다 — 그 등록이 씬의 그림자 사본이 되어 반드시 어긋났기 때문이다.
 test("설정 탭은 월드 하나와 씬에서 온 읽기 전용 목록뿐이다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
@@ -164,10 +164,10 @@ test("카메라 배치 목록은 씬을 주기적으로 다시 읽되, 바뀐 �
   assert.doesNotMatch(poll, /loadCameras\(/);
 });
 
-// 씬 주소는 카메라와 별개다 — 카메라를 전부 지워도 시뮬 연결이 남아야 한다.
+// 시뮬레이터 주소는 카메라와 별개다 — 카메라를 전부 지워도 연결이 남아야 한다.
 // 회귀(2026-08-11): 주소가 카메라 기기의 scenePort 에 얹혀 있어서, 기기를 전부 지우자
 // 백엔드가 인메모리 더블로 내려가고 화면이 실제 주차장 대신 빈 씬을 그렸다.
-test("씬 주소는 카메라가 아니라 월드의 것이다 — 자기 화면과 자기 라우트를 갖는다", async () => {
+test("주소는 카메라가 아니라 시뮬레이터(월드)의 것이다 — 자기 화면과 자기 라우트를 갖는다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
   // 계정도 월드의 것이다 — 카메라마다 복사돼 있던 것을 이 한 자리로 모았다.
   for (const id of ["sim-endpoint-host", "sim-endpoint-port", "sim-endpoint-timeout",
@@ -175,11 +175,15 @@ test("씬 주소는 카메라가 아니라 월드의 것이다 — 자기 화면
                     "sim-endpoint-probe", "sim-endpoint-save", "sim-endpoint-status"]) {
     assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
   }
-  assert.match(html, /getJson\(api\("\/simulator\/endpoint"\)\)/, "씬 주소를 읽어 와야 한다");
-  assert.match(html, /reqJson\("PUT", api\("\/simulator\/endpoint"\)/, "씬 주소는 PUT 으로 저장한다");
-  // 기기 편집 폼은 더 이상 씬 포트를 보내지 않는다 — 백엔드가 400 으로 거절한다.
+  assert.match(html, /getJson\(api\("\/simulator\/endpoint"\)\)/, "시뮬레이터 주소를 읽어 와야 한다");
+  assert.match(html, /reqJson\("PUT", api\("\/simulator\/endpoint"\)/, "주소는 PUT 으로 저장한다");
+  // 기기 편집 폼은 제어 포트를 보내지 않는다 — 백엔드가 400 으로 거절한다.
   assert.doesNotMatch(html, /id="sim-set-sceneport"/);
-  assert.doesNotMatch(html, /scenePort: selected\.scenePort/);
+  // 옛 이름을 값으로 다루는 곳이 없어야 한다(주석에 이름이 나오는 것은 내력 설명이라 무해).
+  // 남아 있으면 그 이름으로 보낸 저장이 백엔드에서 400 으로 끊긴다 — 조용히 무시했다면
+  // "포트 없음" = **해제**로 읽혀 시뮬레이터 주소가 통째로 지워졌을 값이다.
+  assert.doesNotMatch(html, /\bscenePort\b\s*[:.=]|\.scenePort\b/);
+  assert.match(html, /controlPort/, "제어 포트는 시뮬레이터 하나의 것이다");
 
   // 빈 비밀번호 칸은 "모른다"이지 "지워라"가 아니다. 빈 문자열을 실어 보내면 호스트만
   // 고치는 저장 한 번에 월드의 계정이 사라지고 모든 파생 카메라가 인증에 실패한다.
