@@ -93,15 +93,16 @@ test("리그 갱신은 활성 카메라가 갈리면 PTZ 와 핀을 다시 읽�
   assert.match(refresh, /await loadPtz\(\)/);
 });
 
-test("세우기가 실패해도 리그를 다시 읽는다 — 롤백까지 실패하면 카메라가 씬에 남는다", async () => {
+test("세우기는 씬만 건드린다 — 기기를 따로 만들지 않고, 실패해도 리그를 다시 읽는다", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
-  // 백엔드는 등록 실패 시 카메라를 되돌리고, 되돌리는 것마저 실패하면 rolledBack:false 로
-  // 알린다. 그때 목록을 갱신하지 않으면 그 카메라는 화면 어디에도 없는 채 포트만 물고
-  // 있어, 다음 세우기를 영문 모를 포트 충돌로 막는다.
   const start = html.indexOf("async function spawnSceneCamera(");
   const end = html.indexOf("async function removeSceneCamera(", start);
   const spawn = html.slice(start, end);
-  assert.match(spawn, /e\.body\?\.rolledBack === false/);
+  // 기기 등록이라는 단계가 없어졌다. `register` 를 실어 보내면 받는 쪽이 없는 값을 보내는
+  // 것이고, 이름 칸은 사람이 적은 값이 아무 데도 안 가는 죽은 입력이 된다.
+  assert.doesNotMatch(spawn, /register/);
+  assert.doesNotMatch(spawn, /rolledBack/, "되돌릴 등록이 없으므로 롤백 분기도 없다");
+  // 실패해도 씬은 바뀌었을 수 있다 — 화면을 씬으로 되맞춘다.
   assert.match(spawn, /catch \(e\) \{[\s\S]*await refreshRig\(\)/);
 });
 

@@ -171,8 +171,6 @@ const DICT = {
   "＋ 카메라 세우기": { en: "＋ Place a camera", vi: "＋ Đặt camera" },
   "하향각": { en: "Tilt down", vi: "Góc chúc" },
   "방위": { en: "Bearing", vi: "Hướng" },
-  "(높이에서 자동)": { en: "(auto, from height)", vi: "(tự động, theo độ cao)" },
-  "세우고 등록": { en: "Place and register", vi: "Đặt và đăng ký" },
   "씬에서 받은 주차면·카메라가 없습니다.": { en: "The scene reported no slots or cameras.", vi: "Scene không báo chỗ đỗ hay camera nào." },
   "씬에 카메라가 없습니다.": { en: "No cameras in the scene.", vi: "Không có camera trong scene." },
   "카메라를 클릭하면 선택됩니다.": { en: "Click a camera to select it.", vi: "Nhấp vào camera để chọn." },
@@ -193,22 +191,18 @@ const DICT = {
       vi: "Camera được tạo sẵn trong level không thể di chuyển hay xóa từ đây." },
   "포즈 없음": { en: "No camera", vi: "Không có camera" },
   "{id} · 기기 {dev}": { en: "{id} · device {dev}", vi: "{id} · thiết bị {dev}" },
-  "{id} · 등록된 기기 없음 — 제어·프리뷰는 등록해야 됩니다.":
-    { en: "{id} · no device registered — control and preview need one.",
-      vi: "{id} · chưa có thiết bị — điều khiển và xem trước cần một thiết bị." },
   "카메라를 세우는 중…": { en: "Placing the camera…", vi: "Đang đặt camera…" },
   "세우는 중…": { en: "Placing…", vi: "Đang đặt…" },
   "카메라 세움: {id} :{port}": { en: "Camera placed: {id} :{port}", vi: "Đã đặt camera: {id} :{port}" },
-  "세웠습니다 — 기기 {dev} 로 등록됨.": { en: "Placed — registered as device {dev}.", vi: "Đã đặt — đăng ký là thiết bị {dev}." },
-  "세웠습니다 — 기기 등록은 하지 않았습니다.": { en: "Placed — no device was registered.", vi: "Đã đặt — không đăng ký thiết bị." },
+  "세웠습니다: {id} · 기기 sim-cam-{port}":
+    { en: "Placed: {id} — device sim-cam-{port}", vi: "Đã dựng: {id} — thiết bị sim-cam-{port}" },
+  "{id} · 목록을 아직 못 읽었습니다 — 새로고침하세요.":
+    { en: "{id} · the device list has not been read yet — refresh.",
+      vi: "{id} · chưa đọc được danh sách thiết bị — hãy làm mới." },
+  "카메라 '{name}' 를 씬에서 지울까요?":
+    { en: "Remove camera '{name}' from the scene?", vi: "Xoá camera '{name}' khỏi cảnh?" },
   "세우기 실패": { en: "Could not place the camera", vi: "Không thể đặt camera" },
   "카메라 세우기 실패": { en: "Placing the camera failed", vi: "Đặt camera thất bại" },
-  "기기 등록은 실패했지만 카메라는 씬에 남았습니다 — 목록에서 지우세요":
-    { en: "Device registration failed but the camera is still in the scene — remove it from the list",
-      vi: "Đăng ký thiết bị thất bại nhưng camera vẫn còn trong scene — hãy xóa nó khỏi danh sách" },
-  "카메라 '{name}' 를 씬에서 지우고 기기 등록도 해제할까요?":
-    { en: "Remove camera '{name}' from the scene and unregister its device?",
-      vi: "Xóa camera '{name}' khỏi scene và hủy đăng ký thiết bị?" },
   "카메라를 지우는 중…": { en: "Removing the camera…", vi: "Đang xóa camera…" },
   "지웠습니다: {id}": { en: "Removed: {id}", vi: "Đã xóa: {id}" },
   "카메라 삭제: {id}": { en: "Camera removed: {id}", vi: "Đã xóa camera: {id}" },
