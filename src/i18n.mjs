@@ -85,10 +85,20 @@ const DICT = {
   "와이드샷에서 주차면을 클릭하거나 네모로 드래그하세요.": { en: "Click a spot in the wide shot or drag a box.", vi: "Nhấp vào chỗ đỗ trên ảnh góc rộng hoặc kéo một khung." },
   "중지": { en: "Stop", vi: "Dừng" },
   "Detector 테스트": { en: "Detector Test", vi: "Kiểm tra Detector" },
+  "현재 PTZ & 높이": { en: "Current PTZ & Height", vi: "PTZ & độ cao hiện tại" },
   "VPD 테스트": { en: "VPD Test", vi: "Kiểm tra VPD" },
   "LPD 테스트": { en: "LPD Test", vi: "Kiểm tra LPD" },
   "LPR 테스트": { en: "LPR Test", vi: "Kiểm tra LPR" },
+  "3D Box 검출": { en: "3D Box Detection", vi: "Phát hiện hộp 3D" },
   "전체 테스트": { en: "Test All", vi: "Kiểm tra tất cả" },
+  // 3D 판독 — 이 검출기가 재는 것은 픽셀이 아니라 미터다(앞/옆 거리·치수·방위).
+  "· 앞 {x} m, 옆 {y} m · {l}×{w}×{h} m · 방위 {yaw}°":
+    { en: "· {x} m ahead, {y} m to the side · {l}×{w}×{h} m · yaw {yaw}°",
+      vi: "· {x} m phía trước, {y} m bên cạnh · {l}×{w}×{h} m · góc {yaw}°" },
+  "기준 {id} · 설치높이 {h} m · {status}":
+    { en: "Calibrated as {id} · mount height {h} m · {status}",
+      vi: "Chuẩn theo {id} · độ cao lắp {h} m · {status}" },
+  "미터 아님": { en: "not metric", vi: "không theo mét" },
   "현재 화면 스냅샷을 검출 API로 보내고 결과 박스를 영상 위에 표시합니다.": { en: "Sends the current snapshot to the detection API and draws result boxes on the video.", vi: "Gửi ảnh chụp hiện tại tới API phát hiện và vẽ khung kết quả lên video." },
   "로그": { en: "Log", vi: "Nhật ký" },
 
@@ -158,13 +168,19 @@ const DICT = {
   "상태 확인 실패": { en: "Status check failed", vi: "Kiểm tra trạng thái thất bại" },
   "무카메라 mock 기기 — 씬 연결 없음(인메모리).": { en: "Camera-less mock — no scene connection (in-memory).", vi: "Mock không camera — không có kết nối scene (trong bộ nhớ)." },
   "카메라 배치": { en: "Camera layout", vi: "Bố trí camera" },
+  "카메라 컨트롤": { en: "Camera control", vi: "Điều khiển camera" },
+  "조종 — 현재 PTZ": { en: "Drive — current PTZ", vi: "Điều khiển — PTZ hiện tại" },
+  "설치를 고치는 중…": { en: "Updating the install…", vi: "Đang cập nhật lắp đặt…" },
+  "설치로 굳힘: {id} — 이 방향이 팬 0 의 정면입니다":
+    { en: "Rebased install: {id} — this bearing is now pan 0",
+      vi: "Đã cố định lắp đặt: {id} — hướng này giờ là pan 0" },
+  "설치": { en: "Install", vi: "Lắp đặt" },
   "주차장 평면도": { en: "Parking lot map", vi: "Sơ đồ bãi đỗ" },
   "씬 카메라": { en: "Scene cameras", vi: "Camera trong scene" },
   "＋ 카메라 세우기": { en: "＋ Place a camera", vi: "＋ Đặt camera" },
   "하향각": { en: "Tilt down", vi: "Góc chúc" },
   "방위": { en: "Bearing", vi: "Hướng" },
   "씬에서 받은 주차면·카메라가 없습니다.": { en: "The scene reported no slots or cameras.", vi: "Scene không báo chỗ đỗ hay camera nào." },
-  "씬에 카메라가 없습니다.": { en: "No cameras in the scene.", vi: "Không có camera trong scene." },
   "카메라를 세울 자리를 평면도에서 클릭하세요.": { en: "Click the map where the camera should stand.", vi: "Nhấp lên sơ đồ nơi đặt camera." },
   "이 카메라가 바라볼 지면 지점을 클릭하세요 (드래그해도 됩니다).":
     { en: "Click the ground point this camera should look at (dragging works too).",
@@ -177,9 +193,6 @@ const DICT = {
   "높이를 입력하세요 (m).": { en: "Enter the height (m).", vi: "Nhập độ cao (m)." },
   "포트를 입력하세요.": { en: "Enter the ports.", vi: "Nhập cổng." },
   "레벨 저작": { en: "Level-authored", vi: "Tạo trong level" },
-  "레벨에 저작된 카메라는 이 화면에서 옮기거나 지울 수 없습니다.":
-    { en: "A camera authored into the level cannot be moved or removed from here.",
-      vi: "Camera được tạo sẵn trong level không thể di chuyển hay xóa từ đây." },
   "포즈 없음": { en: "No camera", vi: "Không có camera" },
   "{id} · 기기 {dev}": { en: "{id} · device {dev}", vi: "{id} · thiết bị {dev}" },
   "카메라를 세우는 중…": { en: "Placing the camera…", vi: "Đang đặt camera…" },
@@ -197,29 +210,60 @@ const DICT = {
   "카메라를 지우는 중…": { en: "Removing the camera…", vi: "Đang xóa camera…" },
   "지웠습니다: {id}": { en: "Removed: {id}", vi: "Đã xóa: {id}" },
   "카메라 삭제: {id}": { en: "Camera removed: {id}", vi: "Đã xóa camera: {id}" },
-  // 씬 스냅샷 — 런타임에 세운 카메라의 유일한 내구 기록.
-  "씬 저장": { en: "Save scene", vi: "Lưu scene" },
-  "씬 복원": { en: "Restore scene", vi: "Khôi phục scene" },
-  "지금 씬(세운 카메라 + 차량)을 JSON 파일로 내려받습니다":
-    { en: "Download the current scene (placed cameras + cars) as a JSON file",
-      vi: "Tải scene hiện tại (camera đã đặt + xe) dưới dạng tệp JSON" },
-  "저장해 둔 JSON 으로 씬을 되돌립니다":
-    { en: "Restore the scene from a saved JSON file",
-      vi: "Khôi phục scene từ tệp JSON đã lưu" },
-  "씬을 읽는 중…": { en: "Reading the scene…", vi: "Đang đọc scene…" },
+  // 저장된 씬 — 런타임에 세운 카메라의 유일한 내구 기록. 저장본은 서버에 남는다.
+  "저장 이름": { en: "Save name", vi: "Tên bản lưu" },
+  "한글·영숫자·공백과 ._()[]+- 만, 60자까지. 같은 이름으로 저장하면 덮어씁니다.":
+    { en: "Hangul, alphanumerics, space and ._()[]+- only, up to 60 chars. The same name overwrites.",
+      vi: "Chỉ Hangul, chữ và số, khoảng trắng và ._()[]+-, tối đa 60 ký tự. Cùng tên sẽ ghi đè." },
+  "지금 씬(세운 카메라 + 차량)을 서버에 저장합니다":
+    { en: "Save the current scene (placed cameras + cars) on the server",
+      vi: "Lưu scene hiện tại (camera đã đặt + xe) trên máy chủ" },
+  "저장된 씬이 없습니다.": { en: "No saved scenes.", vi: "Chưa có scene nào được lưu." },
+  "차량": { en: "Cars", vi: "Xe" },
+  "복원": { en: "Restore", vi: "Khôi phục" },
+  "이름 바꾸기": { en: "Rename", vi: "Đổi tên" },
+  "덮어쓰기": { en: "Overwrite", vi: "Ghi đè" },
+  "이름만 바꿉니다 — 담긴 씬은 그대로입니다":
+    { en: "Renames only — the saved scene itself is unchanged",
+      vi: "Chỉ đổi tên — scene đã lưu giữ nguyên" },
+  "이 저장본을 지금 씬으로 덮어씁니다":
+    { en: "Overwrite this save with the scene as it is now",
+      vi: "Ghi đè bản lưu này bằng scene hiện tại" },
+  "이 저장본으로 씬을 되돌립니다":
+    { en: "Restore the scene from this save", vi: "Khôi phục scene từ bản lưu này" },
+  "'{name}' 저장본을 지금 씬으로 덮어쓸까요?":
+    { en: "Overwrite the save '{name}' with the scene as it is now?",
+      vi: "Ghi đè bản lưu '{name}' bằng scene hiện tại?" },
+  "새 이름": { en: "New name", vi: "Tên mới" },
+  "이름을 바꾸는 중…": { en: "Renaming…", vi: "Đang đổi tên…" },
+  "이름을 바꿨습니다: {from} → {to}":
+    { en: "Renamed: {from} → {to}", vi: "Đã đổi tên: {from} → {to}" },
+  "씬 이름 변경: {from} → {to}":
+    { en: "Scene save renamed: {from} → {to}", vi: "Đã đổi tên bản lưu scene: {from} → {to}" },
+  "이름 바꾸기 실패": { en: "Rename failed", vi: "Đổi tên thất bại" },
+  "저장 목록 실패": { en: "Could not list saved scenes", vi: "Không thể liệt kê scene đã lưu" },
+  "읽을 수 없음": { en: "Unreadable", vi: "Không đọc được" },
+  "저장할 이름을 적으세요.": { en: "Type a name to save under.", vi: "Nhập tên để lưu." },
+  "'{name}' 저장본을 덮어쓸까요?": { en: "Overwrite the save '{name}'?", vi: "Ghi đè bản lưu '{name}'?" },
   "저장했습니다 — 카메라 {cams}대 · 차량 {cars}대":
     { en: "Saved — {cams} cameras, {cars} cars", vi: "Đã lưu — {cams} camera, {cars} xe" },
-  "씬 스냅샷 저장: {name}": { en: "Scene snapshot saved: {name}", vi: "Đã lưu ảnh chụp scene: {name}" },
+  "씬 저장: {name}": { en: "Scene saved: {name}", vi: "Đã lưu scene: {name}" },
   "씬 저장 실패": { en: "Could not save the scene", vi: "Không thể lưu scene" },
-  "이 파일은 씬 스냅샷이 아닙니다": { en: "That file is not a scene snapshot", vi: "Tệp đó không phải ảnh chụp scene" },
-  "복원하면 차량이 전부 다시 배치되고, 스냅샷에 없는 카메라 {n}대가 지워집니다. 계속할까요? (카메라 {cams} · 차량 {cars})":
-    { en: "Restoring re-places every car and removes {n} camera(s) missing from the snapshot. Continue? ({cams} cameras · {cars} cars)",
-      vi: "Khôi phục sẽ đặt lại toàn bộ xe và xóa {n} camera không có trong ảnh chụp. Tiếp tục? ({cams} camera · {cars} xe)" },
+  "저장본 '{name}' 을 지울까요? (씬은 그대로입니다)":
+    { en: "Delete the save '{name}'? (the scene itself is untouched)",
+      vi: "Xóa bản lưu '{name}'? (scene vẫn giữ nguyên)" },
+  "저장본을 지웠습니다: {name}": { en: "Save deleted: {name}", vi: "Đã xóa bản lưu: {name}" },
+  "저장본을 읽지 못했습니다": { en: "Could not read the save", vi: "Không đọc được bản lưu" },
+  "복원하면 차량이 전부 다시 배치되고, 저장본에 없는 카메라 {n}대가 지워집니다. 계속할까요? (카메라 {cams} · 차량 {cars})":
+    { en: "Restoring re-places every car and removes {n} camera(s) missing from the save. Continue? ({cams} cameras · {cars} cars)",
+      vi: "Khôi phục sẽ đặt lại toàn bộ xe và xóa {n} camera không có trong bản lưu. Tiếp tục? ({cams} camera · {cars} xe)" },
   "씬을 되돌리는 중…": { en: "Restoring the scene…", vi: "Đang khôi phục scene…" },
+  "씬을 저장하는 중…": { en: "Saving the scene…", vi: "Đang lưu scene…" },
+  "저장본을 지우는 중…": { en: "Deleting the save…", vi: "Đang xóa bản lưu…" },
   "복원 중…": { en: "Restoring…", vi: "Đang khôi phục…" },
-  "이 스냅샷은 다른 레벨({level})의 것입니다. 그래도 이 레벨에 적용할까요?":
-    { en: "This snapshot is from another level ({level}). Apply it to this level anyway?",
-      vi: "Ảnh chụp này thuộc level khác ({level}). Vẫn áp dụng vào level này?" },
+  "이 저장본은 다른 레벨({level})의 것입니다. 그래도 이 레벨에 적용할까요?":
+    { en: "This save is from another level ({level}). Apply it to this level anyway?",
+      vi: "Bản lưu này thuộc level khác ({level}). Vẫn áp dụng vào level này?" },
   "복원을 취소했습니다.": { en: "Restore cancelled.", vi: "Đã hủy khôi phục." },
   "복원됨 — 카메라 +{sp}/이동 {mv}/삭제 {rm} · 차량 {cars}대{fail}":
     { en: "Restored — cameras +{sp}/moved {mv}/removed {rm} · {cars} cars{fail}",
@@ -255,15 +299,10 @@ const DICT = {
     { en: "This scene's ground level is unknown — it needs at least one parking slot or camera.",
       vi: "Không biết cao độ mặt đất của scene này — cần ít nhất một chỗ đỗ hoặc camera." },
   // 세워 둔 카메라의 설치 고치기(높이·방위·하향각)
-  "설치": { en: "Install", vi: "Lắp đặt" },
   "설치 높이·방위·하향각을 고칩니다":
     { en: "Change the installed height, azimuth and downtilt",
       vi: "Sửa chiều cao lắp đặt, phương vị và góc chúc" },
-  "{name} · 설치": { en: "{name} · installation", vi: "{name} · lắp đặt" },
   "그대로": { en: "unchanged", vi: "giữ nguyên" },
-  "높이만 바꾸면 하향각은 그대로라 조준점이 멀어집니다 — 같은 곳을 보게 하려면 하향각도 함께 넣으세요.":
-    { en: "Changing only the height leaves the downtilt as it was, so the aim point moves further away — enter a downtilt too if it should keep looking at the same place.",
-      vi: "Chỉ đổi chiều cao thì góc chúc giữ nguyên nên điểm ngắm lùi ra xa — hãy nhập cả góc chúc nếu muốn nhìn đúng chỗ cũ." },
   "옮기기": { en: "Move it", vi: "Di chuyển" },
   "고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.":
     { en: "The camera to edit was not found — reload the list.",
@@ -274,12 +313,88 @@ const DICT = {
       vi: "Scene không cung cấp tọa độ lắp đặt của camera này." },
   "바뀐 값이 없습니다.": { en: "Nothing changed.", vi: "Không có gì thay đổi." },
   "카메라를 옮기는 중…": { en: "Moving the camera…", vi: "Đang di chuyển camera…" },
-  "카메라를 클릭하면 선택되고, 끌면 자리를 옮깁니다.":
-    { en: "Click a camera to select it; drag it to move it.",
-      vi: "Nhấp vào camera để chọn; kéo để di chuyển." },
-  "설치 높이·방위·하향각을 고칩니다 (자리는 평면도에서 끌어 옮깁니다)":
-    { en: "Edit mount height, bearing and downtilt (drag on the map to move it)",
-      vi: "Sửa độ cao lắp đặt, hướng và góc cúi (kéo trên bản đồ để di chuyển)" },
+  "클릭 = 선택 · 끌기 = 자리 · 붉은 앵커 = 설치방위":
+    { en: "Click = select · drag = move · red anchor = mount bearing",
+      vi: "Nhấp = chọn · kéo = di chuyển · neo đỏ = hướng lắp đặt" },
+  "붉은 앵커 = 조준 · 모서리 앵커 = 화각(줌)":
+    { en: "Red anchor = aim · edge anchors = FOV (zoom)",
+      vi: "Neo đỏ = ngắm · neo mép = góc nhìn (zoom)" },
+  "씬 x (cm)": { en: "Scene x (cm)", vi: "x của scene (cm)" },
+  "씬 y (cm)": { en: "Scene y (cm)", vi: "y của scene (cm)" },
+  "설치 높이 — 지면 기준 m (씬 z = H×100 + 지면)":
+    { en: "Mount height — metres above ground (scene z = H×100 + ground)",
+      vi: "Độ cao lắp đặt — mét so với mặt đất (z của scene = H×100 + mặt đất)" },
+  "하향":
+    { en: "Tilt", vi: "Cúi" },
+  "{name} · 기준기 — 설치는 시뮬 카메라만 고칩니다":
+    { en: "{name} · reference rig — only sim cameras have an editable mount", vi: "{name} · giàn tham chiếu — chỉ camera sim mới sửa được lắp đặt" },
+  "설치 높이 — 지면 기준 m":
+    { en: "Mount height — metres above ground", vi: "Độ cao lắp đặt — mét so với mặt đất" },
+  "Hucoms 제어 포트 — 기기 id 가 됩니다 (sim-cam-<포트>)":
+    { en: "Hucoms control port — it becomes the device id (sim-cam-<port>)", vi: "Cổng điều khiển Hucoms — trở thành id thiết bị (sim-cam-<cổng>)" },
+  "MJPEG 스트림 포트":
+    { en: "MJPEG stream port", vi: "Cổng luồng MJPEG" },
+  "세우기": { en: "Place", vi: "Dựng" },
+  "적용했습니다: {id}":
+    { en: "Applied: {id}", vi: "Đã áp dụng: {id}" },
+  "적용 실패":
+    { en: "Apply failed", vi: "Áp dụng thất bại" },
+  "휴컴스 pan (0–35999)":
+    { en: "Hucoms pan (0–35999)", vi: "Hucoms pan (0–35999)" },
+  "휴컴스 tilt (−2000–9000, 클수록 아래)":
+    { en: "Hucoms tilt (−2000–9000, higher = further down)", vi: "Hucoms tilt (−2000–9000, càng lớn càng cúi xuống)" },
+  "휴컴스 zoom (0–65535)":
+    { en: "Hucoms zoom (0–65535)", vi: "Hucoms zoom (0–65535)" },
+  "비우면 높이로 자동":
+    { en: "blank = auto from height", vi: "để trống = tự đặt theo độ cao" },
+  "사람이 부르는 별명 — 씬에 저장됩니다. 비우면 설치 높이로 만든 이름이 쓰입니다.":
+    { en: "A human-facing alias — stored in the scene. Blank falls back to a name made from the mount height.", vi: "Biệt danh cho người đọc — lưu trong scene. Để trống thì dùng tên tạo từ độ cao lắp đặt." },
+  "{id} · :{port}{tag}":
+    { en: "{id} · :{port}{tag}", vi: "{id} · :{port}{tag}" },
+  " · 레벨 저작(자세 고정)":
+    { en: " · authored in level (pose fixed)", vi: " · tạo trong level (tư thế cố định)" },
+  "끌어서 조준": { en: "Drag to aim", vi: "Kéo để ngắm" },
+  "끌어서 설치방위": { en: "Drag to set the mount bearing", vi: "Kéo để đặt hướng lắp đặt" },
+  "설치방위 {m}° — {a}° 돌려 달았습니다":
+    { en: "Mount bearing {m}° — remounted {a}°", vi: "Hướng lắp đặt {m}° — đã xoay {a}°" },
+  "설치방위: {id} → {m}°":
+    { en: "Mount bearing: {id} → {m}°", vi: "Hướng lắp đặt: {id} → {m}°" },
+  "설치 고치기 실패": { en: "Install update failed", vi: "Cập nhật lắp đặt thất bại" },
+  "제어 :{c} · 프리뷰 :{m}": { en: "control :{c} · preview :{m}", vi: "điều khiển :{c} · xem trước :{m}" },
+  "리셋 (PTZ 0)": { en: "Reset (PTZ 0)", vi: "Đặt lại (PTZ 0)" },
+  "끌어서 틸트": { en: "Drag to tilt", vi: "Kéo để chỉnh tilt" },
+  "끌어서 설치 하향각": { en: "Drag to set the install downtilt", vi: "Kéo để đặt góc chúc lắp đặt" },
+  "틸트 {d}°": { en: "Tilt {d}°", vi: "Tilt {d}°" },
+  "카메라 틸트: {id} → {d}°": { en: "Camera tilt: {id} → {d}°", vi: "Tilt camera: {id} → {d}°" },
+  "설치 하향각 {d}°": { en: "Install downtilt {d}°", vi: "Góc chúc lắp đặt {d}°" },
+  "설치 하향각: {id} → {d}°":
+    { en: "Install downtilt: {id} → {d}°", vi: "Góc chúc lắp đặt: {id} → {d}°" },
+  "설치 자세로 되돌리는 중…": { en: "Returning to the installed pose…", vi: "Đang về tư thế lắp đặt…" },
+  "PTZ 0 — 설치 자세와 일치합니다": { en: "PTZ 0 — matches the installed pose", vi: "PTZ 0 — trùng với tư thế lắp đặt" },
+  "PTZ 리셋: {id} → 0/0/0": { en: "PTZ reset: {id} → 0/0/0", vi: "Đặt lại PTZ: {id} → 0/0/0" },
+  "끌어서 화각(줌)": { en: "Drag for field of view (zoom)", vi: "Kéo để đổi góc nhìn (zoom)" },
+  "줌을 맞추는 중…": { en: "Setting the zoom…", vi: "Đang chỉnh zoom…" },
+  "화각 {h}° (줌 {z})": { en: "FOV {h}° (zoom {z})", vi: "Góc nhìn {h}° (zoom {z})" },
+  "카메라 줌: {id} → 화각 {h}° (줌 {z})":
+    { en: "Camera zoom: {id} → FOV {h}° (zoom {z})", vi: "Zoom camera: {id} → góc nhìn {h}° (zoom {z})" },
+  "줌 실패": { en: "Zoom failed", vi: "Zoom thất bại" },
+  "줌을 바꿀 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다.":
+    { en: "Cannot zoom — another camera is being driven.",
+      vi: "Không thể zoom — đang điều khiển camera khác." },
+  "조준하는 중…": { en: "Aiming…", vi: "Đang ngắm…" },
+  "조준했습니다 — {a}° 돌아 {y}°":
+    { en: "Aimed — turned {a}° to {y}°", vi: "Đã ngắm — xoay {a}° tới {y}°" },
+  "카메라 조준: {id} → {y}° (팬 {p})":
+    { en: "Camera aimed: {id} → {y}° (pan {p})", vi: "Camera đã ngắm: {id} → {y}° (pan {p})" },
+  "조준할 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다.":
+    { en: "Cannot aim — another camera is being driven.",
+      vi: "Không thể ngắm — đang điều khiển camera khác." },
+  "평면도 안에서 놓아야 조준됩니다.":
+    { en: "Drop it inside the map to aim.", vi: "Hãy thả bên trong bản đồ để ngắm." },
+  "고른 카메라가 없습니다.":
+    { en: "No camera selected.", vi: "Chưa chọn camera nào." },
+  "되돌리기": { en: "Revert", vi: "Khôi phục" },
+  "씬": { en: "Scene", vi: "Scene" },
   "옮겼습니다 — {d} m":
     { en: "Moved — {d} m", vi: "Đã di chuyển — {d} m" },
   "카메라 이동: {id} → ({x}, {y})":
@@ -290,7 +405,6 @@ const DICT = {
     { en: "A level-authored camera cannot be moved.", vi: "Không thể di chuyển camera được tạo trong level." },
   "옮기는 중…": { en: "Moving…", vi: "Đang di chuyển…" },
   "설치 갱신: {id} · {h} m": { en: "Installation updated: {id} · {h} m", vi: "Đã cập nhật lắp đặt: {id} · {h} m" },
-  "옮겼습니다: {id}": { en: "Moved: {id}", vi: "Đã di chuyển: {id}" },
   "옮기기 실패": { en: "Move failed", vi: "Di chuyển thất bại" },
   "삭제 중…": { en: "Deleting…", vi: "Đang xóa…" },
   "삭제 실패": { en: "Delete failed", vi: "Xóa thất bại" },

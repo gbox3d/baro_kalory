@@ -23,6 +23,8 @@ export function createCameraSelect({ select, onChange, beforeChange, onSettled, 
 
   function sync(list, active) {
     cameras = Array.isArray(list) ? list.map((d) => ({ ...d })) : [];
+    // 활성이 목록에 없으면 접어서 딴 카메라를 활성이라 말하지 않는다 — 서버가 몰고 있는
+    // 카메라는 서버(/cctv/devices)가 목록에 반드시 실어 보내므로, 여기 오는 것은 그 사실이다.
     activeId = cameras.some((d) => d.id === active) ? active : cameras[0]?.id || null;
     select.replaceChildren();
     if (!cameras.length) {
@@ -30,16 +32,22 @@ export function createCameraSelect({ select, onChange, beforeChange, onSettled, 
       select.disabled = true;
       return;
     }
-    for (const d of cameras) select.appendChild(new Option(d.name || d.id, d.id));
+    // 카메라 목록은 **하나다.** 실기든 씬에 세운 것이든 같은 줄에 같은 모양으로 선다 —
+    // 어디에 기록돼 있는지는 백엔드의 내부 사정이고, 화면 구조로 새어 나오면 안 된다.
+    for (const d of cameras) {
+      select.appendChild(new Option(d.name || d.id, d.id));
+    }
     select.value = activeId;
     applyDisabled();
   }
 
   async function load() {
     try {
-      const cfg = await getJson(api("/cctv/config"));
-      const devices = cfg.devices || { active: null, list: [] };
-      sync(devices.list, devices.active);
+      // 단 하나의 목록, 단 하나의 요청. 병합(등록 기기 + 씬에 세워진 카메라)과 활성 판정
+      // (지금 몰고 있는 카메라 — config 의 접힌 active 가 아니라 런타임의 사실)은 전부
+      // 서버가 끝내서 보낸다. 화면이 두 목록을 다시 합치면 그 봉합선이 반드시 보인다.
+      const roster = await getJson(api("/cctv/devices"));
+      sync(roster.list || [], roster.active || null);
     } catch (error) {
       select.replaceChildren(new Option(t("CCTV 로드 실패"), ""));
       select.disabled = true;

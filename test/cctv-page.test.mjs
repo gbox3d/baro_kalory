@@ -80,7 +80,7 @@ test("header camera selector replaces the click-to-center guidance and uses the 
   assert.match(html, /id="header-camera-select"/);
   // 셀렉터 로직은 camera-select.mjs 로 이동(2026-08-03 4앱 분리) — 페이지는 모듈을 조립만 한다.
   assert.match(html, /createCameraSelect\(\{/);
-  assert.match(html, /cam\.load\(\);/);
+  assert.match(html, /cam\.load\(\)/);
   assert.match(html, /releasePreviewForCameraSwitch\(\)/);
   const mod = await readFile(new URL("../src/camera-select.mjs", import.meta.url), "utf8");
   assert.match(mod, /postJson\(api\("\/cctv\/active"\), \{ id \}\)/);
@@ -199,4 +199,74 @@ test("discovery 도 전환 시 먼저 놓아주고 폴백을 걷어낸다", asyn
   assert.doesNotMatch(html, /onChange:\s*async\s*\(\)\s*=>\s*\{\s*await discoveryPreview\.stop\(\)/,
     "stop 이 onChange 에 남아 있으면 서버 전환보다 늦다");
   assert.match(html, /window\.addEventListener\("pagehide"/, "페이지 이탈 시 강제 종료는 유지되어야 한다");
+});
+
+// 3D 검출은 사각형이 아니라 투영된 직육면체다. 사이드카가 주는 것은 12개 모서리의 픽셀
+// 선분과 미터 값이고 2D bbox 는 아예 없다 — boxes 로 옮기면 좌표 4개의 뜻이 "사각형의 대각
+// 두 점"으로 바뀌어 차 한 대가 사각형 12개가 된다.
+test("3D 결과는 boxes3d 로 읽고 큐보이드로 그린다 — boxes 로 접지 않는다", async () => {
+  const html = await readFile(cctvPageUrl, "utf8");
+  assert.match(html, /id="det-test-vpd3d"/);
+  assert.match(html, /runDetectorTest\(\["vpd_3d"\]\)/);
+  // 「전체」가 전체여야 한다.
+  assert.match(html, /runDetectorTest\(\["vpd", "lpd", "lpr", "vpd_3d"\]\)/);
+  // 버튼 잠금 배열에서 빠지면 그 버튼만 테스트 중에 다시 눌린다.
+  const buttons = html.slice(html.indexOf("const detTestButtons = ["), html.indexOf("].filter(Boolean);"));
+  assert.match(buttons, /det-test-vpd3d/);
+
+  const draw = html.slice(html.indexOf("function drawBox3dOverlay("),
+                          html.indexOf("function drawDetectorOverlay("));
+  assert.match(draw, /result\.boxes3d/);
+  assert.match(draw, /createElementNS\(NS, "line"\)/);
+  assert.ok(!draw.includes("det-box"), "3D 를 사각형 요소로 그리면 방위가 사라진다");
+});
+
+// 적대적 리뷰가 재현한 결함: 그리는 쪽은 좌표를 클램프하고 퇴화한 것을 건너뛰는데 세는 쪽이
+// 원좌표로 다시 판정하면, 화면은 비어 있는데 "영상 위 박스 n개"라고 말하는 상태가 성립한다.
+// 사이드카는 프레임 밖 좌표를 정상 출력으로 낸다(클램프하지 않는다) — 드문 입력이 아니다.
+test("「영상 위 박스 n개」는 그린 쪽이 센다 — 따로 다시 판정하지 않는다", async () => {
+  const html = await readFile(cctvPageUrl, "utf8");
+  assert.ok(!html.includes("drawnOverlayCount"), "세는 함수를 따로 두면 그리는 쪽과 갈린다");
+  assert.match(html, /const n = drawDetectorOverlay\(payload\);/);
+  assert.ok(!/n: detectorOverlays\.children\.length/.test(html),
+    "노드 수로 세면 3D 큐보이드 전체가 SVG 한 장이라 차 여러 대가 1개가 된다");
+  // 프레임 밖 큐보이드는 선이 그어져도 한 픽셀도 안 보인다 — 보이는 것만 세야 한다.
+  const draw = html.slice(html.indexOf("function drawBox3dOverlay("),
+                          html.indexOf("function drawDetectorOverlay("));
+  assert.match(draw, /segmentHitsRect\(/);
+});
+
+// 카메라 목록은 **하나다.** 실기든 씬에 세운 것이든 같은 줄에 같은 모양으로 선다 — 어디에
+// 기록돼 있는지는 백엔드의 내부 사정이라, 병합(등록 기기 + 씬 카메라)과 활성 판정(지금 몰고
+// 있는 카메라)은 서버(/cctv/devices)가 끝내서 보낸다. 화면이 두 목록을 다시 합치면 그
+// 봉합선(별도 묶음·derived 분기)이 반드시 보인다.
+test("카메라 드롭다운은 한 목록이다 — 서버가 병합한 /cctv/devices 하나만 읽는다", async () => {
+  const src = await readFile(new URL("../src/camera-select.mjs", import.meta.url), "utf8");
+  assert.match(src, /api\("\/cctv\/devices"\)/);
+  assert.ok(!src.includes("optgroup"), "시뮬 카메라를 따로 묶으면 저장 위치가 화면 구조로 샌다");
+  assert.ok(!src.includes("/simulator/devices"), "병합은 서버의 일이다 — 화면이 두 목록을 합치지 않는다");
+  assert.ok(!src.includes("/cctv/capabilities"), "활성 판정도 /cctv/devices 의 active 하나다");
+});
+
+// 3D 박스가 서는 자리가 설치 높이 위다 — 높이를 모르면 큐보이드의 거리와 크기가 통째로
+// 배율만큼 틀린다. 그래서 PTZ 옆에 늘 보인다.
+//
+// 출처는 둘이고 순서가 있다: 발행된 설치 측량이 먼저(실카메라의 정본), 없으면 씬에 묻는다.
+// 시뮬 카메라의 높이는 추정이 아니라 **엔진이 아는 값**이라, 발행본이 없다고 "모른다"고
+// 말하는 것은 거짓이다. 실카메라에는 씬이라는 출처가 없으니 자연히 첫째만 남는다.
+test("PTZ 줄에 설치 높이(H)가 함께 나온다 — 발행본 먼저, 없으면 씬", async () => {
+  const html = await readFile(cctvPageUrl, "utf8");
+  assert.match(html, /<h2>현재 PTZ &amp; 높이<\/h2>/);
+  const fn = html.slice(html.indexOf("async function loadMountHeight("),
+                        html.indexOf("function fmtWithHeight("));
+  assert.match(fn, /api\(`\/profiles\/camera\//);
+  assert.match(fn, /extrinsic\?\.mount\?\.heightM/);
+  assert.match(fn, /simulator\/cameras/);
+  // 순서가 뒤집히면 발행된 측량이 씬 값에 덮인다 — 측량이 정본이다.
+  assert.ok(fn.indexOf("profiles/camera/") < fn.indexOf("simulator/cameras"),
+    "발행본을 먼저 보고, 없을 때만 씬에 묻는다");
+  // 어느 쪽도 모르면 0 이 아니라 "—" 다. 0 m 는 지면에 붙은 카메라라는 측정값처럼 읽힌다.
+  assert.match(html, /mountHeightCm === null \? "—"/);
+  // 카메라를 바꾸면 높이도 따라가야 한다.
+  assert.match(html, /onChange: \(\) => loadMountHeight\(\)/);
 });

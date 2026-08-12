@@ -191,83 +191,6 @@ header h1 .ver {
   overflow-y: auto;
 }
 
-#sim-position-mount {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-#sim-position-mount .card {
-  padding: 10px;
-}
-
-.sim-position-savebar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-#sim-position-name {
-  width: 180px;
-}
-
-#sim-saved-positions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sim-saved-position {
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border: 1px solid var(--color-border);
-  background: var(--color-panel2);
-  white-space: nowrap;
-}
-
-.sim-saved-position .saved-main {
-  min-width: 0;
-  flex: 1 1 auto;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.sim-saved-position .saved-name {
-  min-width: 0;
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--color-bright);
-}
-
-.sim-saved-position .saved-ptz {
-  flex: 0 0 auto;
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-.sim-saved-position .saved-actions {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 4px;
-}
-
-.sim-saved-position button {
-  padding: 4px 8px;
-}
-
-.sim-saved-empty {
-  padding: 8px 10px;
-  color: var(--color-muted);
-  border: 1px dashed var(--color-border);
-  background: rgba(0, 0, 0, .12);
-}
-
 .sim-info-grid {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
@@ -416,13 +339,24 @@ header h1 .ver {
   overflow: hidden;   /* 안쪽 평면도 그리드가 자기 스크롤을 갖는다 */
 }
 
-/* ---- 카메라 배치 탭 ---- */
+/* ---- 카메라 배치·컨트롤 탭 (평면도 한 장을 도크로 나눠 쓴다) ---- */
 .sim-rig-layout {
   height: 100%;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 306px;
   gap: 12px;
+}
+
+/* 도크는 자리만 잡는다 — 평면도 pane 이 탭을 따라 이 안으로 옮겨 앉는다. */
+.sim-map-dock {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.sim-map-dock > .sim-map-pane {
+  flex: 1 1 auto;
 }
 
 .sim-map-pane,
@@ -480,9 +414,85 @@ header h1 .ver {
    선택 불가가 된다(콘이 슬롯 위에 그려지므로 정확히 관심 있는 것들이 막힌다). */
 .map-cone {
   fill: var(--color-accent);
-  opacity: .13;
+  opacity: .08;
   stroke: none;
   pointer-events: none;
+}
+
+/* 지금 보고 있는 카메라의 시야만 뚜렷하다. 나머지는 배경으로 물러난다 — 콘 넷이 같은
+   밝기로 겹치면 어느 것이 어느 카메라의 것인지 알 수 없다. */
+.map-cone.sel {
+  fill: var(--color-ok);
+  opacity: .22;
+}
+
+/* 광축 — 부채꼴 한가운데를 지나는 붉은 선. 부채꼴(얼마나 넓게)과 다른 축의 정보(어디를)라
+   색과 모양이 모두 달라야 한다. 고른 카메라의 것만 굵다. */
+.map-view-axis {
+  fill: none;
+  stroke: var(--color-danger);
+  stroke-width: 1;
+  opacity: .55;
+  pointer-events: none;
+}
+
+.map-view-axis.sel {
+  stroke-width: 2;
+  opacity: 1;
+}
+
+/* 시선 막대 끝의 조준 앵커. 끌면 카메라가 그쪽을 본다 — 잡는 것이라 커서가 손이어야 하고,
+   막대와 같은 색이어야 "이 막대의 끝"으로 읽힌다. */
+.map-aim-handle {
+  fill: var(--color-danger);
+  stroke: var(--color-bg);
+  stroke-width: 1;
+  cursor: grab;
+}
+
+.map-aim-handle:active {
+  cursor: grabbing;
+}
+
+/* 시선 막대 위의 틸트 슬라이더. 녹색 기준선 = 틸트 0(수평) — 자리에서 움직이지 않는다.
+   움직이는 것은 앵커원뿐이고, 기준선에서 카메라 쪽 = 아래(+90° 까지), 끝쪽 = 위(−20° 까지). */
+.map-tilt-zero {
+  stroke: var(--color-ok);
+  stroke-width: 2;
+  opacity: .9;
+  pointer-events: none;
+}
+
+.map-tilt-handle {
+  fill: var(--color-bg);
+  stroke: var(--color-danger);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.map-tilt-handle:active {
+  cursor: grabbing;
+}
+
+/* 부채꼴 모서리의 줌 앵커. 광축 앵커(조준)와 **다른 일**을 하므로 색이 달라야 한다 —
+   같은 색이면 어느 것을 끌면 무엇이 바뀌는지 손이 기억해야 한다. */
+.map-fov-handle {
+  fill: var(--color-ok);
+  stroke: var(--color-bg);
+  stroke-width: 1;
+  cursor: grab;
+}
+
+.map-fov-handle:active {
+  cursor: grabbing;
+}
+
+/* 조준하는 중에는 지도 전체가 겨눔면이다 — 커서가 손 모양 그대로면 자리를 끄는 줄 안다. */
+#sim-map.aiming,
+#sim-map.aiming .map-cam,
+#sim-map.aiming .map-aim-handle,
+#sim-map.aiming .map-fov-handle {
+  cursor: crosshair;
 }
 
 .map-cam {
@@ -490,7 +500,8 @@ header h1 .ver {
   stroke: var(--color-bg);
 }
 
-/* 끌어 옮길 수 있다는 사실은 커서로만 알려진다 — 레벨 저작 카메라(.authored)에는 없다. */
+/* 커서가 곧 "여기서 무엇을 할 수 있는가" 다. 스폰 카메라는 누르면 골라지고 그대로 끌린다.
+   레벨 저작 카메라(.authored)는 자세가 레벨의 것이라 커서가 바뀌지 않는다. */
 .map-cam.movable {
   cursor: grab;
 }
@@ -504,8 +515,12 @@ header h1 .ver {
   fill: var(--color-muted);
 }
 
+/* 고른 카메라는 색만으로 가리지 않는다 — 마커가 커지고 테두리가 붙는다. 평면도가 작을수록
+   색 차이 하나로는 "지금 이것" 이 안 읽힌다. */
 .map-cam.sel {
   fill: var(--color-ok);
+  stroke: var(--color-bright);
+  stroke-width: 2;
 }
 
 .map-cam-label {
@@ -572,10 +587,18 @@ header h1 .ver {
   min-width: 0;
 }
 
+/* 상태줄은 평면도 pane 안에 산다(두 탭이 함께 본다) — 힌트 위에 겹치지 않게 한 줄 위로. */
 .sim-rig-status {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 22px;
   margin: 0;
   min-height: 16px;
-  overflow-wrap: anywhere;
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sim-cam-edit-title {
@@ -583,82 +606,132 @@ header h1 .ver {
   color: var(--color-label);
 }
 
-.sim-cam-edit-note {
-  margin: 0 0 6px;
-  overflow-wrap: anywhere;
-}
-
 .sim-rig-snapshot {
   padding-top: 6px;
   border-top: 1px solid var(--color-border);
 }
 
-.sim-cam-list {
+/* 두 줄이 같은 3열 격자다 — 그래서 P·T 가 x·y 밑에 그대로 선다. 줄마다 칸 수에 맞춰
+   늘리면(flex) 두 번째 줄만 넓어져서, 값이 아니라 격자가 먼저 눈에 든다. */
+.sim-cam-place-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.sim-cam-place-cell {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--color-label);
+  font-size: 11px;
+}
+
+/* 이름표는 한 글자라 폭을 고정한다 — 안 그러면 글자 폭 차이만큼 입력칸 왼쪽이 들쭉날쭉해진다. */
+.sim-cam-place-cell > span {
+  flex: 0 0 1em;
+  text-align: right;
+}
+
+/* 포트·MJPEG 처럼 이름표가 긴 칸. */
+.sim-cam-place-cell.wide > span {
+  flex: 0 0 2.4em;
+}
+
+/* 별명은 숫자 격자에 끼지 않는다 — 한 줄을 다 쓰는 유일한 글자 칸이다. */
+.sim-cam-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 6px;
+  color: var(--color-label);
+  font-size: 11px;
+}
+
+.sim-cam-name > span {
+  flex: 0 0 2.4em;
+  text-align: right;
+}
+
+.sim-cam-name input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 한 칸에 블록이 둘이다: 위가 박힌 자세, 아래가 지금 겨눈 곳. 이름표가 없으면 숫자 다섯 줄이
+   한 덩어리로 보이고, 그게 곧 "무엇이 무엇인지 모르겠다" 가 된다. */
+.sim-rig-group {
+  margin: 0 0 5px;
+  color: var(--color-bright);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 조작 중이라는 사실은 어느 탭에 있든 보여야 한다 — setBusy 가 모든 버튼을 잠그므로,
+   이 표시가 안 보이는 탭에서는 화면이 그냥 굳은 것처럼 보인다. */
+.sim-busy {
+  min-width: 7em;
+  color: var(--color-warn);
+}
+
+.sim-cam-place-cell input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-scene-snapshot {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.sim-scene-save {
+  display: flex;
+  gap: 6px;
+}
+
+.sim-scene-save input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sim-scene-list {
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.sim-cam-row {
-  width: 100%;
-  min-width: 0;
+/* 한 줄 = 저장본 하나. 이름은 늘어나고 요약은 줄어들지 않는다 — 이름이 길다고 「카메라 3대」가
+   잘리면 어느 저장본인지는 알아도 무엇이 든 저장본인지를 모른다. */
+.sim-scene-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 6px;
-  text-align: left;
+  gap: 8px;
+  padding: 4px 6px;
   border: 1px solid var(--color-border);
-  background: var(--color-panel);
+  background: var(--color-panel2);
 }
 
-.sim-cam-row.sel {
-  border-color: var(--color-accent);
-  box-shadow: inset 3px 0 0 var(--color-accent);
-}
-
-.sim-cam-row .cam-main {
+.sim-scene-row .name {
   flex: 1 1 auto;
   min-width: 0;
-  display: block;
-  text-align: left;
-  border: none;
-  background: none;
-  padding: 0;
-}
-
-.sim-cam-row .cam-name,
-.sim-cam-row .cam-meta {
-  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sim-cam-row .cam-name {
-  color: var(--color-bright);
-  font-size: 12px;
-}
-
-.sim-cam-row .cam-meta {
+.sim-scene-row .meta {
+  flex: 0 0 auto;
   color: var(--color-muted);
-  font-size: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
-.sim-cam-row button {
-  flex: 0 0 auto;
-  padding: 3px 7px;
-}
-
-.sim-cam-tag {
-  flex: 0 0 auto;
-  padding: 1px 4px;
-  font-size: 9px;
-  border: 1px solid currentColor;
-  white-space: nowrap;
-}
-
-.sim-cam-tag.warn { color: var(--color-warn); }
-.sim-cam-tag.muted { color: var(--color-muted); }
 
 /* 설정 탭은 위아래 두 블록이다: 월드(시뮬레이터 주소·계정)와 그 월드가 가진 카메라 목록.
    카메라는 씬에서 파생되므로 목록은 읽기 전용이고, 편집 창이 붙던 오른쪽 칸은 없다. */
@@ -711,7 +784,6 @@ header h1 .ver {
     <div class="row">
       <label>시뮬 카메라</label>
       <select id="cam-select"></select>
-      <label style="margin:0;"><input type="checkbox" id="ptz-overlay-toggle" style="width:auto;" /> PTZ Overlay</label>
       <span id="cam-info" class="hint" style="margin:0;" hidden></span>
       <span id="sim-ready-led" class="sim-led off" title="시뮬레이터 준비 상태"></span>
       <span id="sim-ready-text" class="hint" style="margin:0;">시뮬레이터 확인 중…</span>
@@ -722,14 +794,6 @@ header h1 .ver {
       <div id="marker" hidden></div>
       <div id="rubber" hidden></div>
       <div id="slot-markers"></div>
-      <div id="ptz-overlay" class="ptz-control-overlay">
-        <div class="card">
-          <h2>현재 PTZ</h2>
-          <div id="ptz" class="ptz">—</div>
-          <div id="busy" class="ptz-overlay-busy"></div>
-        </div>
-        <div id="sim-ptz-mount" class="ptz-controls-mount"></div>
-      </div>
     </div>
     <div id="viewbar">
       <span id="sim-preview-led" class="sim-led off" title="프리뷰 상태"></span>
@@ -739,6 +803,7 @@ header h1 .ver {
       <button id="preview-mode">프리뷰: 스트림</button>
       <label>스냅샷 간격 <input id="fps-int" type="number" min="0" max="3000" step="50" /> ms</label>
       <span id="fps-actual" class="hint" style="margin:0;">—</span>
+      <span id="busy" class="hint sim-busy"></span>
       <label style="margin:0;" title="화면 중앙 조준선 켜기/끄기"><input type="checkbox" id="crosshair-toggle" style="width:auto;" checked /> Crosshair</label>
       <label style="margin:0;"><input type="checkbox" id="show-all-slots" style="width:auto;" /> 전체 슬롯</label>
       <button id="oracle-check" type="button" title="렌더러가 계산한 픽셀(그라운드-트루스)과 우리 광학 모델의 픽셀을 나란히 놓습니다">오라클 대조</button>
@@ -749,80 +814,115 @@ header h1 .ver {
     <div id="sim-bottom-tabs">
       <div class="sim-tabs" role="tablist" aria-label="시뮬레이터 보조 패널">
         <button class="sim-tab active" type="button" data-sim-tab="log">로그</button>
-        <button class="sim-tab" type="button" data-sim-tab="position">위치저장</button>
         <button class="sim-tab" type="button" data-sim-tab="rig">카메라 배치</button>
-        <button class="sim-tab" type="button" data-sim-tab="info">시뮬레이터 정보</button>
+        <button class="sim-tab" type="button" data-sim-tab="drive">카메라 컨트롤</button>
+        <button class="sim-tab" type="button" data-sim-tab="info">씬</button>
         <button class="sim-tab" type="button" data-sim-tab="settings">설정</button>
       </div>
       <div id="sim-log-panel" class="sim-tab-panel active" data-sim-tab-panel="log">
         <pre id="log"></pre>
       </div>
-      <div id="sim-position-panel" class="sim-tab-panel" data-sim-tab-panel="position">
-        <div id="sim-position-mount">
-          <div class="sim-position-savebar">
-            <input id="sim-position-name" type="text" placeholder="위치 1" />
-            <button id="sim-save-position" type="button">현재 위치 저장</button>
-          </div>
-          <div id="sim-saved-positions"></div>
-        </div>
-      </div>
       <div id="sim-rig-panel" class="sim-tab-panel" data-sim-tab-panel="rig">
         <div class="sim-rig-layout">
           <!-- 평면도: 시뮬이 보고한 주차면·카메라를 위에서 내려다본 그림. 좌표는 전부
-               씬에서 오고, 여기서 만들어 내는 값은 없다. -->
+               씬에서 오고, 여기서 만들어 내는 값은 없다.
+
+               배치·컨트롤 두 탭이 **이 한 장을 나눠 쓴다**(탭을 바꾸면 도크로 옮겨 앉는다).
+               사본을 두 장 그리면 같은 씬이 두 그림이 되고, 어느 쪽이 낡았는지 아무도 모른다.
+               기즈모는 탭이 정한다 — 배치에서는 자리 끌기, 컨트롤에서는 조준·화각 앵커. -->
+          <div id="sim-map-dock-rig" class="sim-map-dock">
           <section class="sim-map-pane" aria-label="주차장 평면도">
             <svg id="sim-map" role="img" aria-label="주차장 평면도"></svg>
             <div id="sim-map-hint" class="hint sim-map-hint">—</div>
+            <div id="sim-cam-status" class="hint sim-rig-status">—</div>
           </section>
+          </div>
           <section class="sim-rig-side" aria-label="씬 카메라">
             <div class="sim-rig-actions">
               <button id="sim-cam-add" type="button">＋ 카메라 세우기</button>
               <button id="sim-cam-cancel" type="button" hidden>취소</button>
             </div>
+            <!-- 세우기와 설치는 같은 양을 다룬다 — 이름과 배치도 같아야 한다. 바로 아래 폼이
+                 「H · 방위 · 하향」이라 부르는 것을 여기서 「높이 · 방위 · 하향각」이라 부르면,
+                 한 칸 안에서 같은 값이 두 이름을 갖는다. x·y 가 없는 이유는 그 둘이 평면도
+                 클릭에서 오기 때문이다(여기서 적을 값이 아니다). -->
             <form id="sim-cam-form" class="sim-cam-form" hidden>
-              <div class="sim-cam-grid">
-                <label for="sim-cam-height">높이</label>
-                <span class="sim-cam-unit"><input id="sim-cam-height" type="number" min="0.5" max="60" step="0.1" value="6" /> m</span>
-                <label for="sim-cam-pitch">하향각</label>
-                <span class="sim-cam-unit"><input id="sim-cam-pitch" type="number" min="-89" max="0" step="0.1" /> °</span>
-                <label for="sim-cam-yaw">방위</label>
-                <span class="sim-cam-unit"><input id="sim-cam-yaw" type="number" min="-360" max="360" step="0.1" /> °</span>
-                <label for="sim-cam-http">포트</label>
-                <span class="sim-cam-unit"><input id="sim-cam-http" type="number" min="1" max="65535" /> / <input id="sim-cam-mjpeg" type="number" min="1" max="65535" title="MJPEG 포트" /></span>
+              <div class="sim-rig-group">세우기</div>
+              <div class="sim-cam-place-row">
+                <label class="sim-cam-place-cell"><span>H</span><input id="sim-cam-height" type="number" min="0.5" max="60" step="0.1" value="6" title="설치 높이 — 지면 기준 m" /></label>
+                <label class="sim-cam-place-cell wide"><span>포트</span><input id="sim-cam-http" type="number" min="1" max="65535" title="Hucoms 제어 포트 — 기기 id 가 됩니다 (sim-cam-&lt;포트&gt;)" /></label>
+                <label class="sim-cam-place-cell wide"><span>MJPEG</span><input id="sim-cam-mjpeg" type="number" min="1" max="65535" title="MJPEG 스트림 포트" /></label>
               </div>
+              <input id="sim-cam-yaw" type="hidden" />
+              <input id="sim-cam-pitch" type="hidden" />
               <div class="sim-rig-actions">
                 <button id="sim-cam-spawn" type="submit">세우기</button>
               </div>
             </form>
-            <!-- 세운 뒤에 설치를 고치는 문. 칸은 스폰 폼과 겹치지만 뜻이 다르다 — 저쪽은
-                 없는 카메라를 만들고 이쪽은 있는 카메라를 옮긴다. 하향각만 빈 칸을 허용하는
-                 이유는 씬이 그 값을 안 주기 때문이다(하향각은 PTZ tilt 라 카메라를 몰아 봐야
-                 안다) — 모르는 값을 0 으로 채워 보내면 세워 둔 카메라가 수평을 보게 된다. -->
-            <form id="sim-cam-edit-form" class="sim-cam-form" hidden>
+            <!-- 고를 곳은 하나다: 화면 위의 「시뮬 카메라」 드롭다운(= 평면도 클릭). 그래서 이
+                 폼은 숨었다 나타나지 않고 **늘 지금 고른 카메라**를 보여 준다. 목록을 여기 또
+                 두면 같은 선택이 두 벌이 되어, 어느 쪽이 진짜 고른 것인지가 화면에서 갈린다.
+
+                 칸은 스폰 폼과 겹치지만 뜻이 다르다 — 저쪽은 없는 카메라를 만들고 이쪽은 있는
+                 카메라를 옮긴다. 하향각만 빈 칸을 허용하는 이유는 씬이 그 값을 안 주기 때문이다
+                 (하향각은 PTZ tilt 라 카메라를 몰아 봐야 안다) — 모르는 값을 0 으로 채워 보내면
+                 세워 둔 카메라가 수평을 보게 된다. -->
+            <form id="sim-cam-edit-form" class="sim-cam-form">
+              <div class="sim-rig-group">설치</div>
+              <!-- 별명. 씬(카메라의 note)에 사는 값이라 스냅샷·복원에 따라온다 — 여기 사본을
+                   두지 않는다. 비우면 백엔드가 설치 높이로 이름을 만들어 준다. -->
+              <label class="sim-cam-name"><span>이름</span><input id="sim-cam-edit-note" type="text" maxlength="60" placeholder="비우면 높이로 자동" title="사람이 부르는 별명 — 씬에 저장됩니다. 비우면 설치 높이로 만든 이름이 쓰입니다." /></label>
+              <!-- 이름 밑에 카메라 아이디, 그 밑에 포트 둘(제어·프리뷰). 포트는 설치의 사실이라
+                   배치 탭에만 보인다 — 제어(hucoms)는 기기 id 가 되는 그 포트이고, 프리뷰는
+                   MJPEG 스트림이 나오는 포트다. -->
               <div class="hint sim-cam-edit-title" id="sim-cam-edit-title">—</div>
-              <div class="sim-cam-grid">
-                <label for="sim-cam-edit-height">높이</label>
-                <span class="sim-cam-unit"><input id="sim-cam-edit-height" type="number" min="0.5" max="60" step="0.1" /> m</span>
-                <label for="sim-cam-edit-yaw">방위</label>
-                <span class="sim-cam-unit"><input id="sim-cam-edit-yaw" type="number" min="-360" max="360" step="0.1" /> °</span>
-                <label for="sim-cam-edit-pitch">하향각</label>
-                <span class="sim-cam-unit"><input id="sim-cam-edit-pitch" type="number" min="-89" max="0" step="0.1" placeholder="그대로" /> °</span>
+              <div class="hint sim-cam-edit-title" id="sim-cam-edit-ports"></div>
+              <!-- 자리(x·y·H). x·y 는 평면도에서 끌어도 바뀌고 여기 적어도 바뀐다 — 두 입구가
+                   같은 칸을 가리키므로(끌면 이 칸이 즉시 따라온다) 어느 쪽이 이겼는지가 늘
+                   보인다. z 칸은 두지 않는다: z 는 H 에서 나오고(z = H×100 + 지면), 두 칸을
+                   두면 같은 값을 두 곳에서 고치게 되어 지면이 조용히 어긋난다. -->
+              <div class="sim-cam-place-row">
+                <label class="sim-cam-place-cell"><span>x</span><input id="sim-cam-edit-x" type="number" step="1" title="씬 x (cm)" /></label>
+                <label class="sim-cam-place-cell"><span>y</span><input id="sim-cam-edit-y" type="number" step="1" title="씬 y (cm)" /></label>
+                <label class="sim-cam-place-cell"><span>H</span><input id="sim-cam-edit-height" type="number" min="0.5" max="60" step="0.1" title="설치 높이 — 지면 기준 m (씬 z = H×100 + 지면)" /></label>
               </div>
-              <div class="hint sim-cam-edit-note">높이만 바꾸면 하향각은 그대로라 조준점이 멀어집니다 — 같은 곳을 보게 하려면 하향각도 함께 넣으세요.</div>
+              <!-- 설치 자세. 세우기 폼과 같은 이름(방위·하향), 같은 단위(도)다 — PATCH 가 받는
+                   yawDeg·pitchDeg 그대로. P·T·Z(현재값, 휴컴스 원단위)는 「카메라 컨트롤」 탭에
+                   있다: 설치는 볼트로 박는 값이고 현재값은 몰면서 바뀌는 값이라, 한 폼에 섞으면
+                   자리를 고치려던 손이 카메라를 움직인다. 설치 줌이라는 것은 없다 — 줌은 순수
+                   현재값이라 씬 PATCH 에도 그 필드가 없다. -->
+              <div class="sim-cam-place-row">
+                <label class="sim-cam-place-cell"><span>방위</span><input id="sim-cam-edit-bearing" type="number" step="0.1" title="설치 방위(°) — 팬 0 일 때 보는 월드 방위" /></label>
+                <label class="sim-cam-place-cell"><span>하향</span><input id="sim-cam-edit-pitch" type="number" min="-89" max="20" step="0.1" title="설치 하향각(°) — 음수가 아래. 틸트를 이 각으로 다시 앉힙니다" /></label>
+              </div>
               <div class="sim-rig-actions">
-                <button id="sim-cam-edit-apply" type="submit">옮기기</button>
-                <button id="sim-cam-edit-cancel" type="button">취소</button>
+                <button id="sim-cam-edit-apply" type="submit">적용</button>
+                <button id="sim-cam-edit-delete" type="button" class="danger">삭제</button>
               </div>
             </form>
-            <div id="sim-cam-status" class="hint sim-rig-status">—</div>
-            <!-- 런타임에 세운 카메라는 시뮬이 꺼지면 사라진다. 서버는 스냅샷을 보관하지
-                 않으므로, 이 파일이 리그의 유일한 내구 기록이다. -->
-            <div class="sim-rig-actions sim-rig-snapshot">
-              <button id="sim-snap-save" type="button" title="지금 씬(세운 카메라 + 차량)을 JSON 파일로 내려받습니다">씬 저장</button>
-              <button id="sim-snap-load" type="button" title="저장해 둔 JSON 으로 씬을 되돌립니다">씬 복원</button>
-              <input id="sim-snap-file" type="file" accept="application/json,.json" hidden />
-            </div>
-            <div id="sim-cam-list" class="sim-cam-list"></div>
+          </section>
+        </div>
+      </div>
+      <div id="sim-drive-panel" class="sim-tab-panel" data-sim-tab-panel="drive">
+        <div class="sim-rig-layout">
+          <div id="sim-map-dock-drive" class="sim-map-dock"></div>
+          <section class="sim-rig-side" aria-label="카메라 조종">
+            <!-- 현재값(오프셋)만 다룬다. 설치(x·y·H·방위·하향)는 「카메라 배치」 탭이다. -->
+            <form id="sim-cam-drive-form" class="sim-cam-form">
+              <div class="sim-rig-group">조종 — 현재 PTZ</div>
+              <div class="hint sim-cam-edit-title" id="sim-cam-drive-title">—</div>
+              <div class="sim-cam-place-row">
+                <label class="sim-cam-place-cell"><span>P</span><input id="sim-cam-edit-pan" type="number" min="0" max="35999" title="휴컴스 pan (0–35999)" /></label>
+                <label class="sim-cam-place-cell"><span>T</span><input id="sim-cam-edit-tilt" type="number" min="-2000" max="9000" title="휴컴스 tilt (−2000–9000, 클수록 아래)" /></label>
+                <label class="sim-cam-place-cell"><span>Z</span><input id="sim-cam-edit-zoom" type="number" min="0" max="65535" title="휴컴스 zoom (0–65535)" /></label>
+              </div>
+              <div class="sim-rig-actions">
+                <button id="sim-cam-drive-apply" type="submit">적용</button>
+                <!-- PTZ = 0. 오프셋이 사라지니 카메라는 설치 자세 그대로를 본다 — 배치 탭의
+                     부채꼴과 컨트롤 탭의 부채꼴을 일치시키고 싶을 때 누르는 버튼이다. -->
+                <button id="sim-cam-drive-reset" type="button" title="팬·틸트·줌을 0 으로 — 설치 자세와 일치시킵니다">리셋 (PTZ 0)</button>
+              </div>
+            </form>
           </section>
         </div>
       </div>
@@ -836,6 +936,20 @@ header h1 .ver {
         <div class="sim-info-actions">
           <button id="sim-refresh" type="button">새로고침</button>
           <button id="sim-reset" type="button">전체 초기화</button>
+        </div>
+        <!-- 저장된 씬은 **씬 전체**(세운 카메라 + 차량)의 것이라 카메라 옆에 둘 수 없다. 거기 두면
+             "이 카메라를 저장한다"로 읽히고, 주차면·차량 카드에 둬도 같은 거짓말이 방향만 바뀐다.
+             초기화와 복원은 같은 축의 양끝이라 나란히 있는 자리가 여기다.
+
+             런타임에 세운 카메라는 시뮬 프로세스 안에만 산다. 그래서 저장은 **서버에 남는다** —
+             브라우저가 받아 둔 파일은 받은 사람의 다운로드 폴더 밖에서는 없는 것과 같았다. -->
+        <div class="sim-scene-snapshot">
+          <div class="sim-scene-save">
+            <input id="sim-scene-name" type="text" maxlength="60" placeholder="저장 이름" title="한글·영숫자·공백과 ._()[]+- 만, 60자까지. 같은 이름으로 저장하면 덮어씁니다." />
+            <button id="sim-scene-save" type="button" title="지금 씬(세운 카메라 + 차량)을 서버에 저장합니다">저장</button>
+          </div>
+          <div id="sim-scene-list" class="sim-scene-list"></div>
+          <div id="sim-scene-status" class="hint" style="margin:6px 0 0;">—</div>
         </div>
       </div>
       <div id="sim-settings-panel" class="sim-tab-panel" data-sim-tab-panel="settings">
@@ -906,7 +1020,6 @@ header h1 .ver {
 <script type="module">
 import { getJson, postJson, reqJson, fmtPtz as fmt, api } from "./web/api.mjs";
 import { createCameraPreview } from "./web/camera-preview.mjs";
-import { createPtzControls } from "./web/ptz-controls.mjs";
 import { applyI18n, t } from "./web/i18n.mjs";
 import { initPageChrome } from "./web/page-chrome.mjs";
 
@@ -916,16 +1029,9 @@ initPageChrome({ page: "simulator" });
 const view = document.getElementById("view");
 const marker = document.getElementById("marker");
 const rubber = document.getElementById("rubber");
-const ptzEl = document.getElementById("ptz");
 const busyEl = document.getElementById("busy");
 const logEl = document.getElementById("log");
-const ptzOverlay = document.getElementById("ptz-overlay");
-const ptzOverlayToggle = document.getElementById("ptz-overlay-toggle");
 const logPanel = document.getElementById("sim-log-panel");
-const savedPositionNameEl = document.getElementById("sim-position-name");
-const savePositionBtn = document.getElementById("sim-save-position");
-const savedPositionsEl = document.getElementById("sim-saved-positions");
-const SAVED_PTZ_POSITIONS_KEY = "sim:ptz-positions.v1";
 const SIM_ACTIVE_CAMERA_KEY = "sim:active-camera.v1";
 const simReadyLed = document.getElementById("sim-ready-led");
 const simReadyText = document.getElementById("sim-ready-text");
@@ -937,6 +1043,10 @@ let lastPtz = null;
 let simDevices = [];   // mode:sim config 기기(카메라 포즈 조인용 port 포함)
 let simActiveCameraId = "";
 let simCameras = [];   // /api/simulator/cameras 포즈 목록
+// 카메라마다의 **지금 시야**(port → {ptz, viewYawDeg, hfovDeg}). 평면도가 시야를 그리려면
+// 몰고 있는 한 대가 아니라 카메라마다의 자세가 있어야 한다 — 한 대의 값으로 나머지를 채우면
+// 89° 어긋난 곳을 그린다(2026-08-12 실측). 방위·화각은 서버가 광학 모델로 낸 값이다.
+let simViewByPort = new Map();
 let simEndpointPort = null;  // 시뮬레이터 제어 포트(config.simulator). 스폰 포트가 이 번호를 피하려고 안다.
 let activeCam = null;  // 현재 뷰 카메라의 포즈(투영 파라미터)
 let simSlotList = [];  // 최근 슬롯 목록(transform.location 포함) — 투영 대상
@@ -955,18 +1065,33 @@ function setCamInfo(message) {
   camInfo.hidden = !message;
 }
 
+// 배치(rig)·컨트롤(drive) 두 탭이 평면도 한 장을 나눠 쓴다 — 탭을 열면 그 탭의 도크로
+// 옮겨 앉는다. 어느 탭이 열려 있는가가 곧 기즈모의 뜻이다(mapTabKey).
+function mapTabKey() {
+  const active = document.querySelector(".sim-tab-panel.active");
+  const key = active?.dataset.simTabPanel;
+  return key === "rig" || key === "drive" ? key : null;
+}
+
 document.querySelectorAll("[data-sim-tab]").forEach((tab) => {
   tab.addEventListener("click", () => {
     const key = tab.dataset.simTab;
     document.querySelectorAll("[data-sim-tab]").forEach((el) => el.classList.toggle("active", el.dataset.simTab === key));
     document.querySelectorAll("[data-sim-tab-panel]").forEach((el) => el.classList.toggle("active", el.dataset.simTabPanel === key));
-    document.getElementById("sim-bottom-tabs").classList.toggle("tall", key === "rig");
+    document.getElementById("sim-bottom-tabs").classList.toggle("tall", key === "rig" || key === "drive");
+    if (key === "rig" || key === "drive") {
+      const dock = document.getElementById(key === "rig" ? "sim-map-dock-rig" : "sim-map-dock-drive");
+      const pane = document.querySelector(".sim-map-pane");
+      if (pane && dock && pane.parentElement !== dock) dock.appendChild(pane);
+    }
     if (key === "log") {
       logEl.scrollTop = 0;
       if (logPanel) logPanel.scrollTop = 0;
     }
     if (key === "settings") loadSceneEndpoint();
-    if (key === "rig") refreshRig();
+    if (key === "rig" || key === "drive") refreshRig();
+    // 저장본은 다른 브라우저에서도 늘어난다 — 탭을 열 때마다 서버에 다시 묻는다.
+    if (key === "info") loadSavedScenes();
   });
 });
 
@@ -982,23 +1107,11 @@ const preview = createCameraPreview({
   log,
 });
 
-// ---- PTZ 수동 조정 패드 (공유 모듈) ----
-const simPtz = createPtzControls({
-  mount: document.getElementById("sim-ptz-mount"),
-  apiBase: api("/simulator/control"),
-  overlay: {
-    stage: document.getElementById("stage"),
-    container: ptzOverlay,
-    toggle: ptzOverlayToggle,
-  },
-  onPtz: (p) => { lastPtz = p; ptzEl.textContent = fmt(p); scheduleRepose(); },
-  onBusy: setBusy,
-  log,
-  getLastPtz: () => lastPtz,
-});
+// 이동 속도(1–100). 조작 패드를 걷어내면서 이 값을 고를 칸도 함께 사라졌다 — 패드의 기본값을
+// 그대로 쓴다. 센터링·박스줌·앵커 조작이 같은 속도로 움직인다.
+const MOVE_SPEED = 50;
 
 // Crosshair 토글 — 화면 중앙 조준선을 켜고 끈다. 선택은 localStorage 에 남는다.
-// PTZ 조작 패드는 별개 토글(ptz-overlay-toggle)이 담당.
 const crosshairToggle = document.getElementById("crosshair-toggle");
 const CROSSHAIR_KEY = "sim:crosshair.v1";
 try { crosshairToggle.checked = localStorage.getItem(CROSSHAIR_KEY) !== "off"; } catch { /* 저장소 사용 불가 */ }
@@ -1016,130 +1129,6 @@ function ptzSnapshot(p) {
   const zoompos = Number(p.zoompos);
   if (![panpos, tiltpos, zoompos].every(Number.isFinite)) return null;
   return { panpos, tiltpos, zoompos };
-}
-
-function normalizeSavedPosition(item) {
-  const ptz = ptzSnapshot(item);
-  if (!ptz) return null;
-  const name = String(item.name || "").trim() || "저장 위치";
-  const id = String(item.id || `${ptz.panpos}:${ptz.tiltpos}:${ptz.zoompos}`);
-  return { id, name, ...ptz, savedAt: item.savedAt || "" };
-}
-
-function readSavedPositions() {
-  try {
-    const raw = localStorage.getItem(SAVED_PTZ_POSITIONS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeSavedPosition).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-function writeSavedPositions(items) {
-  try {
-    localStorage.setItem(SAVED_PTZ_POSITIONS_KEY, JSON.stringify(items));
-    return true;
-  } catch (e) {
-    log("위치 저장 실패: " + e.message);
-    return false;
-  }
-}
-
-function makeSavedPositionId() {
-  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-}
-
-function updateSavedPositionPlaceholder(count) {
-  if (savedPositionNameEl && !savedPositionNameEl.value.trim()) {
-    savedPositionNameEl.placeholder = `위치 ${count + 1}`;
-  }
-}
-
-function fillAbsoluteInputs(item) {
-  simPtz.fillAbsolute(item);
-}
-
-async function moveSavedPosition(item) {
-  setBusy(true);
-  try {
-    const moveSpeed = simPtz.speed();
-    const speedFields = moveSpeed === undefined ? {} : { panspeed: moveSpeed, tiltspeed: moveSpeed, zoomspeed: moveSpeed };
-    const j = await postJson(api("/simulator/control/ptz"), { panpos: item.panpos, tiltpos: item.tiltpos, zoompos: item.zoompos, ...speedFields });
-    lastPtz = j.ptz;
-    ptzEl.textContent = fmt(j.ptz);
-    log(`저장 위치 이동: ${item.name} → ${fmt(j.ptz)}`);
-    scheduleRepose();
-  } catch (e) {
-    log("저장 위치 이동 실패: " + e.message);
-  } finally {
-    setBusy(false);
-  }
-}
-
-function renderSavedPositions() {
-  if (!savedPositionsEl) return;
-  const items = readSavedPositions();
-  savedPositionsEl.innerHTML = "";
-  updateSavedPositionPlaceholder(items.length);
-
-  if (!items.length) {
-    const empty = document.createElement("div");
-    empty.className = "sim-saved-empty";
-    empty.textContent = "저장된 위치가 없습니다.";
-    savedPositionsEl.appendChild(empty);
-    return;
-  }
-
-  for (const item of items) {
-    const row = document.createElement("div");
-    row.className = "sim-saved-position";
-
-    const main = document.createElement("div");
-    main.className = "saved-main";
-
-    const name = document.createElement("strong");
-    name.className = "saved-name";
-    name.textContent = item.name;
-
-    const ptz = document.createElement("span");
-    ptz.className = "saved-ptz";
-    ptz.textContent = `P ${item.panpos}  T ${item.tiltpos}  Z ${item.zoompos}`;
-
-    const actions = document.createElement("div");
-    actions.className = "saved-actions";
-
-    const moveBtn = document.createElement("button");
-    moveBtn.type = "button";
-    moveBtn.textContent = "이동";
-    moveBtn.addEventListener("click", () => moveSavedPosition(item));
-
-    const fillBtn = document.createElement("button");
-    fillBtn.type = "button";
-    fillBtn.textContent = "채우기";
-    fillBtn.addEventListener("click", () => {
-      fillAbsoluteInputs(item);
-      log(`저장 위치 채우기: ${item.name}`);
-    });
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.textContent = "삭제";
-    deleteBtn.addEventListener("click", () => {
-      const next = readSavedPositions().filter((p) => p.id !== item.id);
-      if (writeSavedPositions(next)) {
-        renderSavedPositions();
-        log(`저장 위치 삭제: ${item.name}`);
-      }
-    });
-
-    main.append(name, ptz);
-    actions.append(moveBtn, fillBtn, deleteBtn);
-    row.append(main, actions);
-    savedPositionsEl.appendChild(row);
-  }
 }
 
 function setSimulatorReadyState(state = {}) {
@@ -1266,31 +1255,8 @@ async function saveSceneEndpoint() {
   }
 }
 
-function saveCurrentPosition() {
-  const ptz = ptzSnapshot(lastPtz);
-  if (!ptz) {
-    log("현재 PTZ를 아직 읽지 못했습니다.");
-    return;
-  }
-  const items = readSavedPositions();
-  const name = (savedPositionNameEl?.value || "").trim() || `위치 ${items.length + 1}`;
-  const item = { id: makeSavedPositionId(), name, ...ptz, savedAt: new Date().toISOString() };
-  const next = [item, ...items];
-  if (!writeSavedPositions(next)) return;
-  if (savedPositionNameEl) savedPositionNameEl.value = "";
-  renderSavedPositions();
-  log(`위치 저장: ${name} → ${fmt(item)}`);
-}
-
-if (savePositionBtn) savePositionBtn.addEventListener("click", saveCurrentPosition);
-if (savedPositionNameEl) {
-  savedPositionNameEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") saveCurrentPosition();
-  });
-}
 document.getElementById("sim-endpoint-probe").addEventListener("click", probeSceneEndpoint);
 document.getElementById("sim-endpoint-save").addEventListener("click", saveSceneEndpoint);
-renderSavedPositions();
 
 // ---- 클릭 = 센터링, 드래그 = 박스줌 (제어 페이지 로직 이관) ----
 function viewPoint(e) {
@@ -1328,22 +1294,36 @@ view.addEventListener("mousemove", (e) => {
   rubber.style.width = Math.abs(p.px - dragStart.px) + "px";
   rubber.style.height = Math.abs(p.py - dragStart.py) + "px";
 });
+// 영상 센터링의 뜻은 **열린 탭이 정한다.** 컨트롤 탭(그 외 탭 포함)에서는 현재값의 일 —
+// 팬·틸트가 움직여 그 점이 중앙에 온다. 배치(설치) 탭에서는 설치의 일 — 같은 조준 뒤에
+// 그 자세를 설치로 굳혀(rebase), 클릭한 곳이 **팬 0 의 정면**이 되도록 폴을 돌려 단다.
+// 카메라가 보는 곳은 같고, 그 방향이 어느 축(오프셋/설치)에 적히는지가 갈린다.
+async function rebaseInstallToCurrent() {
+  const cam = sceneCameraForDevice(simActiveCameraId);
+  if (!cam) return;
+  const r = await reqJson("POST", api(`/simulator/cameras/${encodeURIComponent(cam.id)}/rebase`));
+  if (r.ptz) applyPtz(r.ptz);
+  log(t("설치로 굳힘: {id} — 이 방향이 팬 0 의 정면입니다", { id: cam.id }));
+  await refreshRig();
+}
 window.addEventListener("mouseup", async (e) => {
   if (!dragStart) return;
   const start = dragStart; dragStart = null; rubber.hidden = true;
   const end = viewPoint(e);
   const isDrag = Math.abs(end.px - start.px) > 8 || Math.abs(end.py - start.py) > 8;
+  const toInstall = mapTabKey() === "rig";
   if (!isDrag) {
     marker.style.left = start.px + "px"; marker.style.top = start.py + "px"; marker.hidden = false;
     setBusy(true);
     // 원(마커)은 "화면에 보이는" 팬이 끝난 뒤 중앙으로 — 표시 영상은 정착 응답보다 늦다.
     const motion = preview.watchDisplayedMotion();
     try {
-      const j = await postJson(api("/simulator/control/center"), { x: start.x, y: start.y, frameWidth: start.nw, frameHeight: start.nh, speed: simPtz.speed() });
-      lastPtz = j.ptz; ptzEl.textContent = fmt(j.ptz);
+      const j = await postJson(api("/simulator/control/center"), { x: start.x, y: start.y, frameWidth: start.nw, frameHeight: start.nh, speed: MOVE_SPEED });
+      applyPtz(j.ptz);          // 폴링(5초)을 기다리면 "눌렀는데 안 바뀐다" 로 보인다
       await motion.settled();
       finalizeCenterMarker();
       log(t("센터링 ({x}, {y}) → {p}", { x: start.x, y: start.y, p: fmt(j.ptz) }));
+      if (toInstall) await rebaseInstallToCurrent();
     } catch (err) { log(t("센터링 실패") + ": " + err.message); }
     finally { motion.stop(); setBusy(false); scheduleRepose(); }
     return;
@@ -1352,9 +1332,11 @@ window.addEventListener("mouseup", async (e) => {
   const box = { startX: Math.min(start.x, end.x), startY: Math.min(start.y, end.y), endX: Math.max(start.x, end.x), endY: Math.max(start.y, end.y) };
   setBusy(true);
   try {
-    const j = await postJson(api("/simulator/control/center-box"), { ...box, frameWidth: start.nw, frameHeight: start.nh, speed: simPtz.speed() });
-    lastPtz = j.ptz; ptzEl.textContent = fmt(j.ptz);
+    const j = await postJson(api("/simulator/control/center-box"), { ...box, frameWidth: start.nw, frameHeight: start.nh, speed: MOVE_SPEED });
+    applyPtz(j.ptz);
     log(t("박스줌 → {p}", { p: fmt(j.ptz) }));
+    // 박스줌도 조준은 설치로 굳는다 — 줌만은 순수 현재값이라 굳힐 사본이 없다(그대로 남는다).
+    if (toInstall) await rebaseInstallToCurrent();
   } catch (err) { log(t("박스줌 실패") + ": " + err.message); }
   finally { setBusy(false); scheduleRepose(); }
 });
@@ -1382,7 +1364,7 @@ function invalidateSimulatorScene({ clearSelection = false } = {}) {
   refreshSimSelection();
   reproject();
   renderMap();          // 새 씬을 받기 전까지 옛 레벨의 그림을 남겨 두지 않는다
-  renderSceneCameraList();
+  renderCameraEditForm();
 }
 async function loadCameras() {
   try {
@@ -1411,7 +1393,6 @@ async function loadCameras() {
       simActiveCameraId = "";
       lastPtz = null;
       activeCam = null;
-      ptzEl.textContent = "—";
       reproject();
       // 카메라 0 대는 고장이 아니라 정상 상태다 — stage 가 비어 있을 뿐이고, 주소는 그대로다.
       setCamInfo(t("씬에 카메라가 없습니다 — 「카메라」 탭에서 세우면 여기에 나타납니다."));
@@ -1425,6 +1406,10 @@ camSelect.addEventListener("change", async () => {
   try {
     await postJson(api("/simulator/active"), { id: camSelect.value });
     simActiveCameraId = camSelect.value;
+    // 옛 카메라의 PTZ 를 새 카메라의 것으로 물려주지 않는다. 활성만 먼저 바뀌면 그 사이의
+    // 그리기가 **새 카메라의 설치방위 + 옛 카메라의 팬** 으로 조준선을 그린다 — 모르는 값을
+    // 남의 것으로 채우는 셈이다. 모르는 동안은 조준선이 없는 것이 맞다.
+    lastPtz = null;
     try { localStorage.setItem(SIM_ACTIVE_CAMERA_KEY, camSelect.value); } catch { /* 저장소 사용 불가 */ }
     invalidateSimulatorScene();
     await preview.stop();       // 이전 스트림 완전 종료 대기 후 새 카메라 시작(중복 방지)
@@ -1435,13 +1420,29 @@ camSelect.addEventListener("change", async () => {
       loadSimulator(),
       refreshSimulatorStatus({ silent: true }),
     ]);
+    syncSelectionFromPicker();
     log(t("카메라 전환 → {id}", { id: camSelect.value }));
   } catch (e) { log(t("전환 실패") + ": " + e.message); }
   finally { setBusy(false); }
 });
+// PTZ 를 새로 알았을 때 함께 낡는 것: 폼의 P·T·Z 칸과 **평면도의 시야**(부채꼴 방향은 팬을,
+// 폭은 줌을 따른다). 한자리에 모아 둔 이유는 자리마다 빠뜨렸기 때문이다 — 절대 이동은 값을
+// 보내 놓고 폼을 안 고쳐, 방금 보낸 값이 화면에 돌아오지 않았다.
+// 값이 그대로면 다시 그리지 않는다(폴링이 5초마다 커서를 흔들지 않게).
+function applyPtz(ptz) {
+  const changed = fmt(ptz) !== fmt(lastPtz);
+  lastPtz = ptz;
+  if (!changed) return;
+  renderCameraEditForm();
+  // 몰고 있는 카메라가 움직였으면 평면도의 시야도 낡았다. 새 방위·화각은 **다시 받는다** —
+  // 여기서 raw PTZ 로 지어내면 그 순간 광학 모델이 두 벌이 되고, 부채꼴과 영상 위의 핀이
+  // 서로 다른 식으로 그려진다. 사람의 동작 한 번에 왕복 한 번이라 폴링과 달리 값싸다.
+  fetchSimPtz().then(renderMap);
+}
+
 async function loadPtz() {
-  try { lastPtz = await getJson(api("/simulator/control/ptz")); ptzEl.textContent = fmt(lastPtz); reproject(); }  // 새 PTZ 반영해 오버레이 갱신
-  catch (e) { ptzEl.textContent = t("읽기 실패") + ": " + e.message; }
+  try { applyPtz(await getJson(api("/simulator/control/ptz"))); reproject(); }  // 새 PTZ 반영해 오버레이 갱신
+  catch (e) { log(t("읽기 실패") + ": " + e.message); }
 }
 
 // ---- 슬롯 위치 오버레이(3D→2D) ----
@@ -1451,6 +1452,18 @@ async function fetchSimCameras() {
   try { const r = await getJson(api("/simulator/cameras")); simCameras = r.cameras || []; }
   catch (e) { simCameras = []; }
 }
+
+// 카메라마다 지금 자세를 묻는다(백엔드가 카메라마다 실제로 물어본 값이다). 닿지 않는 카메라는
+// 목록에서 빠진다 — 그 카메라는 시야를 그리지 않는다(모르는 것을 그리지 않는다).
+//
+// 요청이 통째로 실패하면 **직전 표를 지우지 않는다.** 잠깐의 네트워크 실패로 평면도가 비면,
+// 카메라가 사라진 것과 구별되지 않는다. 5 초 폴링이 곧 다시 묻는다.
+async function fetchSimPtz() {
+  try {
+    const r = await getJson(api("/simulator/ptz"));
+    simViewByPort = new Map((r.list || []).filter((row) => row.ptz).map((row) => [Number(row.port), row]));
+  } catch { /* 직전 표를 지키고 다음 폴링을 기다린다 */ }
+}
 function resolveActiveCam() {
   const dev = simDevices.find((d) => d.id === camSelect.value) || {};
   const port = dev.port;
@@ -1459,7 +1472,13 @@ function resolveActiveCam() {
   const hint = document.getElementById("overlay-hint");
   if (hint) hint.textContent = activeCam ? "" : t("이 카메라의 포즈 없음 — 오버레이 미표시");
 }
-async function refreshCameraPose() { await fetchSimCameras(); resolveActiveCam(); reproject(); }
+// 포즈는 mount(설치) 와 자세(PTZ) 둘 다다 — 평면도가 그리는 시야는 둘의 합이라, 하나만 새로
+// 읽으면 카메라를 바꾼 직후 옆 카메라의 부채꼴이 사라지거나 낡은 자세로 남는다.
+async function refreshCameraPose() {
+  await Promise.all([fetchSimCameras(), fetchSimPtz()]);
+  resolveActiveCam();
+  reproject();
+}
 // PTZ 변경 후에는 mount 가 그대로라 재투영만(디바운스). lastPtz 는 호출부(center/box/onPtz)가 이미 갱신.
 function scheduleRepose() { clearTimeout(reposeTimer); reposeTimer = setTimeout(reproject, 150); }
 
@@ -1561,8 +1580,7 @@ async function compareWithOracle() {
   setBusy(true, "오라클 대조 중…");
   say(t("대조 중…"));
   try {
-    lastPtz = await getJson(api("/simulator/control/ptz"));
-    ptzEl.textContent = fmt(lastPtz);
+    applyPtz(await getJson(api("/simulator/control/ptz")));
     const [ours, truth] = await Promise.all([
       postJson(api("/simulator/overlay"), { ptz: lastPtz, width: nw, height: nh, cameraId: activeCam.id }),
       postJson(api("/simulator/project"), {
@@ -1672,7 +1690,6 @@ async function loadSimulator() {
     refreshSimSelection();
     reproject();
     renderMap();              // 평면도의 주차면·점유 표시는 이 목록에서 온다
-    renderSceneCameraList();
     status.textContent = "";
   } catch (e) { status.textContent = t("불러오기 실패") + ": " + e.message; }
 }
@@ -1900,7 +1917,6 @@ renderSimPreviewState();
 const SVG_NS = "http://www.w3.org/2000/svg";
 const mapEl = document.getElementById("sim-map");
 const mapHintEl = document.getElementById("sim-map-hint");
-const camListEl = document.getElementById("sim-cam-list");
 const camStatusEl = document.getElementById("sim-cam-status");
 const camFormEl = document.getElementById("sim-cam-form");
 const camEditFormEl = document.getElementById("sim-cam-edit-form");
@@ -1913,11 +1929,61 @@ const toWorld = (m) => ({ x: -m.y, y: m.x });
 let mapSelectedCameraId = "";
 let mapView = null;      // { minX, minY, width, height } (평면도 좌표계)
 let placing = null;      // { stage: "position"|"aim", location?, aim? } — 배치 진행 상태
-let editingCameraId = ""; // 설치를 고치는 중인 카메라(씬 id). "" = 편집 안 함
 // 평면도에서 끌고 있는 카메라. { cam, from:{x,y,z}, to, moved, clientX, clientY }
-// 자리는 세울 때 한 번 정하고 끝이 아니다 — 그러면 옮기려고 지웠다 다시 세워야 하고,
+// 조준 앵커(시선 막대 끝)를 끌고 있는 상태. { cam, from:{x,y}, fromYaw, yaw, moved, clientX, clientY }
+// 자리 끌기와 **다른 상태**로 둔다: 한 변수에 모드를 얹으면 "무엇을 끌고 있나"가 조건문으로
+// 흩어지고, 그 갈래를 하나 빠뜨리는 것이 이 화면이 겪은 사고였다.
+let aimDrag = null;
+// 부채꼴 모서리를 끌고 있는 상태. { cam, from:{x,y}, axisYaw, fromHfov, hfov, moved, … }
+let fovDrag = null;
+// 시선 막대 위 틸트 앵커를 끌고 있는 상태. { cam, target, from:{x,y}, axisYaw, heightCm, downDeg, moved, … }
+let tiltDrag = null;
+// 자리도 방위도 세울 때 한 번 정하고 끝이 아니다 — 그러면 고치려고 지웠다 다시 세워야 하고,
 // 그 사이 포트가 바뀌면 기기 id 까지 갈린다(sim-cam-<포트>).
 let dragCam = null;
+
+// 시야콘 길이는 지도 크기에 비례한다 — 평면도와 끄는 중 미리보기가 같은 값을 써야
+// 손을 뗀 그림이 끌던 그림과 같다.
+const CONE_LEN_RATIO = 0.22;
+
+// 시야콘의 경로. 월드 방위 θ 의 평면도 방향은 (sin θ, −cos θ) 다 — toMap 과 같은 규약.
+// sweep-flag=1: 방위가 커지는 쪽이 평면도에서 시계방향이다(θ=0 위 → θ=90 오른쪽).
+// 0 이면 SVG 가 반대쪽 원을 골라 호가 꼭짓점 쪽으로 파여 부채꼴이 오목해진다.
+function conePathD(p, yawDeg, halfDeg, len) {
+  const arc = (deg) => {
+    const rad = deg * Math.PI / 180;
+    return { x: p.x + Math.sin(rad) * len, y: p.y - Math.cos(rad) * len };
+  };
+  const a = arc(yawDeg - halfDeg), b = arc(yawDeg + halfDeg);
+  return `M ${p.x} ${p.y} L ${a.x} ${a.y} A ${len} ${len} 0 0 1 ${b.x} ${b.y} Z`;
+}
+
+// 설치방위 — 씬이 아는 사실. 카메라를 **세운** 방향이지 보는 방향이 아니다. 사람이 다룰 값도
+// 아니라서 화면에 개념으로 나오지 않는다: 여기서 쓰는 곳은 조준을 팬으로 옮기는 계산 하나뿐이다
+// (조준각 − 설치방위 = 보내야 할 팬).
+function mountYawOf(cam) {
+  return Number(cam?.mount?.baseYaw) || 0;
+}
+
+// 이 카메라의 지금 자세 — 백엔드가 카메라마다 실제로 물어본 값이다(/simulator/ptz).
+// 없으면 null: 안 닿는 카메라라는 뜻이고, 모르는 것은 그리지 않는다.
+function viewOf(cam) {
+  return simViewByPort.get(Number(cam?.hucomsPort)) || null;
+}
+
+// **지금 보고 있는 방향**과 **지금 줌의 화각.** 둘 다 서버가 낸 숫자를 그대로 읽는다 —
+// 그 식(설치방위 + 팬, 줌→화각 표)이 곧 광학 모델이고, 이 저장소는 그것을 백엔드에 한 벌만
+// 둔다(packages/profile 의 카메라 모델). 영상 위의 주차면 핀도 그 한 벌에서 나오므로, 화면이
+// 제 식을 들면 부채꼴과 핀이 조용히 갈라진다.
+function viewYawOf(cam) {
+  const yaw = Number(viewOf(cam)?.viewYawDeg);
+  return Number.isFinite(yaw) ? yaw : null;
+}
+
+function hfovOf(cam) {
+  const hfov = Number(viewOf(cam)?.hfovDeg);
+  return Number.isFinite(hfov) ? hfov : null;
+}
 
 function svgEl(name, attrs = {}, cls = "") {
   const node = document.createElementNS(SVG_NS, name);
@@ -1929,6 +1995,14 @@ function svgEl(name, attrs = {}, cls = "") {
 function setCamStatus(message) { if (camStatusEl) camStatusEl.textContent = message || ""; }
 
 function mapHint(message) { if (mapHintEl) mapHintEl.textContent = message || ""; }
+
+// 기본 안내는 탭이 정한다 — 기즈모가 탭마다 다르니 안내도 그 탭의 것만 말해야 한다.
+// 배치 탭의 앵커는 설치방위를(폴을 돌려 다는 것), 컨트롤 탭의 앵커는 조준·화각(현재값)을 끈다.
+function defaultMapHint() {
+  return mapTabKey() === "drive"
+    ? t("붉은 앵커 = 조준 · 모서리 앵커 = 화각(줌)")
+    : t("클릭 = 선택 · 끌기 = 자리 · 붉은 앵커 = 설치방위");
+}
 
 // 씬이 보고한 것들을 다 담는 사각형. 아무것도 없으면 그릴 것이 없다.
 function computeMapView() {
@@ -2040,7 +2114,7 @@ function renderMap() {
   // 비어 있던 순간의 문장("…없습니다")이 그대로 남으면, 24면이 그려진 지도 밑에서 화면이
   // 아무것도 못 받았다고 말한다. 그릴 것이 생겼으면 그 자리에서 되돌린다 — 배치 중에는
   // 그쪽 안내가 이기므로 건드리지 않는다.
-  if (!placing) mapHint(t("카메라를 클릭하면 선택되고, 끌면 자리를 옮깁니다."));
+  if (!placing) mapHint(defaultMapHint());
   mapEl.setAttribute("viewBox", `${mapView.minX} ${mapView.minY} ${mapView.width} ${mapView.height}`);
   mapEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
   // 화면상의 크기는 전부 이 span 에서 파생된다 — 어떤 레벨이든, 주차장이 20m 든 200m 든
@@ -2048,7 +2122,7 @@ function renderMap() {
   const span = Math.max(mapView.width, mapView.height);
   const dot = span / 90;
   const font = span / 46;
-  const coneLen = span * 0.22;
+  const coneLen = span * CONE_LEN_RATIO;
   // 간격은 주차면 목록이 바뀔 때만 다시 잰다 — 이 계산은 n² 이고 renderMap 은 조준 중
   // 프레임마다 돈다. 목록이 갈릴 때 loadSimulator/invalidateSimulatorScene 가 null 로 비운다.
   if (slotPitchCm === null) slotPitchCm = measureSlotPitchCm();
@@ -2110,33 +2184,142 @@ function renderMap() {
       p.x += Math.cos(turn) * dot * 2.1;
       p.y += Math.sin(turn) * dot * 2.1;
     }
-    const yaw = Number(cam?.mount?.baseYaw) || 0;
-    const half = (Number(cam.wideHFovDeg) || 57) / 2;
-    // 설치 방위의 시야콘. 지금 어디를 보는지(pan)가 아니라 **어떻게 설치됐는지**를 그린다.
-    // 호도 **벌려 놓은 꼭짓점 p 에서** 뻗는다 — 꼭짓점만 옮기고 호는 원래 자리에서 계산하면
+    // **지금 보고 있는 시야.** 방향은 설치방위 + 팬, 폭은 지금 줌의 수평화각이다 — 둘 다
+    // 카메라마다 실제로 물어본 값이라(/simulator/ptz) 마커마다 같은 뜻이고, 카메라를 바꿔도
+    // 남의 값으로 그려지지 않는다. 설치방위만 그리던 때는 팬 88.9° 카메라의 콘이 카메라가
+    // 보지 않는 89° 옆을 가리켰다.
+    //
+    // **부채꼴이 그리는 것은 탭이 정한다 — FK 의 어느 단인가.**
+    // 시뮬의 카메라는 액터(설치 변환) → PanPivot(설치방위 + 팬) → TiltPivot 의 계층이다.
+    //   배치 탭  = 부모: 설치방위, 폭은 팬 0·줌 0 의 기준 시야(렌즈 광각 끝).
+    //   컨트롤 탭 = 자식: 설치 + 팬(지금 보는 방향), 폭은 지금 줌의 화각.
+    // 팬이 걸려 있으면 두 탭의 부채꼴이 서로 다른 곳을 가리키는 것이 **맞는 그림**이다 —
+    // 컨트롤은 배치 변환을 물려받은 오프셋이니까.
+    //
+    // 팬이나 줌을 모르는 카메라(안 닿음)는 시야를 그리지 않는다. 0 으로 채우면 그 0 이 곧
+    // "정면을 본다"는 거짓말이 된다.
+    const installMode = mapTabKey() !== "drive";
+    const limits = hfovLimitsOf(cam);
+    const yaw = installMode ? mountYawOf(cam) : viewYawOf(cam);
+    const hfov = installMode ? (limits ? limits.max : null) : hfovOf(cam);
+    const half = hfov === null ? null : hfov / 2;
+    // 호는 **벌려 놓은 꼭짓점 p 에서** 뻗는다 — 꼭짓점만 옮기고 호는 원래 자리에서 계산하면
     // 그 어긋남이 그대로 방위 오차로 보인다(폴 넷이 서로 다른 곳을 보는 것처럼 그려졌다).
-    // 월드 방위 θ 의 평면도 방향은 (sin θ, −cos θ) 다 — toMap 과 같은 규약.
-    const arc = (deg) => {
-      const rad = deg * Math.PI / 180;
-      return { x: p.x + Math.sin(rad) * coneLen, y: p.y - Math.cos(rad) * coneLen };
-    };
-    const a = arc(yaw - half), b = arc(yaw + half);
-    // sweep-flag=1: 방위가 커지는 쪽이 평면도에서 시계방향이다(θ=0 위 → θ=90 오른쪽).
-    // 0 이면 SVG 가 반대쪽 원을 골라 호가 꼭짓점 쪽으로 파여 부채꼴이 오목해진다.
-    mapEl.appendChild(svgEl("path", {
-      d: `M ${p.x} ${p.y} L ${a.x} ${a.y} A ${coneLen} ${coneLen} 0 0 1 ${b.x} ${b.y} Z`,
-    }, "map-cone"));
+    // 돌리는 중인 카메라는 옛 방위를 지운다 — 두 콘이 겹쳐 있으면 어느 쪽이 결과인지 모른다.
+    // 고른 카메라의 시야만 뚜렷하게 그린다. 콘 여럿이 같은 밝기로 겹치면 어느 것이 어느
+    // 카메라의 것인지 알 수 없고, 평면도가 통째로 "무엇이 무엇인지" 를 잃는다.
+    const selected = cam.id === mapSelectedCameraId;
+    const aiming = (aimDrag && aimDrag.moved && aimDrag.cam.id === cam.id)
+      || (fovDrag && fovDrag.moved && fovDrag.cam.id === cam.id);
+    if (yaw !== null && half !== null && !aiming) {
+      mapEl.appendChild(svgEl("path", { d: conePathD(p, yaw, half, coneLen) },
+        "map-cone" + (selected ? " sel" : "")));
+      // 시야의 한가운데 = 카메라의 광축. 부채꼴은 얼마나 넓게 보는지를, 이 선은 어디를 보는지를
+      // 말한다 — 넓은 화각에서는 부채꼴만으로 중심이 어디인지 눈으로 못 짚는다.
+      const rad = yaw * Math.PI / 180;
+      const tip = { x: p.x + Math.sin(rad) * coneLen, y: p.y - Math.cos(rad) * coneLen };
+      mapEl.appendChild(svgEl("line", {
+        x1: p.x, y1: p.y, x2: tip.x, y2: tip.y, "vector-effect": "non-scaling-stroke",
+      }, "map-view-axis" + (selected ? " sel" : "")));
+      // 막대 끝의 **조준 앵커** — 끌면 카메라가 그쪽을 본다. 같은 손짓인데 **적히는 축은
+      // 열린 탭이 정한다**: 컨트롤 탭에서는 팬(현재값)이 돌고, 배치 탭에서는 설치방위가
+      // 돈다(폴을 돌려 다는 것 — 팬은 그대로). 어느 쪽이든 보는 방향은 끈 각이 된다.
+      //
+      // 달리는 조건도 축을 따른다. 팬 조준은 /simulator/control/* 로 나가 활성 카메라 한
+      // 대에만 닿으므로 그 카메라에만 달고, 설치방위는 씬 PATCH 라 스폰 카메라 전부에 단다
+      // (레벨 저작은 자세가 레벨의 것이라 403 — 잡을 수 없는 것은 보이지도 않아야 한다).
+      const aimTarget = mapTabKey() === "drive"
+        ? (cameraDeviceFor(cam)?.id === simActiveCameraId ? "pan" : null)
+        : (cam.spawned !== false ? "mount" : null);
+      if (aimTarget) {
+        const handle = svgEl("circle", {
+          cx: tip.x, cy: tip.y, r: dot * 0.9, "vector-effect": "non-scaling-stroke",
+        }, "map-aim-handle");
+        handle.addEventListener("mousedown", (e) => {
+          if (placing || e.button !== 0) return;
+          e.stopPropagation();      // 지도 배경의 배치 핸들러가 같이 받지 않게
+          // 배치 탭에서는 잡는 순간 그 카메라를 고른다 — 자리 끌기와 같은 손짓.
+          if (aimTarget === "mount" && cam.id !== mapSelectedCameraId) selectSceneCamera(cam.id);
+          beginAimDrag(cam, e, aimTarget);
+        });
+        const handleTitle = svgEl("title");
+        handleTitle.textContent = aimTarget === "pan" ? t("끌어서 조준") : t("끌어서 설치방위");
+        handle.appendChild(handleTitle);
+        mapEl.appendChild(handle);
+        // 시선 막대 **위의 틸트 슬라이더**. 막대 한가운데의 녹색 기준선이 **틸트 0**(수평)이고
+        // 자리에서 움직이지 않는다 — 움직이는 것은 앵커원뿐이다. 기준선에서 카메라 쪽으로
+        // 끌수록 아래(+, 기기 한계 90°), 막대 끝쪽으로 끌수록 위(−, 한계 −20°)다.
+        //
+        // 적히는 축은 조준 앵커와 같은 규약: 컨트롤 탭 = 틸트(현재값), 배치 탭 = 설치
+        // 하향각(씬 PATCH — 씬 계약에서 설치 하향은 틸트를 다시 앉히는 값이다).
+        // 틸트를 모르는 카메라(안 닿음)에는 달지 않는다.
+        const tiltNow = num(viewOf(cam)?.ptz?.tiltpos);
+        if (tiltNow !== null) {
+          const across = { x: Math.cos(rad), y: Math.sin(rad) };   // 축에 수직(평면도 기준)
+          const mid = coneLen / 2;
+          // 기준선 — 틸트 0 의 자리. 값이 바뀌어도 여기 그대로 있다.
+          const zeroAt = { x: p.x + Math.sin(rad) * mid, y: p.y - Math.cos(rad) * mid };
+          mapEl.appendChild(svgEl("line", {
+            x1: zeroAt.x - across.x * dot * 1.8, y1: zeroAt.y - across.y * dot * 1.8,
+            x2: zeroAt.x + across.x * dot * 1.8, y2: zeroAt.y + across.y * dot * 1.8,
+            "vector-effect": "non-scaling-stroke",
+          }, "map-tilt-zero" + (selected ? " sel" : "")));
+          // 앵커원 — 지금 틸트의 자리. 끄는 중에는 고스트가 대신 그린다.
+          const tilting = tiltDrag && tiltDrag.moved && tiltDrag.cam.id === cam.id;
+          if (!tilting) {
+            const s = tiltSliderPos(tiltNow / 100, coneLen);
+            const at = { x: p.x + Math.sin(rad) * s, y: p.y - Math.cos(rad) * s };
+            const tiltHandle = svgEl("circle", {
+              cx: at.x, cy: at.y, r: dot * 0.75, "vector-effect": "non-scaling-stroke",
+            }, "map-tilt-handle");
+            tiltHandle.addEventListener("mousedown", (e) => {
+              if (placing || e.button !== 0) return;
+              e.stopPropagation();
+              if (aimTarget === "mount" && cam.id !== mapSelectedCameraId) selectSceneCamera(cam.id);
+              beginTiltDrag(cam, e, aimTarget, yaw, coneLen);
+            });
+            const tiltTitle = svgEl("title");
+            tiltTitle.textContent = aimTarget === "pan" ? t("끌어서 틸트") : t("끌어서 설치 하향각");
+            tiltHandle.appendChild(tiltTitle);
+            mapEl.appendChild(tiltHandle);
+          }
+        }
+        // 부채꼴 **모서리**의 줌 앵커 둘. 끌어서 벌리면 넓게(광각), 오므리면 좁게(망원) 본다 —
+        // 화면이 다루는 것은 각이고, 그 각을 렌즈의 눈금으로 옮기는 일은 백엔드가 한다.
+        // 줌은 순수 현재값이라(설치 줌이라는 것은 씬에 없다) **컨트롤 탭에만** 단다.
+        if (aimTarget === "pan") for (const side of [-1, 1]) {
+          const edge = (yaw + side * half) * Math.PI / 180;
+          const zoomHandle = svgEl("circle", {
+            cx: p.x + Math.sin(edge) * coneLen, cy: p.y - Math.cos(edge) * coneLen,
+            r: dot * 0.8, "vector-effect": "non-scaling-stroke",
+          }, "map-fov-handle");
+          zoomHandle.addEventListener("mousedown", (e) => {
+            if (placing || e.button !== 0) return;
+            e.stopPropagation();
+            beginFovDrag(cam, e);
+          });
+          const zoomTitle = svgEl("title");
+          zoomTitle.textContent = t("끌어서 화각(줌)");
+          zoomHandle.appendChild(zoomTitle);
+          mapEl.appendChild(zoomHandle);
+        }
+      }
+    }
+    // 손댈 수 있는 것은 **고른 카메라 하나뿐**이다. 고르지 않은 것도 끌리면, 화면은 A 의 값을
+    // 폼에 띄운 채 B 를 옮기게 된다 — 무엇을 보고 있고 무엇을 고치는 중인지가 갈린다.
     const movable = cam.spawned !== false;
     const marker = svgEl("circle", {
-      cx: p.x, cy: p.y, r: dot, "vector-effect": "non-scaling-stroke",
+      cx: p.x, cy: p.y, r: selected ? dot * 1.35 : dot, "vector-effect": "non-scaling-stroke",
     }, "map-cam" + (cam.spawned === false ? " authored" : "")
-       + (cam.id === mapSelectedCameraId ? " sel" : "")
+       + (selected ? " sel" : "")
        + (movable ? " movable" : ""));
     // 누르면 선택, 끌면 자리 옮기기. 둘을 mousedown 한 자리에서 가르는 이유는, click 으로
     // 선택을 받으면 드래그 뒤에도 click 이 따라와 "옮기고 나서 선택"이 겹치기 때문이다.
+    // 자리는 설치값이라 **배치 탭에서만** 끌린다 — 컨트롤 탭에서는 누르면 고르기만 한다.
     marker.addEventListener("mousedown", (e) => {
       if (placing || e.button !== 0) return;
       e.stopPropagation();          // 지도 배경의 배치 핸들러가 같이 받지 않게
+      if (mapTabKey() !== "rig") { selectSceneCamera(cam.id); return; }
       beginCameraDrag(cam, e);
     });
     const heightM = cameraHeightM(cam);
@@ -2151,14 +2334,67 @@ function renderMap() {
 
   renderPlacingGhost(span);
   renderDragGhost(span);
+  renderAimGhost(span);
+  renderFovGhost(span);
+  renderTiltGhost(span);
 }
 
-// 끄는 중 미리보기: 원래 자리에서 지금 커서까지. 씬은 아직 그대로다 — 손을 떼야 옮긴다.
-function renderDragGhost(span) {
-  if (!dragCam || !dragCam.moved || !dragCam.to) return;
-  const from = toMap(dragCam.from);
-  const to = toMap(dragCam.to);
+// 틸트 끄는 중 미리보기: 앵커원만 새 자리에 그린다 — 기준선(틸트 0)은 원래 자리에 그대로
+// 있고(renderMap 이 늘 그린다), 카메라도 아직 안 움직였다.
+function renderTiltGhost(span) {
+  if (!tiltDrag || !tiltDrag.moved || tiltDrag.tiltDeg === null) return;
+  const from = toMap(tiltDrag.from);
   const dot = span / 80;
+  const s = tiltSliderPos(tiltDrag.tiltDeg, tiltDrag.trackLen);
+  const rad = tiltDrag.axisYaw * Math.PI / 180;
+  const at = { x: from.x + Math.sin(rad) * s, y: from.y - Math.cos(rad) * s };
+  mapEl.appendChild(svgEl("circle", { cx: at.x, cy: at.y, r: dot * 0.75 }, "map-ghost-dot"));
+}
+
+// 화각 끄는 중 미리보기. 줌은 아직 안 움직였다 — 손을 떼야 움직인다.
+// 한계에 물리면 부채꼴이 더는 안 벌어지는 것으로 그 사실이 보인다(따로 말하지 않아도 된다).
+function renderFovGhost(span) {
+  if (!fovDrag || !fovDrag.moved || !(fovDrag.hfov > 0)) return;
+  const from = toMap(fovDrag.from);
+  const len = span * CONE_LEN_RATIO;
+  mapEl.appendChild(svgEl("path", {
+    d: conePathD(from, fovDrag.axisYaw, fovDrag.hfov / 2, len), "vector-effect": "non-scaling-stroke",
+  }, "map-ghost"));
+  for (const side of [-1, 1]) {
+    const edge = (fovDrag.axisYaw + side * fovDrag.hfov / 2) * Math.PI / 180;
+    mapEl.appendChild(svgEl("circle", {
+      cx: from.x + Math.sin(edge) * len, cy: from.y - Math.cos(edge) * len, r: span / 80 * 0.8,
+    }, "map-ghost-dot"));
+  }
+}
+
+// 조준 끄는 중 미리보기. 카메라는 아직 안 돌았다 — 손을 떼야 돈다.
+// 선 하나만 그리면 화각이 어디를 덮는지 알 수 없어, 손을 뗀 뒤에야 너무 돌렸다는 걸 알게 된다.
+// 그래서 **새 방위의 시야 부채꼴**을 통째로 그린다(폭은 지금 줌의 화각 그대로).
+function renderAimGhost(span) {
+  if (!aimDrag || !aimDrag.moved || aimDrag.yaw === null) return;
+  const from = toMap(aimDrag.from);
+  const len = span * CONE_LEN_RATIO;
+  if (aimDrag.ghostHalf !== null) {
+    mapEl.appendChild(svgEl("path", {
+      d: conePathD(from, aimDrag.yaw, aimDrag.ghostHalf, len), "vector-effect": "non-scaling-stroke",
+    }, "map-ghost"));
+  }
+  const rad = aimDrag.yaw * Math.PI / 180;
+  const tip = { x: from.x + Math.sin(rad) * len, y: from.y - Math.cos(rad) * len };
+  mapEl.appendChild(svgEl("line", {
+    x1: from.x, y1: from.y, x2: tip.x, y2: tip.y, "vector-effect": "non-scaling-stroke",
+  }, "map-ghost"));
+  mapEl.appendChild(svgEl("circle", { cx: tip.x, cy: tip.y, r: span / 80 * 0.9 }, "map-ghost-dot"));
+}
+
+// 끄는 중 미리보기. 씬은 아직 그대로다 — 손을 떼야 바뀐다.
+function renderDragGhost(span) {
+  if (!dragCam || !dragCam.moved) return;
+  const from = toMap(dragCam.from);
+  const dot = span / 80;
+  if (!dragCam.to) return;
+  const to = toMap(dragCam.to);
   mapEl.appendChild(svgEl("line", {
     x1: from.x, y1: from.y, x2: to.x, y2: to.y, "vector-effect": "non-scaling-stroke",
   }, "map-ghost"));
@@ -2237,7 +2473,8 @@ function suggestPorts() {
 function startPlacing() {
   placing = { stage: "position" };
   mapSelectedCameraId = "";
-  closeCameraEdit();
+  markClean();
+  camEditFormEl.hidden = true;
   mapEl.classList.add("placing");
   camFormEl.hidden = true;
   // 감추고 드러낸다 — setBusy 가 모든 버튼의 disabled 를 되돌리므로 disabled 로 잠그면
@@ -2251,11 +2488,17 @@ function startPlacing() {
 
 function cancelPlacing() {
   placing = null;
+  camEditFormEl.hidden = false;
+  // 배치에 들어가면서 선택을 비웠다(highlight 를 끄려고). 취소하고 나오면 **드롭다운이
+  // 가리키는 카메라로 되돌아가야** 한다 — 안 그러면 위에서는 카메라를 고르고 있는데
+  // 아래 폼은 "고른 카메라가 없습니다" 라고 말한다.
+  markClean();
+  syncSelectionFromPicker();
   mapEl.classList.remove("placing");
   camFormEl.hidden = true;
   document.getElementById("sim-cam-cancel").hidden = true;
   document.getElementById("sim-cam-add").hidden = false;
-  mapHint(t("카메라를 클릭하면 선택되고, 끌면 자리를 옮깁니다."));
+  mapHint(defaultMapHint());
   renderMap();
 }
 
@@ -2272,16 +2515,27 @@ function finishPlacing() {
   renderMap();
 }
 
-// ── 평면도에서 카메라 끌어 옮기기 ────────────────────────────────────────────────
+// ── 평면도에서 카메라 끌기: 자리를 옮긴다 ──────────────────────────────────────────
 // 씬은 손을 뗄 때 한 번만 바뀐다. 끄는 동안 PATCH 를 흘리면 시뮬이 프레임마다 액터를
 // 옮기고, 중간에 실패하면 카메라가 어디에 있는지 아무도 모르는 상태가 된다.
+//
+// 방향은 여기서 다루지 않는다. 카메라가 어디를 보는가는 팬이 정하는 값이고, 그것을 지도에서
+// 끌어 바꾸는 일은 아직 넣지 않았다(이교수님 지시, 2026-08-12).
 function beginCameraDrag(cam, event) {
+  // 누르는 순간 그 카메라를 고르고, **그대로 끌린다.** 예전에는 첫 동작을 선택으로만 끝냈는데,
+  // 누르고 곧장 끄는 보통의 손짓이 아무것도 안 움직이는 것으로 보였다("클릭해서 옮기면
+  // 안 움직여요"). 고르면서 끌면 폼도 같은 카메라를 가리키므로, 막을 이유였던 "A 를 보며 B 를
+  // 옮긴다" 도 생기지 않는다.
+  if (cam.id !== mapSelectedCameraId) selectSceneCamera(cam.id);
   const loc = cam?.mount?.location;
   const x = num(loc?.x), y = num(loc?.y), z = num(loc?.z);
-  // 좌표 셋이 다 있어야 옮길 수 있다 — 축 하나만 보내면 나머지를 sim 이 0 으로 읽어
-  // 카메라가 원점으로 날아간다(applyCameraEdit 과 같은 이유).
+  // 좌표 셋이 다 있어야 한다 — 축 하나만 보내면 나머지를 sim 이 0 으로 읽어 카메라가 원점으로
+  // 날아간다(applyInstallEdit 과 같은 이유).
   if (x === null || y === null || z === null) { selectSceneCamera(cam.id); return; }
-  dragCam = { cam, from: { x, y, z }, to: null, moved: false, clientX: event.clientX, clientY: event.clientY };
+  dragCam = {
+    cam, from: { x, y, z },
+    to: null, moved: false, clientX: event.clientX, clientY: event.clientY,
+  };
 }
 
 function cancelCameraDrag() {
@@ -2290,16 +2544,270 @@ function cancelCameraDrag() {
   renderMap();
 }
 
+// ── 조준 앵커 끌기: 카메라가 그쪽을 보게 한다 ────────────────────────────────────
+// 어느 축에 적히는지는 잡을 때 정해진다(target). "pan" = 카메라를 돌린다(현재값, 컨트롤 탭).
+// "mount" = 폴을 돌려 단다(설치방위, 배치 탭 — 팬은 그대로). 끄는 손짓과 고스트는 같다:
+// 어느 쪽이든 사람이 정하는 것은 **보는 방향**이고, 그 방향을 어느 장부에 적느냐만 다르다.
+function beginAimDrag(cam, event, target) {
+  const loc = cam?.mount?.location;
+  const x = num(loc?.x), y = num(loc?.y);
+  // 시작각도 고스트 폭도 그 축의 것이다 — 설치 끌기는 설치방위·기준 시야, 팬 끌기는
+  // 보는 방향·지금 화각. 섞으면 잡는 순간 부채꼴이 딴 각으로 튄다.
+  const limits = hfovLimitsOf(cam);
+  const fromYaw = target === "mount" ? mountYawOf(cam) : viewYawOf(cam);
+  const ghostHalf = target === "mount"
+    ? (limits ? limits.max / 2 : null)
+    : (hfovOf(cam) === null ? null : hfovOf(cam) / 2);
+  if (x === null || y === null || fromYaw === null) return;
+  aimDrag = {
+    cam, target, from: { x, y }, fromYaw, ghostHalf, yaw: null, moved: false,
+    clientX: event.clientX, clientY: event.clientY,
+  };
+  if (mapEl) mapEl.classList.add("aiming");
+}
+
+function cancelAimDrag() {
+  if (!aimDrag) return;
+  aimDrag = null;
+  if (mapEl) mapEl.classList.remove("aiming");
+  renderMap();
+}
+
+// 카메라에서 커서를 향한 월드 방위. 커서가 카메라 위에 겹쳐 있는 동안은 방향이랄 것이 없어
+// 각이 튄다 — 그때는 아직 방위가 아니라고 보고 직전 값을 지킨다.
+function aimYawTowards(from, to) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  if (Math.hypot(dx, dy) < 10) return null;
+  return Math.atan2(dy, dx) * 180 / Math.PI;
+}
+
+// ── 틸트 슬라이더 ────────────────────────────────────────────────────────────────
+// 막대 한가운데(녹색 기준선)가 틸트 0. 카메라 쪽 절반이 아래(0..+90°), 끝쪽 절반이 위(0..−20°)
+// 다 — 양쪽 한계가 기기 규약(휴컴스 틸트 −2000..9000)의 양끝이라, 트랙의 끝 = 기기의 끝이다.
+// 틸트(°) → 트랙 위 자리. tiltSliderDeg 의 역함수다.
+function tiltSliderPos(tiltDeg, trackLen) {
+  const mid = trackLen / 2;
+  return tiltDeg >= 0
+    ? mid - (Math.min(tiltDeg, 90) / 90) * (mid - trackLen * 0.06)
+    : mid + (Math.min(-tiltDeg, 20) / 20) * (mid - trackLen * 0.12);
+}
+
+// 트랙 위 자리 → 틸트(°). 기준선에서 카메라 쪽으로 얼마나 갔나가 곧 각이다.
+function tiltSliderDeg(s, trackLen) {
+  const mid = trackLen / 2;
+  return s <= mid
+    ? Math.min(((mid - s) / (mid - trackLen * 0.06)) * 90, 90)
+    : Math.max(-((s - mid) / (mid - trackLen * 0.12)) * 20, -20);
+}
+
+function beginTiltDrag(cam, event, target, axisYaw, trackLen) {
+  const loc = cam?.mount?.location;
+  const x = num(loc?.x), y = num(loc?.y);
+  if (x === null || y === null || axisYaw === null) return;
+  tiltDrag = {
+    cam, target, from: { x, y }, axisYaw, trackLen,
+    tiltDeg: null, moved: false, clientX: event.clientX, clientY: event.clientY,
+  };
+  if (mapEl) mapEl.classList.add("aiming");
+}
+
+function cancelTiltDrag() {
+  if (!tiltDrag) return;
+  tiltDrag = null;
+  if (mapEl) mapEl.classList.remove("aiming");
+  renderMap();
+}
+
+async function finishTiltDrag() {
+  const drag = tiltDrag;
+  tiltDrag = null;
+  if (mapEl) mapEl.classList.remove("aiming");
+  if (!drag) return;
+  if (!drag.moved || drag.tiltDeg === null) { renderMap(); return; }
+
+  // 설치 하향각(배치 탭): 씬 PATCH — pitchDeg 는 음수가 아래(세우기와 같은 규약).
+  if (drag.target === "mount") {
+    setBusy(true, "설치를 고치는 중…");
+    setCamStatus(t("설치를 고치는 중…"));
+    try {
+      await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(drag.cam.id)}`),
+        { pitchDeg: -drag.tiltDeg });
+      setCamStatus(t("설치 하향각 {d}°", { d: drag.tiltDeg.toFixed(1) }));
+      log(t("설치 하향각: {id} → {d}°", { id: drag.cam.id, d: drag.tiltDeg.toFixed(1) }));
+    } catch (e) {
+      setCamStatus(t("설치 고치기 실패") + ": " + e.message);
+    } finally {
+      setBusy(false);
+      await refreshRig();
+    }
+    return;
+  }
+
+  // 틸트(컨트롤 탭): 몰고 있는 카메라의 현재값. 팬·줌은 그대로 되돌려보낸다.
+  if (cameraDeviceFor(drag.cam)?.id !== simActiveCameraId) {
+    setCamStatus(t("조준할 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다."));
+    renderMap();
+    return;
+  }
+  setBusy(true, "조준하는 중…");
+  setCamStatus(t("조준하는 중…"));
+  try {
+    const now = viewOf(drag.cam)?.ptz || {};
+    const j = await postJson(api("/simulator/control/ptz"), {
+      panpos: now.panpos, tiltpos: Math.round(drag.tiltDeg * 100), zoompos: now.zoompos,
+      panspeed: MOVE_SPEED, tiltspeed: MOVE_SPEED, zoomspeed: MOVE_SPEED,
+    });
+    applyPtz(j.ptz);
+    scheduleRepose();
+    setCamStatus(t("틸트 {d}°", { d: drag.tiltDeg.toFixed(1) }));
+    log(t("카메라 틸트: {id} → {d}°", { id: drag.cam.id, d: drag.tiltDeg.toFixed(1) }));
+  } catch (e) {
+    setCamStatus(t("조준 실패") + ": " + e.message);
+  } finally {
+    setBusy(false);
+    await refreshRig();
+  }
+}
+
+// ── 부채꼴 모서리 끌기: 화각(줌)을 바꾼다 ──────────────────────────────────────────
+// 화면은 **각으로** 말한다. 그 각이 이 렌즈의 어느 눈금인지는 백엔드의 광학 모델이 답한다 —
+// 여기서 표를 들고 역보간하면 부채꼴과 영상 위 핀이 서로 다른 모델로 그려진다.
+function beginFovDrag(cam, event) {
+  const loc = cam?.mount?.location;
+  const x = num(loc?.x), y = num(loc?.y);
+  const axisYaw = viewYawOf(cam), hfov = hfovOf(cam);
+  if (x === null || y === null || axisYaw === null || hfov === null) return;
+  fovDrag = {
+    cam, from: { x, y }, axisYaw, fromHfov: hfov, hfov, moved: false,
+    clientX: event.clientX, clientY: event.clientY,
+  };
+  if (mapEl) mapEl.classList.add("aiming");
+}
+
+function cancelFovDrag() {
+  if (!fovDrag) return;
+  fovDrag = null;
+  if (mapEl) mapEl.classList.remove("aiming");
+  renderMap();
+}
+
+// 렌즈가 갈 수 있는 화각의 양끝. 서버가 카메라마다 답한 값이다 — 모르면 지금 화각에 묶어
+// 아무 데도 못 가게 한다(모르는 한계를 지어내 그 너머로 보내지 않는다).
+function hfovLimitsOf(cam) {
+  const range = viewOf(cam)?.hfovRange;
+  const min = Number(range?.minDeg), max = Number(range?.maxDeg);
+  if (Number.isFinite(min) && Number.isFinite(max) && min > 0 && max >= min) return { min, max };
+  const now = hfovOf(cam);
+  return now === null ? null : { min: now, max: now };
+}
+
+async function finishFovDrag() {
+  const drag = fovDrag;
+  fovDrag = null;
+  if (mapEl) mapEl.classList.remove("aiming");
+  if (!drag) return;
+  if (!drag.moved || !(drag.hfov > 0)) { renderMap(); return; }
+  if (cameraDeviceFor(drag.cam)?.id !== simActiveCameraId) {
+    setCamStatus(t("줌을 바꿀 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다."));
+    renderMap();
+    return;
+  }
+  setBusy(true, "줌을 맞추는 중…");
+  setCamStatus(t("줌을 맞추는 중…"));
+  try {
+    // 팬·틸트는 그대로 되돌려보낸다 — 화각만 바꾸려던 손이 카메라를 돌려 놓으면 안 된다.
+    const now = viewOf(drag.cam)?.ptz || {};
+    const j = await postJson(api("/simulator/control/ptz"), {
+      hfovDeg: drag.hfov, panpos: now.panpos, tiltpos: now.tiltpos,
+      panspeed: MOVE_SPEED, tiltspeed: MOVE_SPEED, zoomspeed: MOVE_SPEED,
+    });
+    applyPtz(j.ptz);
+    setCamStatus(t("화각 {h}° (줌 {z})", { h: drag.hfov.toFixed(1), z: j.ptz?.zoompos ?? "?" }));
+    log(t("카메라 줌: {id} → 화각 {h}° (줌 {z})",
+      { id: drag.cam.id, h: drag.hfov.toFixed(1), z: j.ptz?.zoompos ?? "?" }));
+  } catch (e) {
+    setCamStatus(t("줌 실패") + ": " + e.message);
+  } finally {
+    setBusy(false);
+    await refreshRig();
+  }
+}
+
+async function finishAimDrag(event) {
+  const drag = aimDrag;
+  aimDrag = null;
+  if (mapEl) mapEl.classList.remove("aiming");
+  if (!drag) return;
+  if (!drag.moved) { renderMap(); return; }        // 앵커를 눌렀다 뗐을 뿐이다
+  const at = event && worldAtEvent(event);
+  const yaw = (at && aimYawTowards(drag.from, at)) ?? drag.yaw;
+  if (yaw === null || yaw === undefined) { renderMap(); return; }
+  // 얼마나 돌았는지를 함께 적는다 — 절대 방위만 적으면 손이 한 일의 크기가 안 보인다.
+  const turned = ((yaw - drag.fromYaw) % 360 + 540) % 360 - 180;
+
+  // 설치방위(배치 탭): 폴을 돌려 단다 — 씬 PATCH 하나, 팬·틸트·줌은 건드리지 않는다.
+  // 배치 탭의 부채꼴이 곧 설치방위라, 끈 각이 곧 새 설치방위다(오프셋 셈법이 없다).
+  if (drag.target === "mount") {
+    setBusy(true, "설치를 고치는 중…");
+    setCamStatus(t("설치를 고치는 중…"));
+    try {
+      const yawDeg = yaw;
+      await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(drag.cam.id)}`), { yawDeg });
+      setCamStatus(t("설치방위 {m}° — {a}° 돌려 달았습니다", { m: yawDeg.toFixed(1), a: turned.toFixed(1) }));
+      log(t("설치방위: {id} → {m}°", { id: drag.cam.id, m: yawDeg.toFixed(1) }));
+    } catch (e) {
+      setCamStatus(t("설치 고치기 실패") + ": " + e.message);
+    } finally {
+      setBusy(false);
+      await refreshRig();
+    }
+    return;
+  }
+
+  // 팬(컨트롤 탭): 카메라를 돌린다. 앵커는 몰고 있는 카메라에만 달리지만, 끄는 사이에
+  // 활성이 바뀌었을 수 있다 — 그러면 이 명령은 남의 카메라로 간다. 보내기 전에 한 번 더 본다.
+  if (cameraDeviceFor(drag.cam)?.id !== simActiveCameraId) {
+    setCamStatus(t("조준할 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다."));
+    renderMap();
+    return;
+  }
+  setBusy(true, "조준하는 중…");
+  setCamStatus(t("조준하는 중…"));
+  try {
+    // 팬 = 보고 싶은 방위 − 설치방위(팬 0 일 때 보는 방위). 0..35999 로 감는다.
+    // 하향각·줌은 그대로 되돌려보낸다 — 돌렸을 뿐인데 위아래로 기울거나 당겨지면 사고다.
+    const now = viewOf(drag.cam)?.ptz || {};
+    const panpos = Math.round((((yaw - mountYawOf(drag.cam)) % 360 + 360) % 360) * 100);
+    const j = await postJson(api("/simulator/control/ptz"), {
+      panpos, tiltpos: now.tiltpos, zoompos: now.zoompos,
+      panspeed: MOVE_SPEED, tiltspeed: MOVE_SPEED, zoomspeed: MOVE_SPEED,
+    });
+    applyPtz(j.ptz);
+    setCamStatus(t("조준했습니다 — {a}° 돌아 {y}°", { a: turned.toFixed(1), y: yaw.toFixed(1) }));
+    log(t("카메라 조준: {id} → {y}° (팬 {p})", { id: drag.cam.id, y: yaw.toFixed(1), p: panpos }));
+  } catch (e) {
+    setCamStatus(t("조준 실패") + ": " + e.message);
+  } finally {
+    setBusy(false);
+    await refreshRig();   // 성공이든 실패든 씬과 카메라가 정본이다
+  }
+}
+
 async function finishCameraDrag(event) {
   const drag = dragCam;
   dragCam = null;
   if (!drag) return;
   if (!drag.moved) { selectSceneCamera(drag.cam.id); return; }   // 안 움직였으면 그냥 클릭이다
-  // 레벨에 저작된 카메라는 옮길 수 없다(백엔드 403). 끌리지도 않게 막아 두었지만,
+  // 레벨에 저작된 카메라는 손댈 수 없다(백엔드 403). 끌리지도 않게 막아 두었지만,
   // 여기서도 한 번 더 본다 — 목록이 갱신되는 사이에 성질이 바뀌었을 수 있다.
-  if (drag.cam.spawned === false) { setCamStatus(t("레벨에 저작된 카메라는 옮길 수 없습니다.")); renderMap(); return; }
-  const to = (event && worldAtEvent(event)) || drag.to;
-  if (!to) { renderMap(); return; }
+  if (drag.cam.spawned === false) {
+    setCamStatus(t("레벨에 저작된 카메라는 옮길 수 없습니다."));
+    renderMap();
+    return;
+  }
+  // 손을 뗀 자리를 다시 읽는다 — mousemove 의 마지막 값과 뗀 자리가 다를 수 있다.
+  const at = (event && worldAtEvent(event)) || drag.to;
+  if (!at) { renderMap(); return; }
 
   setBusy(true, "카메라를 옮기는 중…");
   setCamStatus(t("옮기는 중…"));
@@ -2307,20 +2815,25 @@ async function finishCameraDrag(event) {
     // z 는 그대로 되돌려보낸다. 평면도는 자리(x·y)만 다루고 높이는 편집 폼의 몫이다 —
     // 여기서 높이까지 건드리면 자리를 옮겼을 뿐인데 설치 높이가 조용히 달라진다.
     await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(drag.cam.id)}`),
-      { location: { x: to.x, y: to.y, z: drag.from.z } });
-    const moved = Math.hypot(to.x - drag.from.x, to.y - drag.from.y) / 100;
+      { location: { x: at.x, y: at.y, z: drag.from.z } });
+    const moved = Math.hypot(at.x - drag.from.x, at.y - drag.from.y) / 100;
     setCamStatus(t("옮겼습니다 — {d} m", { d: moved.toFixed(2) }));
-    log(t("카메라 이동: {id} → ({x}, {y})", { id: drag.cam.id, x: Math.round(to.x), y: Math.round(to.y) }));
+    log(t("카메라 이동: {id} → ({x}, {y})", { id: drag.cam.id, x: Math.round(at.x), y: Math.round(at.y) }));
   } catch (e) {
     setCamStatus(t("옮기기 실패") + ": " + e.message);
   } finally {
     setBusy(false);
     await refreshRig();   // 성공이든 실패든 씬이 정본이다
+    // 실패했을 때도 맞춘다 — 그때 폼이 봐야 할 값은 "내가 끌던 값"이 아니라 지금의 씬이다.
+    syncCameraEditForm(drag.cam.id, { location: true });
   }
 }
 
 if (mapEl) {
   let downAt = null;
+  // macOS 에서 Ctrl+클릭은 보조 클릭이라 누르는 순간 컨텍스트 메뉴가 뜬다. 메뉴가 뜨면
+  // mouseup 을 못 받아 드래그가 손에 붙은 채로 남는다 — 끄는 중에는 메뉴를 막는다.
+  mapEl.addEventListener("contextmenu", (event) => { if (dragCam) event.preventDefault(); });
   mapEl.addEventListener("mousedown", (event) => {
     if (!placing) return;
     const world = worldAtEvent(event);
@@ -2344,14 +2857,58 @@ if (mapEl) {
     ghostRaf = requestAnimationFrame(() => { ghostRaf = 0; renderMap(); });
   };
   mapEl.addEventListener("mousemove", (event) => {
+    if (tiltDrag) {
+      if (!tiltDrag.moved
+          && Math.hypot(event.clientX - tiltDrag.clientX, event.clientY - tiltDrag.clientY) <= 4) return;
+      const world = worldAtEvent(event);
+      if (!world) return;
+      // 커서를 광축에 투영한 트랙 위 자리. 커서가 옆으로 벗어나 있어도 축 위의 그 자리로
+      // 읽는다 — 앵커는 축 위를 미끄러지는 슬라이더다. (UE: 방위 θ 의 지면 방향 = (cosθ, sinθ))
+      const radA = tiltDrag.axisYaw * Math.PI / 180;
+      const s = (world.x - tiltDrag.from.x) * Math.cos(radA) + (world.y - tiltDrag.from.y) * Math.sin(radA);
+      tiltDrag.tiltDeg = tiltSliderDeg(Math.min(Math.max(s, 0), tiltDrag.trackLen), tiltDrag.trackLen);
+      tiltDrag.moved = true;
+      scheduleGhost();
+      return;
+    }
+    if (fovDrag) {
+      if (!fovDrag.moved
+          && Math.hypot(event.clientX - fovDrag.clientX, event.clientY - fovDrag.clientY) <= 4) return;
+      const world = worldAtEvent(event);
+      if (!world) return;
+      const toward = aimYawTowards(fovDrag.from, world);
+      if (toward === null) return;   // 커서가 카메라에 겹쳐 있는 동안은 각이 없다
+      // 광축에서 벌어진 각이 곧 반각이다. 반대쪽 모서리를 끌어도 같은 값이라 |…| 로 본다.
+      const halfDeg = Math.abs(((toward - fovDrag.axisYaw) % 360 + 540) % 360 - 180);
+      const limits = hfovLimitsOf(fovDrag.cam);
+      if (!limits) return;
+      // 렌즈의 한계까지만 — 그 너머로 끌어도 부채꼴은 끝에서 멈춘다(백엔드도 같은 값으로 문다).
+      fovDrag.hfov = Math.min(Math.max(halfDeg * 2, limits.min), limits.max);
+      fovDrag.moved = true;
+      scheduleGhost();
+      return;
+    }
+    if (aimDrag) {
+      // 손떨림을 조준으로 읽지 않는다 — 문턱을 넘기 전까지는 아직 아무것도 아니다.
+      if (!aimDrag.moved
+          && Math.hypot(event.clientX - aimDrag.clientX, event.clientY - aimDrag.clientY) <= 4) return;
+      const world = worldAtEvent(event);
+      if (!world) return;
+      const yaw = aimYawTowards(aimDrag.from, world);
+      if (yaw === null) return;   // 커서가 카메라에 겹쳐 있는 동안은 방향이 없다
+      aimDrag.yaw = yaw;
+      aimDrag.moved = true;
+      scheduleGhost();
+      return;
+    }
     if (dragCam) {
       // 손떨림을 이동으로 읽지 않는다 — 문턱을 넘기 전까지는 아직 클릭(선택)이다.
       if (!dragCam.moved
           && Math.hypot(event.clientX - dragCam.clientX, event.clientY - dragCam.clientY) <= 4) return;
       const world = worldAtEvent(event);
       if (!world) return;
-      dragCam.moved = true;
       dragCam.to = world;
+      dragCam.moved = true;
       scheduleGhost();
       return;
     }
@@ -2368,9 +2925,31 @@ if (mapEl) {
   // 외삽된 주차장 바깥 점이라, 사람이 찍은 적 없는 방위와 클램프된 하향각으로 카메라가
   // 세워진다(2026-08-10 리뷰에서 확인).
   window.addEventListener("mouseup", (event) => {
+    if (tiltDrag) {
+      // 화각과 같은 이유로 뗀 자리를 다시 읽지 않는다 — 끌던 마지막 각을 그대로 쓴다.
+      finishTiltDrag();
+      return;
+    }
+    if (fovDrag) {
+      // 지도 밖에서 뗐어도 각은 이미 정해져 있다(방위와 달리 뗀 자리를 다시 읽지 않는다) —
+      // 끌던 마지막 각을 그대로 쓴다. 손이 지도 밖으로 나갔다고 줌이 튀지는 않는다.
+      finishFovDrag();
+      return;
+    }
+    if (aimDrag) {
+      // 지도 밖에서 뗐으면 반영하지 않는다 — 그 좌표는 SVG 밖으로 외삽된 점이라, 사람이
+      // 겨눈 적 없는 방위로 카메라가 돌아간다(자리 끌기와 같은 함정).
+      if (aimDrag.moved && !mapEl.contains(event.target)) {
+        setCamStatus(t("평면도 안에서 놓아야 조준됩니다."));
+        cancelAimDrag();
+        return;
+      }
+      finishAimDrag(event);
+      return;
+    }
     if (dragCam) {
-      // 지도 밖에서 뗐으면 옮기지 않는다 — 그 좌표는 SVG 밖으로 외삽된 주차장 바깥 점이라,
-      // 사람이 찍은 적 없는 자리로 카메라가 날아간다(배치의 조준점과 같은 함정).
+      // 지도 밖에서 뗐으면 반영하지 않는다 — 그 좌표는 SVG 밖으로 외삽된 주차장 바깥 점이라,
+      // 사람이 찍은 적 없는 자리·방위로 카메라가 날아간다(배치의 조준점과 같은 함정).
       if (dragCam.moved && !mapEl.contains(event.target)) {
         setCamStatus(t("평면도 안에서 놓아야 옮겨집니다."));
         cancelCameraDrag();
@@ -2401,160 +2980,284 @@ if (mapEl) {
   });
 }
 
+// 고른 카메라는 하나다. 위의 「시뮬 카메라」 드롭다운이 그 하나를 가리키고, 평면도 클릭도
+// 같은 곳을 가리킨다 — 둘이 갈리면 화면이 A 를 보여 주면서 B 를 옮길 준비를 하고 있게 된다.
+// 그래서 평면도에서 고르면 드롭다운도 함께 움직인다(= 프리뷰·PTZ 도 그 카메라로 간다).
 function selectSceneCamera(id) {
+  if (id === mapSelectedCameraId) return;
   mapSelectedCameraId = id;
-  // 다른 카메라를 고르면 열려 있던 편집 폼은 닫는다 — 폼은 한 대의 값을 들고 있는데
-  // 목록의 강조만 옮겨 가면, 화면이 A 를 가리키면서 B 를 옮길 준비를 하고 있게 된다.
-  if (editingCameraId && editingCameraId !== id) closeCameraEdit();
+  markClean();   // 옛 카메라에 적던 손글씨는 뜻을 잃는다
   const cam = simCameras.find((c) => c.id === id);
   const device = cam ? cameraDeviceFor(cam) : null;
+  renderCameraEditForm();
   renderMap();
-  renderSceneCameraList();
   if (!cam) return;
   // 기기는 이 카메라에서 파생되므로 못 찾는 경우는 목록이 잠깐 어긋난 때뿐이다(방금 세운
   // 카메라를 아직 안 읽었다). "등록하세요" 라고 말할 자리는 이제 없다.
-  setCamStatus(device
-    ? t("{id} · 기기 {dev}", { id: cam.id, dev: device.id })
-    : t("{id} · 목록을 아직 못 읽었습니다 — 새로고침하세요.", { id: cam.id }));
-}
-
-function renderSceneCameraList() {
-  if (!camListEl) return;
-  camListEl.replaceChildren();
-  if (!simCameras.length) {
-    const empty = document.createElement("div");
-    empty.className = "sim-device-empty";
-    empty.textContent = t("씬에 카메라가 없습니다.");
-    camListEl.appendChild(empty);
+  if (!device) {
+    setCamStatus(t("{id} · 목록을 아직 못 읽었습니다 — 새로고침하세요.", { id: cam.id }));
     return;
   }
-  for (const cam of simCameras) {
-    const device = cameraDeviceFor(cam);
-    const row = document.createElement("div");
-    row.className = "sim-cam-row" + (cam.id === mapSelectedCameraId ? " sel" : "");
-
-    const main = document.createElement("button");
-    main.type = "button";
-    main.className = "cam-main";
-    const heightM = cameraHeightM(cam);
-    const label = document.createElement("span");
-    label.className = "cam-name";
-    label.textContent = device?.name || cam.id;
-    const meta = document.createElement("span");
-    meta.className = "cam-meta";
-    meta.textContent = `:${cam.hucomsPort} · ${heightM === null ? "?" : heightM.toFixed(2) + " m"}`;
-    main.append(label, meta);
-    main.title = `${device?.name || cam.id} · ${cam.id}`;
-    main.addEventListener("click", () => selectSceneCamera(cam.id));
-    row.appendChild(main);
-
-    if (cam.spawned === false) {
-      const tag = document.createElement("span");
-      tag.className = "sim-cam-tag muted";
-      tag.textContent = t("레벨 저작");
-      tag.title = t("레벨에 저작된 카메라는 이 화면에서 옮기거나 지울 수 없습니다.");
-      row.appendChild(tag);
-    }
-    if (cam.spawned !== false) {
-      const edit = document.createElement("button");
-      edit.type = "button";
-      edit.textContent = t("편집");
-      edit.title = t("설치 높이·방위·하향각을 고칩니다 (자리는 평면도에서 끌어 옮깁니다)");
-      edit.addEventListener("click", () => startCameraEdit(cam));
-      row.appendChild(edit);
-
-      const del = document.createElement("button");
-      del.type = "button";
-      del.textContent = t("삭제");
-      del.addEventListener("click", () => removeSceneCamera(cam, device));
-      row.appendChild(del);
-    }
-    camListEl.appendChild(row);
+  setCamStatus(t("{id} · 기기 {dev}", { id: cam.id, dev: device.id }));
+  if (camSelect.value !== device.id) {
+    camSelect.value = device.id;
+    camSelect.dispatchEvent(new Event("change"));   // 전환 경로는 한 벌만 둔다
   }
 }
 
-// ── 세워 둔 카메라의 설치 고치기 ──────────────────────────────────────────────────
-// 세우기와 값은 같지만 근거가 다르다. 세울 때는 사람이 찍은 두 점에서 방위·하향각이 나오고,
-// 고칠 때는 **씬이 보고한 지금의 설치**가 출발점이다.
+// 드롭다운이 가리키는 기기의 씬 카메라. cameraDeviceFor 의 역방향이고, 이어 주는 값은
+// 포트 하나다(기기 id 는 sim-cam-<포트> 라 포트가 곧 정체다).
 //
-// 이 폼은 높이·방위·하향각만 다룬다. **자리(x·y)는 평면도에서 카메라를 끌어 옮긴다** —
-// 숫자로 적을 값이 아니라 보면서 고를 값이고, 두 자리에서 같은 것을 고치면 어느 쪽이
-// 이겼는지가 화면에 안 보인다.
-function startCameraEdit(cam) {
-  if (placing) cancelPlacing();
-  editingCameraId = cam.id;
-  mapSelectedCameraId = cam.id;
-  const heightM = cameraHeightM(cam);
-  const yaw = num(cam?.mount?.baseYaw);
-  document.getElementById("sim-cam-edit-title").textContent =
-    t("{name} · 설치", { name: cameraDeviceFor(cam)?.name || cam.id });
-  document.getElementById("sim-cam-edit-height").value = heightM === null ? "" : heightM.toFixed(2);
-  document.getElementById("sim-cam-edit-yaw").value = yaw === null ? "" : yaw.toFixed(1);
-  // 하향각은 비워 둔다 = 그대로. 씬은 이 값을 주지 않으므로(PTZ tilt) 채워 넣을 수 있는
-  // 것은 추측뿐이고, 추측을 폼에 적어 두면 손대지 않은 칸이 카메라를 돌리게 된다.
-  document.getElementById("sim-cam-edit-pitch").value = "";
-  camEditFormEl.hidden = false;
-  setCamStatus("");
+// 기준기(reference)는 씬에서 파생된 것이 아니라 config 에 사는 계약의 정본이라 씬 카메라가
+// 없다 — 서버가 `derived: false` 로 그렇게 말한다. **그 표시를 봐야 한다.** 포트 일치만
+// 보면, 기준기가 어쩌다 씬 카메라와 같은 포트를 갖는 순간 남의 카메라에 설치 폼이 붙는다.
+function sceneCameraForDevice(deviceId) {
+  const dev = simDevices.find((d) => d.id === deviceId);
+  if (!dev || dev.derived === false) return null;
+  return simCameras.find((c) => c.hucomsPort === dev.port) || null;
+}
+
+function pickedDevice() {
+  return simDevices.find((d) => d.id === camSelect.value) || null;
+}
+
+// 드롭다운이 갈리면 평면도의 선택과 폼도 따라온다. 여기서 selectSceneCamera 를 부르지 않는
+// 이유는 그쪽이 다시 드롭다운을 건드려 되돌이가 되기 때문이다 — 값만 맞추고 그림만 새로 그린다.
+function syncSelectionFromPicker() {
+  const cam = sceneCameraForDevice(camSelect.value);
+  const id = cam ? cam.id : "";
+  if (id === mapSelectedCameraId) { renderCameraEditForm(); return; }
+  mapSelectedCameraId = id;
+  markClean();
+  renderCameraEditForm();
   renderMap();
-  renderSceneCameraList();
-  document.getElementById("sim-cam-edit-height").focus();
 }
 
-function closeCameraEdit() {
-  if (!editingCameraId && camEditFormEl.hidden) return;
-  editingCameraId = "";
-  camEditFormEl.hidden = true;
+// ── 고른 카메라의 설치(항상 열려 있다) ────────────────────────────────────────────
+// 세우기와 값은 같지만 근거가 다르다. 세울 때는 사람이 찍은 두 점에서 방위·하향각이 나오고,
+// 여기서는 **씬이 보고한 지금의 설치**가 출발점이다.
+//
+// 손대는 중인 칸은 덮어쓰지 않는다. 폼이 5 초마다 씬 값으로 되돌아가면 두 글자 넘게 못 적는다.
+//
+// **칸 단위로** 지킨다. 폼 전체를 잠그면, 이름 한 글자를 적은 뒤로 P·T·Z 가 영영 멈춘다 —
+// 영상을 클릭해 센터링해도 숫자가 안 바뀌어 "적용이 안 된다"로 보인다(2026-08-11 실제 증상).
+const dirtyFields = new Set();
+const markClean = () => dirtyFields.clear();
+
+// 두 폼의 칸을 한 데서 모은다. 설치(배치 탭): note·x·y·height·bearing·pitch — 볼트로 박는
+// 값. 조종(컨트롤 탭): pan·tilt·zoom — 몰면서 바뀌는 현재값. 한 객체로 두는 이유는 채우기
+// (renderCameraEditForm)와 잠그기가 두 폼을 늘 같이 다루기 때문이다.
+const editEls = () => ({
+  x: document.getElementById("sim-cam-edit-x"),
+  y: document.getElementById("sim-cam-edit-y"),
+  height: document.getElementById("sim-cam-edit-height"),
+  note: document.getElementById("sim-cam-edit-note"),
+  bearing: document.getElementById("sim-cam-edit-bearing"),
+  pitch: document.getElementById("sim-cam-edit-pitch"),
+  pan: document.getElementById("sim-cam-edit-pan"),
+  tilt: document.getElementById("sim-cam-edit-tilt"),
+  zoom: document.getElementById("sim-cam-edit-zoom"),
+});
+
+function selectedSceneCamera() {
+  return simCameras.find((c) => c.id === mapSelectedCameraId) || null;
 }
 
-function cancelCameraEdit() {
-  closeCameraEdit();
-  setCamStatus(t("취소됨"));
-  renderSceneCameraList();
-}
-
-async function applyCameraEdit(event) {
-  event.preventDefault();
-  const cam = simCameras.find((c) => c.id === editingCameraId);
-  if (!cam) { setCamStatus(t("고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.")); return; }
-
-  const patch = {};
-  const heightM = num(document.getElementById("sim-cam-edit-height").value);
-  const nowHeightM = cameraHeightM(cam);
-  if (heightM !== null && (nowHeightM === null || Math.abs(heightM - nowHeightM) > 0.005)) {
-    if (heightM <= 0) { setCamStatus(t("높이는 0 보다 커야 합니다.")); return; }
-    // 세울 때와 같은 이유로 지면을 모르면 옮기지 않는다: 0 으로 가정하면 지면이 z=0 이 아닌
-    // 레벨에서 그 차이가 통째로 높이 오차가 되고, 나중에 높이 축이 그것을 "실측"으로 읽는다.
-    const ground = sceneGroundZcm();
-    if (ground === null) {
-      setCamStatus(t("이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다."));
-      return;
-    }
-    const x = num(cam?.mount?.location?.x), y = num(cam?.mount?.location?.y);
-    if (x === null || y === null) { setCamStatus(t("씬이 이 카메라의 설치 좌표를 주지 않았습니다.")); return; }
-    // x·y 는 씬이 준 값을 그대로 되돌려보낸다 — 축 하나만 보내면 나머지를 sim 이 0 으로 읽어
-    // 카메라가 원점으로 날아간다(백엔드도 같은 이유로 셋을 다 요구한다).
-    patch.location = { x, y, z: heightM * 100 + ground };
+// 씬이 준 값으로 칸을 채운다. 좌표는 cm 정수로 보여 주되 **저장할 때는 손대지 않은 칸의
+// 원값을 그대로 되돌려보낸다**(applyInstallEdit) — 반올림한 표시가 그대로 나가면 아무것도
+// 안 고치고 저장만 눌러도 카메라가 5 mm 씩 움직인다.
+function renderCameraEditForm({ force = false } = {}) {
+  const cam = selectedSceneCamera();
+  const el = editEls();
+  const authored = cam ? cam.spawned === false : false;
+  // 카메라가 없는 데는 두 가지 뜻이 있다. 기준기를 고른 것과, 씬이 비었거나 목록을 아직 못
+  // 읽은 것 — "없습니다" 하나로 뭉뚱그리면 기준기를 고른 사람은 화면이 고장 났다고 읽는다.
+  const picked = cam ? null : pickedDevice();
+  const fallback = picked?.derived === false
+    ? t("{name} · 기준기 — 설치는 시뮬 카메라만 고칩니다", { name: picked.name || picked.id })
+    : t("고른 카메라가 없습니다.");
+  // 배치 탭: 이름 밑에 카메라 아이디, 그 밑에 포트 둘(제어·프리뷰) — 포트는 설치의 사실이다.
+  const idLine = cam ? cam.id + (authored ? t(" · 레벨 저작(자세 고정)") : "") : fallback;
+  document.getElementById("sim-cam-edit-title").textContent = idLine;
+  document.getElementById("sim-cam-edit-ports").textContent = cam
+    ? t("제어 :{c} · 프리뷰 :{m}", { c: cam.hucomsPort, m: cam.mjpegPort ?? "—" })
+    : "";
+  // 컨트롤 탭도 같은 카메라를 다룬다 — 제목이 다르면 두 탭이 딴 카메라를 잡은 것처럼 읽힌다.
+  document.getElementById("sim-cam-drive-title").textContent = idLine;
+  // setBusy 가 모든 button 의 disabled 를 되돌리므로, 못 하는 일은 감춰서 막는다.
+  // input 은 setBusy 가 건드리지 않으니 disabled 로 잠가도 되살아나지 않는다.
+  for (const node of Object.values(el)) node.disabled = !cam || authored;
+  el.note.disabled = !cam;
+  document.getElementById("sim-cam-edit-apply").hidden = !cam;
+  document.getElementById("sim-cam-drive-apply").hidden = !cam;
+  document.getElementById("sim-cam-drive-reset").hidden = !cam;
+  document.getElementById("sim-cam-edit-delete").hidden = !cam || authored;
+  if (!cam) {
+    for (const node of Object.values(el)) node.value = "";
+    return;
   }
-  const yawDeg = num(document.getElementById("sim-cam-edit-yaw").value);
-  const nowYaw = num(cam?.mount?.baseYaw);
-  if (yawDeg !== null && (nowYaw === null || Math.abs(yawDeg - nowYaw) > 0.05)) patch.yawDeg = yawDeg;
-  const pitchDeg = num(document.getElementById("sim-cam-edit-pitch").value);
-  if (pitchDeg !== null) patch.pitchDeg = pitchDeg;
+  // 지금 손대고 있는 칸만 건너뛴다 — 나머지는 씬을 따라간다.
+  const put = (node, value) => { if (force || !dirtyFields.has(node.id)) node.value = value; };
+  const loc = cam?.mount?.location;
+  const heightM = cameraHeightM(cam);
+  const cm = (v) => (v === null ? "" : String(Math.round(v)));
+  // 별명은 씬이 준 그대로. 만들어 낸 이름을 채워 두면 아무도 지은 적 없는 이름이 저장된다.
+  put(el.note, String(cam.note ?? ""));
+  put(el.x, cm(num(loc?.x)));
+  put(el.y, cm(num(loc?.y)));
+  put(el.height, heightM === null ? "" : heightM.toFixed(2));
+  // 설치 자세. 방위는 씬이 준 설치방위 그대로, 하향은 이 카메라의 틸트에서 온다 — 씬 계약에서
+  // 설치 하향각은 별도 저장이 아니라 틸트를 다시 앉히는 값이라(pitchDeg→tilt), 틸트가 곧
+  // 그 값의 지금 모습이다. 틸트를 모르는 카메라(안 닿음)는 비워 둔다.
+  put(el.bearing, (() => { const b = num(cam?.mount?.baseYaw); return b === null ? "" : b.toFixed(1); })());
+  const camTilt = num(viewOf(cam)?.ptz?.tiltpos);
+  put(el.pitch, camTilt === null ? "" : (-camTilt / 100).toFixed(1));
+  // PTZ 는 **지금 보고 있는 카메라**의 것이다(lastPtz). 다른 카메라를 고른 폼에 적으면 남의
+  // 자세를 이 카메라의 것으로 적게 되므로, 그때는 비워 둔다.
+  const ptz = ptzOfSelected(cam);
+  put(el.pan, ptz === null ? "" : ptz.panpos);
+  put(el.tilt, ptz === null ? "" : ptz.tiltpos);
+  put(el.zoom, ptz === null ? "" : ptz.zoompos);
+  if (force) markClean();
+}
+
+function ptzOfSelected(cam) {
+  if (!cam || cameraDeviceFor(cam)?.id !== simActiveCameraId) return null;
+  return ptzSnapshot(lastPtz);
+}
+
+// 평면도에서 끌어 바꾼 자리를 폼에도 반영한다. 폼이 옛 좌표를 들고 있으면 그다음 저장이 방금
+// 끈 것을 되돌린다 — 저장은 폼과 씬을 견주어 다른 칸만 보내므로, 남아 있는 옛 값이 그대로
+// "옮기라는 지시"가 된다.
+//
+// **끌어서 바뀐 칸만** 새로 쓴다. 폼을 통째로 다시 채우면 아직 저장하지 않은 손글씨가
+// 자리를 옮겼다는 이유로 사라진다.
+//
+// 방위는 여기 없다. 폼에 방위 칸이 없기 때문이다 — 설치방위를 보여 주고 고치는 자리는
+// 평면도의 시야콘 하나뿐이고, 저장은 설치 폼의 방위 칸으로 간다(applyInstallEdit). 예전에는 여기서
+// 없는 칸(el.yaw)에 쓰려다 회전 드래그가 끝날 때마다 TypeError 로 터졌다.
+function syncCameraEditForm(camId, changed) {
+  if (mapSelectedCameraId !== camId) return;   // 옆 카메라를 끌었으면 이 폼은 그대로 둔다
+  const cam = selectedSceneCamera();
+  if (!cam) return;
+  const el = editEls();
+  const loc = cam?.mount?.location;
+  if (changed.location) {
+    const cm = (v) => (v === null ? "" : String(Math.round(v)));
+    el.x.value = cm(num(loc?.x));
+    el.y.value = cm(num(loc?.y));
+  }
+}
+
+// 폼은 좌표를 cm 정수로 보여 준다. 그 표시를 그대로 보내면, 아무것도 안 고치고 저장만 눌러도
+// 카메라가 반올림한 만큼(≤5 mm) 움직인다. 그래서 **표시와 같은 값이면 씬의 원값을 되돌려보낸다** —
+// 사람이 적은 것만 사람이 적은 값으로 나간다.
+function typedOrExact(formValue, sceneValue) {
+  if (formValue === null || sceneValue === null) return sceneValue;
+  return formValue === Math.round(sceneValue) ? sceneValue : formValue;
+}
+
+// 설치 적용 — 씬 PATCH 하나로 나간다(location·note·yawDeg·pitchDeg, 바뀐 필드만).
+// 현재값(P·T·Z)은 여기 없다: 그쪽은 「카메라 컨트롤」 탭의 applyDriveEdit 이다.
+async function applyInstallEdit() {
+  const cam = selectedSceneCamera();
+  if (!cam) { setCamStatus(t("고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.")); return; }
+  const el = editEls();
+  const patch = {};
+  const nowX = num(cam?.mount?.location?.x), nowY = num(cam?.mount?.location?.y);
+  const nowZ = num(cam?.mount?.location?.z);
+  const x = typedOrExact(num(el.x.value), nowX);
+  const y = typedOrExact(num(el.y.value), nowY);
+  const heightM = num(el.height.value);
+  const nowHeightM = cameraHeightM(cam);
+  const heightChanged = heightM !== null && (nowHeightM === null || Math.abs(heightM - nowHeightM) > 0.005);
+  if (x !== nowX || y !== nowY || heightChanged) {
+    // 축 하나만 보내면 나머지를 sim 이 0 으로 읽어 카메라가 원점으로 날아간다(백엔드도 같은
+    // 이유로 셋을 다 요구한다). 그래서 한 축만 고쳐도 셋을 함께 보낸다.
+    if (x === null || y === null) { setCamStatus(t("씬이 이 카메라의 설치 좌표를 주지 않았습니다.")); return; }
+    let z = nowZ;
+    if (heightChanged) {
+      if (heightM <= 0) { setCamStatus(t("높이는 0 보다 커야 합니다.")); return; }
+      // 세울 때와 같은 이유로 지면을 모르면 옮기지 않는다: 0 으로 가정하면 지면이 z=0 이 아닌
+      // 레벨에서 그 차이가 통째로 높이 오차가 되고, 나중에 높이 축이 그것을 "실측"으로 읽는다.
+      const ground = sceneGroundZcm();
+      if (ground === null) {
+        setCamStatus(t("이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다."));
+        return;
+      }
+      z = heightM * 100 + ground;
+    }
+    if (z === null) { setCamStatus(t("씬이 이 카메라의 설치 좌표를 주지 않았습니다.")); return; }
+    patch.location = { x, y, z };
+  }
+  // 설치 자세(도 단위). 방위는 씬의 설치방위와, 하향은 이 카메라의 틸트(설치 하향의 지금
+  // 모습)와 견주어 바뀐 것만 보낸다. 0.05° 는 toFixed(1) 표시 반올림 아래라, 안 고친 칸이
+  // 표시 오차만큼 "바뀐 척" 나가는 것을 막는다.
+  const bearing = num(el.bearing.value);
+  const nowBearing = num(cam?.mount?.baseYaw);
+  if (bearing !== null && (nowBearing === null || Math.abs(bearing - nowBearing) > 0.05)) {
+    patch.yawDeg = bearing;
+  }
+  const pitch = num(el.pitch.value);
+  const camTilt = num(viewOf(cam)?.ptz?.tiltpos);
+  const nowPitch = camTilt === null ? null : -camTilt / 100;
+  if (pitch !== null && (nowPitch === null || Math.abs(pitch - nowPitch) > 0.05)) {
+    patch.pitchDeg = pitch;
+  }
+  // 별명은 빈 문자열도 뜻이 있다("이름 지움") — 씬이 준 값과 다를 때만 보낸다.
+  const note = el.note.value.trim();
+  if (note !== String(cam.note ?? "").trim()) patch.note = note;
 
   if (!Object.keys(patch).length) { setCamStatus(t("바뀐 값이 없습니다.")); return; }
 
-  setBusy(true, "카메라를 옮기는 중…");
-  setCamStatus(t("옮기는 중…"));
+  setBusy(true, "설치를 고치는 중…");
+  setCamStatus(t("설치를 고치는 중…"));
   try {
     const r = await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(cam.id)}`), patch);
     const movedM = cameraHeightM(r.camera) ?? heightM;
     log(t("설치 갱신: {id} · {h} m", { id: cam.id, h: movedM === null ? "?" : movedM.toFixed(2) }));
-    closeCameraEdit();
-    setCamStatus(t("옮겼습니다: {id}", { id: cam.id }));
+    setCamStatus(t("적용했습니다: {id}", { id: cam.id }));
+    markClean();            // 적용했으니 손글씨는 씬이 되었다 — 이제 씬 값으로 다시 채워야 한다
     await refreshRig();
   } catch (e) {
     // 씬이 정본이다 — 실패해도 일부는 반영됐을 수 있으므로 화면을 씬으로 되맞춘다.
-    setCamStatus(t("옮기기 실패") + ": " + e.message);
+    setCamStatus(t("적용 실패") + ": " + e.message);
+    markClean();
+    await refreshRig();
+  } finally { setBusy(false); }
+}
+
+// 조종 적용 — 현재 PTZ 를 제어 창구로. 몰고 있는 카메라의 것이라 폼이 비어 있으면(남의
+// 카메라를 고른 상태) 보낼 것도 없다.
+async function applyDriveEdit() {
+  const cam = selectedSceneCamera();
+  if (!cam) { setCamStatus(t("고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.")); return; }
+  const el = editEls();
+  const nowPtz = ptzOfSelected(cam);
+  if (nowPtz === null) {
+    setCamStatus(t("조준할 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다."));
+    return;
+  }
+  const wantPtz = { panpos: num(el.pan.value), tiltpos: num(el.tilt.value), zoompos: num(el.zoom.value) };
+  const ptzChanged = Object.entries(wantPtz).every(([, v]) => v !== null)
+    && Object.entries(wantPtz).some(([k, v]) => v !== nowPtz[k]);
+  if (!ptzChanged) { setCamStatus(t("바뀐 값이 없습니다.")); return; }
+
+  setBusy(true, "카메라를 옮기는 중…");
+  setCamStatus(t("옮기는 중…"));
+  try {
+    const j = await postJson(api("/simulator/control/ptz"), {
+      ...wantPtz, panspeed: MOVE_SPEED, tiltspeed: MOVE_SPEED, zoomspeed: MOVE_SPEED,
+    });
+    applyPtz(j.ptz);
+    log(t("절대 이동 → {p}", { p: fmt(j.ptz) }));
+    scheduleRepose();
+    setCamStatus(t("적용했습니다: {id}", { id: cam.id }));
+    markClean();
+    await refreshRig();
+  } catch (e) {
+    setCamStatus(t("적용 실패") + ": " + e.message);
+    markClean();
     await refreshRig();
   } finally { setBusy(false); }
 }
@@ -2615,7 +3318,7 @@ async function removeSceneCamera(cam, device) {
 // 방금 지운 것을 계속 보여준다.
 async function refreshRig() {
   const activeBefore = simActiveCameraId;
-  await fetchSimCameras();
+  await Promise.all([fetchSimCameras(), fetchSimPtz()]);
   await loadCameras();
   resolveActiveCam();
   // 보고 있던 카메라를 지우면 서버가 활성 sim 기기를 스스로 갈아 끼운다(그리고 프리뷰는
@@ -2623,72 +3326,207 @@ async function refreshRig() {
   // 것으로 남으면, 새 카메라의 영상 위에 남의 핀이 얹힌 화면이 된다.
   if (simActiveCameraId !== activeBefore) {
     lastPtz = null;
-    ptzEl.textContent = "—";
     reproject();        // 옛 카메라의 핀을 먼저 지운다 — 틀린 자리에 그리느니 안 그린다
     await loadPtz();    // 새 카메라의 PTZ 로 다시 그린다
   }
   renderMap();
-  renderSceneCameraList();
-  if (!placing) mapHint(t("카메라를 클릭하면 선택되고, 끌면 자리를 옮깁니다."));
+  if (simCameras.some((c) => c.id === mapSelectedCameraId)) renderCameraEditForm();
+  else syncSelectionFromPicker();
+  if (!placing) mapHint(defaultMapHint());
 }
 
-// ---- 씬 스냅샷: 리그의 유일한 내구 기록 ----
+// 스냅샷 결과는 씬 탭에 적는다 — 카메라 상태줄에 적으면 씬 전체의 일이 고른 카메라 하나의
+// 일처럼 읽힌다(버튼을 옮긴 것과 같은 이유다).
+function setSceneStatus(message) {
+  const el = document.getElementById("sim-scene-status");
+  if (el) el.textContent = message || "";
+}
+
+// ---- 저장된 씬: 리그의 유일한 내구 기록 ----
 // 런타임에 세운 카메라는 시뮬 프로세스 안에만 산다. 시뮬이 꺼지면 카메라도 기기도 함께
 // 사라진다 — 목록이 씬에서 파생되니 남을 것이 없고, 그래서 되살릴 것은 씬 하나뿐이다.
-// 서버는 스냅샷을 보관하지 않으므로(저장 책임은 부르는 쪽), 여기서 파일로 떨어뜨린다.
-async function saveSceneSnapshot() {
-  setCamStatus(t("씬을 읽는 중…"));
+// 저장본은 **서버**에 남는다(localfiles/sim-scenes). 예전에는 브라우저가 JSON 파일을 받아
+// 두게 했는데, 받은 사람의 다운로드 폴더 안에만 있는 기록은 다른 자리에서 열면 없는 것과
+// 같았다 — 그래서 시뮬을 재시작한 뒤에 되돌릴 것이 실제로 남아 있지 않았다.
+let savedScenes = [];
+
+function sceneStamp(iso) {
+  const d = new Date(iso);
+  if (!iso || Number.isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+async function loadSavedScenes() {
   try {
-    const snap = await getJson(api("/simulator/snapshot"));
-    const stamp = String(snap.savedAtUtc || "").replace(/[:.]/g, "-").replace(/Z$/, "") || "snapshot";
-    const blob = new Blob([JSON.stringify(snap, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${snap.level || "scene"}.${stamp}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setCamStatus(t("저장했습니다 — 카메라 {cams}대 · 차량 {cars}대", {
-      cams: (snap.cameras || []).length, cars: (snap.cars || []).length,
-    }));
-    log(t("씬 스냅샷 저장: {name}", { name: a.download }));
+    savedScenes = (await getJson(api("/simulator/scenes"))).scenes || [];
   } catch (e) {
-    setCamStatus(t("씬 저장 실패") + ": " + e.message);
+    savedScenes = [];
+    setSceneStatus(t("저장 목록 실패") + ": " + e.message);
+  }
+  // 빈 칸에는 레벨 이름을 넣어 둔다. 저장되는 것은 카메라 하나가 아니라 **이 월드**인데,
+  // 이름 칸이 비어 있으면 눈앞의 카메라 별명을 적게 된다 — 그러면 저장본 이름이 카메라
+  // 이름과 같아져, 목록만 보고는 무엇이 저장된 것인지 알 수 없다.
+  const nameEl = document.getElementById("sim-scene-name");
+  const level = document.getElementById("sim-level")?.textContent?.trim() || "";
+  if (nameEl && !nameEl.value.trim() && level && level !== "—") nameEl.value = level;
+  renderSavedScenes();
+}
+
+function renderSavedScenes() {
+  const listEl = document.getElementById("sim-scene-list");
+  if (!listEl) return;
+  listEl.innerHTML = "";
+  if (!savedScenes.length) {
+    const empty = document.createElement("div");
+    empty.className = "hint";
+    empty.textContent = t("저장된 씬이 없습니다.");
+    listEl.appendChild(empty);
+    return;
+  }
+  for (const scene of savedScenes) {
+    const row = document.createElement("div");
+    row.className = "sim-scene-row";
+
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = scene.name;
+    name.title = scene.level || "";
+
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    // 깨진 저장본은 숨기지 않는다 — 목록에서 사라지면 사람은 저장이 안 된 줄 알고 다시 저장한다.
+    meta.textContent = scene.error
+      ? t("읽을 수 없음")
+      : `${t("카메라")} ${scene.cameras} · ${t("차량")} ${scene.cars} · ${sceneStamp(scene.savedAtUtc)}`;
+
+    // 이름을 고치는 것과 내용을 고치는 것은 다른 일이다. 「이름」은 담긴 씬을 그대로 두고,
+    // 「덮어쓰기」는 이름을 그대로 두고 지금 씬을 담는다 — 둘을 한 버튼으로 묶으면 이름을
+    // 고치려던 사람이 그 사이 달라진 씬까지 저장하게 된다.
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.textContent = t("이름 바꾸기");
+    rename.title = t("이름만 바꿉니다 — 담긴 씬은 그대로입니다");
+    rename.addEventListener("click", () => renameSavedScene(scene));
+
+    const over = document.createElement("button");
+    over.type = "button";
+    over.textContent = t("덮어쓰기");
+    over.title = t("이 저장본을 지금 씬으로 덮어씁니다");
+    over.addEventListener("click", () => overwriteSavedScene(scene));
+
+    const restore = document.createElement("button");
+    restore.type = "button";
+    restore.textContent = t("복원");
+    restore.title = t("이 저장본으로 씬을 되돌립니다");
+    restore.addEventListener("click", () => restoreSavedScene(scene));
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "danger";
+    del.textContent = t("삭제");
+    del.addEventListener("click", () => deleteSavedScene(scene));
+
+    row.append(name, meta, rename, over, restore, del);
+    listEl.appendChild(row);
   }
 }
 
-async function restoreSceneSnapshot(file) {
+async function putScene(name) {
+  setBusy(true, "씬을 저장하는 중…");
+  setSceneStatus(t("저장 중…"));
+  try {
+    // 본문을 싣지 않는다 — 서버가 시뮬에서 직접 읽어 저장한다(브라우저가 씬을 실어 나르면
+    // 화면이 낡은 사이에 저장을 누른 만큼 옛 씬이 저장된다).
+    const r = await reqJson("PUT", api(`/simulator/scenes/${encodeURIComponent(name)}`));
+    setSceneStatus(t("저장했습니다 — 카메라 {cams}대 · 차량 {cars}대", {
+      cams: r.scene?.cameras ?? 0, cars: r.scene?.cars ?? 0,
+    }));
+    log(t("씬 저장: {name}", { name }));
+    await loadSavedScenes();
+  } catch (e) {
+    setSceneStatus(t("씬 저장 실패") + ": " + e.message);
+  } finally { setBusy(false); }
+}
+
+async function saveSceneAs() {
+  const input = document.getElementById("sim-scene-name");
+  const name = (input?.value || "").trim();
+  if (!name) { setSceneStatus(t("저장할 이름을 적으세요.")); input?.focus(); return; }
+  // 같은 이름은 덮어쓴다. 저장본이 이름마다 쌓이면 어느 것이 지금 리그인지 알 수 없다.
+  if (savedScenes.some((s) => s.name === name)
+      && !confirm(t("'{name}' 저장본을 덮어쓸까요?", { name }))) return;
+  await putScene(name);
+}
+
+async function overwriteSavedScene(scene) {
+  if (!confirm(t("'{name}' 저장본을 지금 씬으로 덮어쓸까요?", { name: scene.name }))) return;
+  await putScene(scene.name);
+}
+
+// 이름만 바꾼다 — 담긴 씬은 서버에서 그대로 옮겨진다. 여기서 "새 이름으로 저장 후 삭제"를
+// 하면 그 사이 달라진 씬이 저장본에 옮겨 붙어, 이름을 고친 사람이 내용을 바꾸게 된다.
+async function renameSavedScene(scene) {
+  const next = (prompt(t("새 이름"), scene.name) || "").trim();
+  if (!next || next === scene.name) return;
+  const taken = savedScenes.some((s) => s.name === next);
+  if (taken && !confirm(t("'{name}' 저장본을 덮어쓸까요?", { name: next }))) return;
+  setBusy(true, "이름을 바꾸는 중…");
+  try {
+    await postJson(api(`/simulator/scenes/${encodeURIComponent(scene.name)}/rename`), { to: next, overwrite: taken });
+    setSceneStatus(t("이름을 바꿨습니다: {from} → {to}", { from: scene.name, to: next }));
+    log(t("씬 이름 변경: {from} → {to}", { from: scene.name, to: next }));
+    await loadSavedScenes();
+  } catch (e) {
+    setSceneStatus(t("이름 바꾸기 실패") + ": " + e.message);
+  } finally { setBusy(false); }
+}
+
+async function deleteSavedScene(scene) {
+  if (!confirm(t("저장본 '{name}' 을 지울까요? (씬은 그대로입니다)", { name: scene.name }))) return;
+  setBusy(true, "저장본을 지우는 중…");
+  try {
+    await reqJson("DELETE", api(`/simulator/scenes/${encodeURIComponent(scene.name)}`));
+    setSceneStatus(t("저장본을 지웠습니다: {name}", { name: scene.name }));
+    await loadSavedScenes();
+  } catch (e) {
+    setSceneStatus(t("삭제 실패") + ": " + e.message);
+  } finally { setBusy(false); }
+}
+
+async function restoreSavedScene(scene) {
+  const path = api(`/simulator/scenes/${encodeURIComponent(scene.name)}/restore`);
+  // 복원은 되돌릴 수 없다: 차량은 전량 리셋 후 재배치되고, 저장본에 없는 스폰 카메라는
+  // 지워진다. 무엇이 사라지는지 세어서 보여준 뒤에 묻는다.
   let snap;
   try {
-    snap = JSON.parse(await file.text());
+    snap = await getJson(api(`/simulator/scenes/${encodeURIComponent(scene.name)}`));
   } catch (e) {
-    setCamStatus(t("이 파일은 씬 스냅샷이 아닙니다") + ": " + e.message);
+    setSceneStatus(t("저장본을 읽지 못했습니다") + ": " + e.message);
     return;
   }
-  const cams = (snap.cameras || []).length;
-  const cars = (snap.cars || []).length;
-  // 복원은 되돌릴 수 없다: 차량은 전량 리셋 후 재배치되고, 스냅샷에 없는 스폰 카메라는
-  // 지워진다. 무엇이 사라지는지 세어서 보여준 뒤에 묻는다.
   const doomed = simCameras.filter((c) => c.spawned && !(snap.cameras || []).some((s) => Number(s.httpPort) === Number(c.hucomsPort))).length;
-  if (!confirm(t("복원하면 차량이 전부 다시 배치되고, 스냅샷에 없는 카메라 {n}대가 지워집니다. 계속할까요? (카메라 {cams} · 차량 {cars})", { n: doomed, cams, cars }))) return;
+  if (!confirm(t("복원하면 차량이 전부 다시 배치되고, 저장본에 없는 카메라 {n}대가 지워집니다. 계속할까요? (카메라 {cams} · 차량 {cars})", {
+    n: doomed, cams: (snap.cameras || []).length, cars: (snap.cars || []).length,
+  }))) return;
   setBusy(true, "씬을 되돌리는 중…");
-  setCamStatus(t("복원 중…"));
+  setSceneStatus(t("복원 중…"));
   try {
     let r;
     try {
-      r = await postJson(api("/simulator/snapshot"), snap);
+      r = await postJson(path, {});
     } catch (e) {
       // 레벨이 다르면 409 다. 강행 여부는 사람이 정한다 — 다른 주차장의 좌표를 이 레벨에
       // 쏟아붓는 일이라 조용히 force 를 붙이면 안 된다.
       if (e.status !== 409) throw e;   // 상태코드로 가른다 — 본문 문구는 서버마다 다르다
-      if (!confirm(t("이 스냅샷은 다른 레벨({level})의 것입니다. 그래도 이 레벨에 적용할까요?", { level: snap.level || "?" }))) {
-        setCamStatus(t("복원을 취소했습니다."));
+      if (!confirm(t("이 저장본은 다른 레벨({level})의 것입니다. 그래도 이 레벨에 적용할까요?", { level: snap.level || "?" }))) {
+        setSceneStatus(t("복원을 취소했습니다."));
         return;
       }
-      r = await postJson(api("/simulator/snapshot"), { ...snap, force: true });
+      r = await postJson(path, { force: true });
     }
     const c = r.cameras || {};
-    setCamStatus(t("복원됨 — 카메라 +{sp}/이동 {mv}/삭제 {rm} · 차량 {cars}대{fail}", {
+    setSceneStatus(t("복원됨 — 카메라 +{sp}/이동 {mv}/삭제 {rm} · 차량 {cars}대{fail}", {
       sp: c.spawned ?? 0, mv: c.moved ?? 0, rm: c.removed ?? 0,
       cars: r.cars?.restored ?? 0,
       fail: (r.failures || []).length ? t(" · 실패 {n}건", { n: r.failures.length }) : "",
@@ -2699,21 +3537,50 @@ async function restoreSceneSnapshot(file) {
     await refreshRig();
     await loadSimulator();
   } catch (e) {
-    setCamStatus(t("복원 실패") + ": " + e.message);
+    setSceneStatus(t("복원 실패") + ": " + e.message);
   } finally { setBusy(false); }
 }
 
 document.getElementById("sim-cam-add").addEventListener("click", startPlacing);
 document.getElementById("sim-cam-cancel").addEventListener("click", cancelPlacing);
 camFormEl.addEventListener("submit", spawnSceneCamera);
-camEditFormEl.addEventListener("submit", applyCameraEdit);
-document.getElementById("sim-cam-edit-cancel").addEventListener("click", cancelCameraEdit);
-document.getElementById("sim-snap-save").addEventListener("click", saveSceneSnapshot);
-document.getElementById("sim-snap-load").addEventListener("click", () => document.getElementById("sim-snap-file").click());
-document.getElementById("sim-snap-file").addEventListener("change", (e) => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = "";   // 같은 파일을 다시 고를 수 있게 — 안 비우면 두 번째 선택이 안 먹는다
-  if (file) restoreSceneSnapshot(file);
+camEditFormEl.addEventListener("submit", (event) => { event.preventDefault(); applyInstallEdit(); });
+document.getElementById("sim-cam-drive-form").addEventListener("submit", (event) => { event.preventDefault(); applyDriveEdit(); });
+// PTZ = 0. 오프셋이 사라지니 카메라는 설치 자세 그대로를 본다 — 배치·컨트롤 부채꼴이 일치한다.
+document.getElementById("sim-cam-drive-reset").addEventListener("click", async () => {
+  const cam = selectedSceneCamera();
+  if (!cam) return;
+  if (ptzOfSelected(cam) === null) {
+    setCamStatus(t("조준할 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다."));
+    return;
+  }
+  setBusy(true, "카메라를 옮기는 중…");
+  setCamStatus(t("설치 자세로 되돌리는 중…"));
+  try {
+    const j = await postJson(api("/simulator/control/ptz"), {
+      panpos: 0, tiltpos: 0, zoompos: 0,
+      panspeed: MOVE_SPEED, tiltspeed: MOVE_SPEED, zoomspeed: MOVE_SPEED,
+    });
+    applyPtz(j.ptz);
+    scheduleRepose();
+    setCamStatus(t("PTZ 0 — 설치 자세와 일치합니다"));
+    log(t("PTZ 리셋: {id} → 0/0/0", { id: cam.id }));
+    markClean();
+    await refreshRig();
+  } catch (e) {
+    setCamStatus(t("적용 실패") + ": " + e.message);
+  } finally { setBusy(false); }
+});
+document.getElementById("sim-cam-edit-delete").addEventListener("click", () => {
+  const cam = selectedSceneCamera();
+  if (cam) removeSceneCamera(cam, cameraDeviceFor(cam));
+});
+// 한 글자라도 적으면 그때부터 폴링·갱신이 이 칸들을 덮지 않는다.
+// 손댄 칸만 표시한다 — 폼 전체를 잠그면 이름 한 글자에 P·T·Z 가 함께 멈춘다.
+camEditFormEl.addEventListener("input", (event) => { if (event.target?.id) dirtyFields.add(event.target.id); });
+document.getElementById("sim-scene-save").addEventListener("click", saveSceneAs);
+document.getElementById("sim-scene-name").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") { event.preventDefault(); saveSceneAs(); }
 });
 
 // ---- 초기화 ----
@@ -2732,6 +3599,9 @@ async function initSimulatorPage() {
   }
   await refreshCameraPose();
   await loadSimulator();
+  await Promise.all([fetchSimCameras(), fetchSimPtz()]);
+  syncSelectionFromPicker();   // 드롭다운이 이미 고른 카메라를 폼·평면도에도 앉힌다
+  renderMap();
 }
 initSimulatorPage();
 // ---- 씬은 이 화면 밖에서도 바뀐다 ----
@@ -2746,25 +3616,32 @@ function rigSignature() {
   return JSON.stringify(simCameras.map((c) => [
     c.id, c.hucomsPort, c.mjpegPort, c.spawned !== false,
     c?.heightAboveReferenceGroundCm, c?.mount?.location?.x, c?.mount?.location?.y, c?.mount?.baseYaw,
+    // 시야가 빠지면 다른 카메라를 누가 돌려도 평면도가 옛 시야를 계속 그린다
+    // (바뀐 게 없다고 판단해 다시 그리지 않으므로). 틸트는 틸트 앵커의 자리다.
+    viewYawOf(c), hfovOf(c), viewOf(c)?.ptz?.tiltpos,
   ]));
 }
 
-function rigTabVisible() {
-  const panel = document.querySelector('[data-sim-tab-panel="rig"]');
-  return !!panel && panel.classList.contains("active");
-}
-
 async function pollRig() {
-  if (document.hidden || !rigTabVisible()) return;
+  if (document.hidden || mapTabKey() === null) return;
   // 사람이 뭔가 하고 있는 중이면 손대지 않는다. 특히 setBusy 는 모든 버튼의 disabled 를
   // 되돌리므로, 그 사이에 목록을 다시 만들면 잠가 둔 버튼이 되살아난다.
-  if (placing || dragCam || editingCameraId || busyEl.textContent) return;
+  if (placing || dragCam || busyEl.textContent) return;
+  // 조준(PTZ)은 이 화면만 바꾸는 값이 아니다 — 다른 클라이언트도 카메라를
+  // 돌린다. 옛 판에서는 이 화면이 스스로 움직였을 때만 숫자를 고쳐 썼기 때문에, 밖에서 돌아간
+  // 카메라 앞에서 화면이 옛 자세를 계속 말했다. 달라졌을 때만 고쳐 쓴다.
+  const ptz = await getJson(api("/simulator/control/ptz")).catch(() => null);
+  if (ptz && fmt(ptz) !== fmt(lastPtz)) {
+    applyPtz(ptz);            // P·T·Z 칸과 평면도의 조준선이 곧 이 값이다
+    scheduleRepose();         // 자세가 갈렸으면 영상 위 주차면 핀도 옛 자세로 그려져 있다
+  }
+
   const before = rigSignature();
-  await fetchSimCameras();
+  await Promise.all([fetchSimCameras(), fetchSimPtz()]);
   if (rigSignature() === before) return;
   resolveActiveCam();
   renderMap();
-  renderSceneCameraList();
+  renderCameraEditForm();
   // 보고 있던 카메라가 움직였으면 영상 위의 주차면 핀도 옛 포즈로 그려져 있다.
   reproject();
 }
