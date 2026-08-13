@@ -1,7 +1,7 @@
 // 페이지 공통 크롬 — 헤더 우측(홈 바로가기·테마·언어·버전)을 채우고 i18n/테마를 초기화한다.
 // 각 페이지가 헤더에 <span data-role="chrome"></span> 하나만 두면 나머지는 여기서 주입된다.
 // 화면 사이 이동은 대문의 카드가 맡는다 — 헤더에 전 페이지를 늘어놓지 않는다.
-import { api, API_BASE, API_BASE_EXPLICIT } from "./api.mjs";
+import { api, API_BASE, API_BASE_EXPLICIT, mixedContentBlocked } from "./api.mjs";
 import { initI18n, setLang, getLang, t } from "./i18n.mjs";
 import { initTheme } from "./theme.mjs";
 import { PAGES, getPage, pageHref } from "./pages.mjs";
@@ -90,12 +90,20 @@ function lockLink(a, reason) {
 // 바로가기를 잠근다. 예전에는 같은 마운트에 백엔드가 있다고 **추측**하고 그대로 진행해서,
 // 분리 배포에서는 첫 화면이 이유 없이 비어 보였다 — 추측하지 말고 확인한 뒤 안내한다.
 function showBackendGate({ page, explicit, base, detail }) {
-  const headline = explicit
-    ? t("백엔드에 연결할 수 없습니다")
-    : t("백엔드 API 주소가 설정되지 않았습니다");
-  const guide = explicit
-    ? t("주소는 맞는데 응답이 없습니다 — 백엔드가 떠 있는지, 주소·포트가 맞는지 확인하세요.")
-    : t("이 화면은 UI 뿐입니다. 설정에서 백엔드 주소를 먼저 지정하세요.");
+  // 셋을 가른다: 주소 미설정 / 부를 수 없음(혼합 콘텐츠) / 불렀는데 응답 없음.
+  // 가운데가 빠져 있던 동안에는 "주소는 맞는데 응답이 없습니다" 로 뭉개져서, 멀쩡히 200 을
+  // 내는 백엔드를 두고 주소·포트를 의심하게 만들었다 — 실제로는 요청이 나가지도 않았다.
+  const blocked = explicit && mixedContentBlocked(base, location.protocol);
+  const headline = !explicit
+    ? t("백엔드 API 주소가 설정되지 않았습니다")
+    : blocked
+      ? t("이 페이지에서는 백엔드를 부를 수 없습니다")
+      : t("백엔드에 연결할 수 없습니다");
+  const guide = !explicit
+    ? t("이 화면은 UI 뿐입니다. 설정에서 백엔드 주소를 먼저 지정하세요.")
+    : blocked
+      ? t("이 페이지는 https 인데 백엔드 주소가 http 라 브라우저가 요청을 막습니다(혼합 콘텐츠). 백엔드 CORS 설정과는 무관합니다 — https 주소를 쓰거나 UI 를 같은 http 출처에서 여세요.")
+      : t("주소는 맞는데 응답이 없습니다 — 백엔드가 떠 있는지, 주소·포트가 맞는지 확인하세요.");
 
   const bar = document.createElement("div");
   bar.id = "backend-gate";

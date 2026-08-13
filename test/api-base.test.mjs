@@ -53,3 +53,27 @@ test("base 의 출처를 함께 돌려준다", async () => {
   // 미설정은 빈 값 — 추측으로 메우지 않는다. 메우면 「초기화」가 화면상 무의미해진다.
   assert.deepEqual(resolveApiBaseInfoFrom({ search: "?api=reset", stored: "http://s" }), { base: "", source: "none" });
 });
+
+
+// 혼합 콘텐츠 — https 페이지에서 http base 는 **요청이 발사되지 않는다**. 이 실패만은 부르기
+// 전에 확정적으로 알 수 있어서 따로 가른다. 나머지(네트워크·CORS·DNS)는 브라우저가 전부 같은
+// TypeError 로 뭉개므로 추측이지만, 이것은 추측이 아니다.
+// 화면이 이걸 CORS 로 안내하던 동안 멀쩡히 200 을 내는 백엔드를 두고 cors.origins 를 고치며
+// 시간을 버렸다(2026-08-13). 그래서 계약으로 못 박는다.
+test("혼합 콘텐츠 판정 — https 페이지 + http base 만 참", async () => {
+  const { mixedContentBlocked } = await import("../src/api.mjs");
+  assert.equal(mixedContentBlocked("http://h:22038/calory", "https:"), true);
+  assert.equal(mixedContentBlocked("https://h/calory", "https:"), false);  // 둘 다 https
+  assert.equal(mixedContentBlocked("http://h:22038/calory", "http:"), false); // 페이지도 http
+  assert.equal(mixedContentBlocked("https://h/calory", "http:"), false);
+});
+
+test("혼합 콘텐츠 판정 — 빈 값·대문자 스킴에서 오탐하지 않는다", async () => {
+  const { mixedContentBlocked } = await import("../src/api.mjs");
+  assert.equal(mixedContentBlocked("", "https:"), false);         // 미설정은 이 문제가 아니다
+  assert.equal(mixedContentBlocked(null, "https:"), false);
+  assert.equal(mixedContentBlocked("http://h", undefined), false); // 브라우저 밖(node)
+  assert.equal(mixedContentBlocked("HTTP://h", "https:"), true);   // 스킴 대소문자 무관
+  // https 로 시작하는 문자열이 http 로 오인되지 않아야 한다(접두사 검사의 함정).
+  assert.equal(mixedContentBlocked("https://h", "https:"), false);
+});

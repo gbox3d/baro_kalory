@@ -55,6 +55,20 @@ export function resolveApiBaseFrom(src) {
   return resolveApiBaseInfoFrom(src).base;
 }
 
+// https 페이지에서 http base 를 부르면 **요청이 발사되지 않는다** — 혼합 콘텐츠 차단이다.
+// 이것만은 fetch 를 해 보기 전에 **확정적으로** 알 수 있어서 따로 뽑았다. 나머지 실패
+// (네트워크 불가·CORS·DNS)는 브라우저가 전부 같은 TypeError 로 뭉개므로 추측밖에 안 되지만,
+// 이 경우는 추측이 아니다.
+//
+// 왜 굳이 가르나 — 증상이 원인을 가리키지 않기 때문이다. 화면에는 "Failed to fetch" 만
+// 남아서 CORS 로 읽히는데, 실제로는 preflight 조차 나가지 않아 CORS 는 무대에 오르지도
+// 않는다. 그 안내를 믿으면 백엔드의 cors.origins 를 고치며 시간을 버린다(2026-08-13 실제로 그랬다).
+// 이미지(img src)도 안전하지 않다 — 현행 브라우저는 이미지 혼합 콘텐츠를 https 로 자동
+// 승격하고, 백엔드에 TLS 가 없으면 승격이 실패해 결국 막힌다.
+export function mixedContentBlocked(base, pageProtocol) {
+  return String(pageProtocol || "") === "https:" && /^http:\/\//i.test(String(base || ""));
+}
+
 // ?api= 파라미터를 주소창에서 제거(replaceState). reset 이 URL 에 남은 채 새로고침·저장을
 // 하면 그때마다 저장값이 다시 지워지는 루프가 되므로(리뷰 확정 결함) 소비 즉시 걷어낸다.
 export function stripApiParamFromUrl() {
