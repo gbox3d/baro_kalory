@@ -18,9 +18,12 @@ test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
     "dev-add", "dev-save", "dev-del", "dev-cancel", "set-probe",                // 기기 탭: 조작 한 줄
     "dev-editor", "dev-edit-title", "dev-msg", "set-probe-out",
     "apibase-input", "apibase-save", "apibase-clear", "apibase-status",         // 서버 탭: API 서버
-    "st-backend", "st-camera", "st-detector", "st-lpr", "set-refresh-status",   // 서버 탭: 서비스 상태
+    "st-backend", "st-camera", "st-detector", "st-lpr", "st-llm",               // 서버 탭: 서비스 상태
+    "set-refresh-status",
     "set-detector", "set-probe-det", "set-det-out",                             // 검출·판독 탭: 검출기
     "set-lpr", "set-probe-lpr", "set-lpr-out",                                  // 검출·판독 탭: LPR
+    "set-llm-url", "set-llm-model", "set-llm-timeout", "set-llm-aliases",       // 검출·판독 탭: LLM
+    "set-llm-note", "set-probe-llm", "set-run-llm", "set-llm-out",
     "set-key-anthropic", "set-key-openai", "set-key-hint",                      // 검출·판독 탭: API 키
     "set-save", "set-save-out",
   ]) {
@@ -51,6 +54,25 @@ test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
   const saveHandler = html.slice(html.indexOf('getElementById("set-save")'));
   assert.doesNotMatch(saveHandler.slice(0, 1200), /devices:/,
     "이 탭 저장은 기기 목록을 보내지 않아야 한다");
+
+  // LLM 은 이 탭이 저장한다 — 카드를 그려 놓고 payload 에서 빠뜨리면 화면은 고쳐지는데
+  // 아무것도 안 바뀐다(값이 config 에 안 닿는다).
+  assert.match(saveHandler.slice(0, 1200), /llm: \(\(\) =>/, "이 탭 저장이 llm 을 실어야 한다");
+
+  // 두 테스트는 **다른 것을 묻는다.** 연결은 mode 를 안 보내 별칭 목록만 읽고(추론 슬롯 0),
+  // 동작은 mode:"run" 으로 추론을 1회 쓴다. 이 구분이 무너지면 둘 중 하나가 거짓말이 된다 —
+  // 연결이 추론을 쓰면 상태 카드가 진짜 판정을 밀어내고, 동작이 안 쓰면 "붙는데 못 쓰는"
+  // 상태(별칭 오타·vision 미지원·스키마 거절)를 통과로 읽는다.
+  const connectHandler = html.slice(html.indexOf('getElementById("set-probe-llm")'),
+                                    html.indexOf('getElementById("set-run-llm")'));
+  assert.doesNotMatch(connectHandler, /mode:/, "연결 테스트는 추론을 돌리면 안 된다");
+  const runHandler = html.slice(html.indexOf('getElementById("set-run-llm")'));
+  assert.match(runHandler.slice(0, 1400), /mode: "run"/, "동작 테스트는 실제로 한 번 돌려야 한다");
+  // 게이트웨이는 한 번에 하나만 돌린다 — 연타가 대기열을 채우면 진짜 판정이 밀린다.
+  assert.match(runHandler.slice(0, 1400), /btn\.disabled = true/, "동작 테스트는 도는 동안 잠겨야 한다");
+  // 상태 칩은 셋으로 갈린다: 못 붙음 · 붙었지만 warmup 중 · 준비됨. 둘로 뭉개면 화면이
+  // "왜 안 되는지"를 말할 수 없다(게이트웨이는 warmup 전에 추론을 거절한다).
+  assert.match(html, /r\.ready === false[\s\S]{0,200}LLM ⏳/, "준비 안 된 상태를 따로 말해야 한다");
 
   // 목록 행 자체가 선택이다 — 행마다 붙던 '편집' 버튼은 이름이 길면 세로로 찌그러졌다.
   assert.match(html, /row\.onclick = \(\) => selectDevice\(x\.id\)/, "행을 누르면 선택되어야 한다");

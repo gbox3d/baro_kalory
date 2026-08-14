@@ -253,6 +253,7 @@
           <span id="st-camera">카메라 …</span>
           <span id="st-detector">검출기 …</span>
           <span id="st-lpr">LPR …</span>
+          <span id="st-llm">LLM …</span>
         </div>
         <div class="row" style="margin-top:8px;"><button id="set-refresh-status">상태 새로고침</button> <span class="hint">페이지를 열면 자동 확인합니다</span></div>
       </div>
@@ -270,6 +271,28 @@
         <div class="row" style="margin-bottom:6px;"><label style="width:84px">LPR URL</label><input id="set-lpr" style="width:300px" placeholder="http://&lt;LPR-호스트&gt;:8124/v1/plate-reader/" /></div>
         <div class="hint" style="margin-bottom:8px;">번호판 문자 인식 — 검출기와 별개의 외부 서비스.</div>
         <div class="row"><button id="set-probe-lpr">LPR 테스트</button> <span id="set-lpr-out" class="hint"></span></div>
+      </div>
+      <!-- LLM 은 호밍 전용이 아니다. 통과 프록시(/api/llm/v1/*)와 번호판 가시성 판정이 같은
+           접속점을 먹으므로 카드도 소비자가 아니라 **접속점** 단위로 둔다. -->
+      <div class="card">
+        <h2>LLM (추론 게이트웨이)</h2>
+        <div class="row" style="margin-bottom:6px;">
+          <label style="width:84px">LLM URL</label><input id="set-llm-url" style="width:240px" placeholder="http://127.0.0.1:9090" />
+        </div>
+        <div class="row" style="margin-bottom:6px;">
+          <label style="width:84px">기본 모델</label><input id="set-llm-model" list="set-llm-aliases" style="width:240px" placeholder="plate-visibility-primary" />
+          <datalist id="set-llm-aliases"></datalist>
+          <label style="width:64px">타임아웃</label><input id="set-llm-timeout" type="number" min="1000" step="1000" style="width:90px" placeholder="ms" />
+        </div>
+        <div class="hint" style="margin-bottom:8px;">OpenAI 호환 접속점 하나 — 통과 프록시와 번호판 가시성 판정이 함께 씁니다. 모델은 이름이 아니라 별칭이며, 연결 테스트가 쓸 수 있는 별칭을 채워 줍니다.</div>
+        <div class="hint" id="set-llm-note" style="margin-bottom:8px;"></div>
+        <!-- 두 버튼은 다른 것을 묻는다. 연결은 별칭 목록만 읽어 값싸고, 동작은 추론을 1회 쓴다 —
+             제목만으로는 그 차이를 알 수 없으므로 tooltip 으로 붙인다(라벨을 늘리지 않는다). -->
+        <div class="row">
+          <button id="set-probe-llm" title="모델 목록만 읽습니다 — 추론을 돌리지 않습니다">연결 테스트</button>
+          <button id="set-run-llm" title="합성 이미지 1장 + JSON 스키마로 실제 판정과 같은 모양을 한 번 돌립니다 (추론 1회)">동작 테스트</button>
+          <span id="set-llm-out" class="hint"></span>
+        </div>
       </div>
       <div class="card">
         <h2>API 키 (VLM)</h2>
@@ -493,6 +516,15 @@ async function loadCctvSettings() {
     devDraft = false;
     document.getElementById("set-detector").value = (cfg.detection && cfg.detection.detector && cfg.detection.detector.url) || "";
     document.getElementById("set-lpr").value = (cfg.lpr && cfg.lpr.url) || "";
+    const llm = cfg.llm || {};
+    document.getElementById("set-llm-url").value = llm.url || "";
+    document.getElementById("set-llm-model").value = llm.model || "";
+    document.getElementById("set-llm-timeout").value = llm.timeoutMs || "";
+    // 저장한 적 없는 주소가 왜 떠 있는지를 화면이 설명해야 한다 — 옛 배포는 아직 호밍
+    // 블록에서 주소를 빌린다. 저장을 한 번 누르면 llm 항목으로 옮겨진다.
+    document.getElementById("set-llm-note").textContent = llm.legacy
+      ? t("이 주소는 옛 homing.visibilityVlm 에서 빌려 온 것입니다 — 저장하면 llm 항목으로 옮겨집니다")
+      : "";
     const ak = cfg.apikey || {}, ah = ak.anthropic || {}, oh = ak.openai || {};
     document.getElementById("set-key-hint").textContent =
       `Anthropic: ${ah.set ? t("등록됨") + " ···" + (ah.hint || "") : t("미등록")} · OpenAI: ${oh.set ? t("등록됨") + " ···" + (oh.hint || "") : t("미등록")}`;
@@ -1043,6 +1075,21 @@ async function refreshStatus() {
     set("st-detector", t("검출기"), !!(r.detector && r.detector.reachable));
     set("st-lpr", "LPR", !!(r.lpr && r.lpr.reachable));
   } catch { set("st-detector", t("검출기"), false); set("st-lpr", "LPR", false); }
+  // LLM 칩만 상태가 셋이다 — **붙는 것과 지금 추론할 수 있는 것은 다른 사실**이고(게이트웨이는
+  // warmup 이 끝나야 답한다), 그 둘을 ❌ 하나로 뭉개면 화면이 "왜 안 되는지"를 못 말한다.
+  // mode 를 안 보내므로 연결 확인이다 — 추론 슬롯을 쓰지 않아 자동 확인에 걸어도 된다.
+  const llmEl = document.getElementById("st-llm");
+  try {
+    const r = await postJson(api("/cctv/probe-llm"), { url: document.getElementById("set-llm-url").value.trim() });
+    if (!r.reachable) { llmEl.textContent = "LLM ❌"; llmEl.title = r.error || "unreachable"; }
+    else if (r.ready === false) {
+      llmEl.textContent = "LLM ⏳";
+      llmEl.title = t("붙었지만 아직 추론할 수 없습니다") + (r.readyDetail ? ` — ${r.readyDetail}` : "");
+    } else {
+      llmEl.textContent = "LLM ✅";
+      llmEl.title = (r.models || []).map((m) => m.id).join(" · ");
+    }
+  } catch (e) { llmEl.textContent = "LLM ❌"; llmEl.title = String(e.message || e); }
 }
 function setCamFromForm() {  // 연결 테스트(프로브)용 — 편집기의 host 기기 필드만 사용
   return {
@@ -1083,6 +1130,57 @@ document.getElementById("set-probe-lpr").addEventListener("click", async () => {
     out.innerHTML = (r.lpr && r.lpr.reachable) ? t("✅ 응답 (status {s})", { s: r.lpr.status }) : `❌ ${(r.lpr && r.lpr.error) || "unreachable"}`;
   } catch (e) { out.textContent = t("테스트 실패") + ": " + e.message; }
 });
+// LLM — 두 버튼이 다른 질문을 한다. 둘 다 **입력칸의 값**을 시험한다: 저장 전에 확인할 수
+// 없으면 설정 화면이 아니라 저장 버튼일 뿐이다(백엔드는 빈 값을 저장된 값으로 대신한다).
+function llmForm() {
+  return {
+    url: document.getElementById("set-llm-url").value.trim(),
+    model: document.getElementById("set-llm-model").value.trim(),
+  };
+}
+document.getElementById("set-probe-llm").addEventListener("click", async () => {
+  const out = document.getElementById("set-llm-out");
+  out.textContent = t("테스트 중…");
+  try {
+    const r = await postJson(api("/cctv/probe-llm"), { url: llmForm().url });
+    if (!r.reachable) { out.textContent = "❌ " + (r.error || "unreachable"); return; }
+    // 쓸 수 있는 별칭을 입력칸에 채워 준다 — 별칭은 모델명이 아니라서 외워서 칠 수 없다.
+    // 값이 상류에서 오므로 문자열을 HTML 로 붙이지 않고 DOM 으로 만든다.
+    const list = document.getElementById("set-llm-aliases");
+    list.replaceChildren(...(r.models || []).map((m) => {
+      const o = document.createElement("option");
+      o.value = m.id;
+      if (m.resolvedModel) o.label = m.resolvedModel;
+      return o;
+    }));
+    const resolved = (r.models || []).filter((m) => m.resolvedModel).map((m) => `${m.id} → ${m.resolvedModel}`);
+    out.textContent = t("✅ 응답 · 별칭 {n}개", { n: (r.models || []).length })
+      + (r.ready === false ? ` · ${t("아직 추론 준비 안 됨")}${r.readyDetail ? ` (${r.readyDetail})` : ""}` : "")
+      + (resolved.length ? ` · ${resolved.join(" · ")}` : "");
+  } catch (e) { out.textContent = t("테스트 실패") + ": " + e.message; }
+});
+document.getElementById("set-run-llm").addEventListener("click", async (ev) => {
+  const out = document.getElementById("set-llm-out");
+  const btn = ev.currentTarget;
+  // 이 버튼만 추론을 실제로 쓴다. 게이트웨이는 한 번에 하나만 돌리므로, 연타가 대기열을
+  // 채워 진짜 판정을 밀어내지 않게 누르는 동안 잠근다.
+  btn.disabled = true;
+  out.textContent = t("동작 테스트 중… (추론 1회)");
+  try {
+    const r = await postJson(api("/cctv/probe-llm"), { ...llmForm(), mode: "run" });
+    if (!r.ok) {
+      out.textContent = "❌ " + (r.error || t("실패")) + (r.status ? ` (HTTP ${r.status})` : "");
+      return;
+    }
+    // 정답 여부는 **경고이지 실패가 아니다** — 여기서 재는 것은 모델의 실력이 아니라
+    // 이미지가 모델에 닿는가다. 다만 틀렸다면 그 사실을 말해야 다음 의심처가 생긴다.
+    out.textContent = t("✅ 응답 {ms}ms · 스키마 준수", { ms: r.latencyMs })
+      + (r.resolvedModel ? ` · ${r.resolvedModel}` : "")
+      + (r.correct ? "" : ` · ⚠ ${t("판독이 틀렸습니다 — 이미지가 모델에 제대로 닿지 않을 수 있습니다")} (${r.answer})`);
+  } catch (e) {
+    out.textContent = t("테스트 실패") + ": " + e.message;
+  } finally { btn.disabled = false; }
+});
 document.getElementById("set-save").addEventListener("click", async () => {
   const out = document.getElementById("set-save-out");
   out.textContent = t("저장 중…");
@@ -1092,6 +1190,15 @@ document.getElementById("set-save").addEventListener("click", async () => {
     const payload = {
       detection: { detector: { url: document.getElementById("set-detector").value.trim() } },
       lpr: { url: document.getElementById("set-lpr").value.trim() },
+      // 주소를 비워 저장하면 해제다(백엔드가 llm 블록을 지운다). 타임아웃 빈칸은 "안 보냄"
+      // 이어야 보존되므로, 0 이 아니라 필드를 통째로 뺀다.
+      llm: (() => {
+        const t0 = Number(document.getElementById("set-llm-timeout").value);
+        return {
+          ...llmForm(),
+          ...(Number.isFinite(t0) && t0 > 0 ? { timeoutMs: t0 } : {}),
+        };
+      })(),
     };
     const keyA = document.getElementById("set-key-anthropic").value.trim();
     const keyO = document.getElementById("set-key-openai").value.trim();

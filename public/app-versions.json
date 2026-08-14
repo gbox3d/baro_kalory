@@ -2,7 +2,7 @@
   "cctv": "0.6.18",
   "discovery": "0.1.12",
   "simulator": "0.5.60",
-  "settings": "0.3.4",
+  "settings": "0.4.0",
   "calibration": "0.4.2",
   "height": "0.1.4"
 }

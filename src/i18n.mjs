@@ -472,6 +472,22 @@ const DICT = {
   "검출기 테스트": { en: "Test detector", vi: "Kiểm tra detector" },
   "LPR 판독 (외부 OCR)": { en: "LPR Reading (external OCR)", vi: "Đọc LPR (OCR ngoài)" },
   "번호판 문자 인식 — 검출기와 별개의 외부 서비스.": { en: "License-plate character recognition — a separate external service from the detector.", vi: "Nhận dạng ký tự biển số — dịch vụ ngoài, tách biệt với detector." },
+  // LLM 접속점 카드 — 소비자(호밍)가 아니라 접속점 단위의 카드다.
+  "LLM (추론 게이트웨이)": { en: "LLM (inference gateway)", vi: "LLM (cổng suy luận)" },
+  "LLM URL": { en: "LLM URL", vi: "URL LLM" },
+  "기본 모델": { en: "Default model", vi: "Mô hình mặc định" },
+  "OpenAI 호환 접속점 하나 — 통과 프록시와 번호판 가시성 판정이 함께 씁니다. 모델은 이름이 아니라 별칭이며, 연결 테스트가 쓸 수 있는 별칭을 채워 줍니다.":
+    { en: "One OpenAI-compatible endpoint — shared by the pass-through proxy and plate-visibility classification. The model is an alias, not a model name; the connection test fills in the usable aliases.",
+      vi: "Một điểm cuối tương thích OpenAI — dùng chung cho proxy chuyển tiếp và phân loại tầm nhìn biển số. Mô hình là bí danh chứ không phải tên mô hình; kiểm tra kết nối sẽ điền các bí danh khả dụng." },
+  "동작 테스트": { en: "Run test", vi: "Kiểm tra hoạt động" },
+  "모델 목록만 읽습니다 — 추론을 돌리지 않습니다":
+    { en: "Reads the model list only — runs no inference", vi: "Chỉ đọc danh sách mô hình — không chạy suy luận" },
+  "합성 이미지 1장 + JSON 스키마로 실제 판정과 같은 모양을 한 번 돌립니다 (추론 1회)":
+    { en: "Runs one call in the same shape as the real classification — a synthetic image plus a JSON schema (one inference)",
+      vi: "Chạy một lần đúng dạng như phân loại thật — một ảnh tổng hợp kèm JSON schema (một lần suy luận)" },
+  "이 주소는 옛 homing.visibilityVlm 에서 빌려 온 것입니다 — 저장하면 llm 항목으로 옮겨집니다":
+    { en: "This address is borrowed from the old homing.visibilityVlm — saving moves it into the llm entry",
+      vi: "Địa chỉ này mượn từ homing.visibilityVlm cũ — lưu lại sẽ chuyển vào mục llm" },
   "API 키 (VLM)": { en: "API Keys (VLM)", vi: "Khóa API (VLM)" },
   "sk-ant-… (비우면 기존 유지)": { en: "sk-ant-… (leave blank to keep current)", vi: "sk-ant-… (để trống để giữ nguyên)" },
   "sk-… (비우면 기존 유지)": { en: "sk-… (leave blank to keep current)", vi: "sk-… (để trống để giữ nguyên)" },
@@ -525,6 +541,16 @@ const DICT = {
   "HTTP {s} · {c}개 · {ms}ms": { en: "HTTP {s} · {c} items · {ms}ms", vi: "HTTP {s} · {c} mục · {ms}ms" },
   "실패 · {ms}ms": { en: "fail · {ms}ms", vi: "lỗi · {ms}ms" },
   "응답은 정상이나 검출 항목은 없습니다.": { en: "Response OK but no detections.", vi: "Phản hồi OK nhưng không có phát hiện." },
+
+  // ── dynamic: LLM probe ──
+  "✅ 응답 · 별칭 {n}개": { en: "✅ Responded · {n} aliases", vi: "✅ Có phản hồi · {n} bí danh" },
+  "아직 추론 준비 안 됨": { en: "not ready to infer yet", vi: "chưa sẵn sàng suy luận" },
+  "붙었지만 아직 추론할 수 없습니다": { en: "Connected but cannot infer yet", vi: "Đã kết nối nhưng chưa thể suy luận" },
+  "동작 테스트 중… (추론 1회)": { en: "Running test… (one inference)", vi: "Đang kiểm tra hoạt động… (một lần suy luận)" },
+  "✅ 응답 {ms}ms · 스키마 준수": { en: "✅ Responded in {ms}ms · schema honored", vi: "✅ Phản hồi {ms}ms · đúng schema" },
+  "판독이 틀렸습니다 — 이미지가 모델에 제대로 닿지 않을 수 있습니다":
+    { en: "wrong answer — the image may not be reaching the model",
+      vi: "trả lời sai — ảnh có thể chưa tới được mô hình" },
 
   // ── dynamic: settings / devices ──
   "Hucoms PTZ (실물)": { en: "Hucoms PTZ (real)", vi: "Hucoms PTZ (thật)" },
