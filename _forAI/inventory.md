@@ -27,6 +27,8 @@ styles/          # Tailwind 소스 (@source 는 글로브가 아니라 파일 �
 test/            # node:test — 네트워크·실기 불필요
 server.mjs       # 개발용 정적 서버 + API 프록시. 배포 경로에 없다
 pack.mjs         # 재작성 규칙 없는 정적 호스트용 dist 빌더 (Pages 배포의 핵심)
+ecosystem.config.cjs # pm2 — 개발기 상주용. 앱 이름 calory-ui. 설정값은 두지 않는다(.env 가 출처)
+.env             # gitignore. server.mjs 가 loadEnvFile 로 직접 읽는다 (.env.example 이 표본)
 pnpm-workspace.yaml  # workspace 가 아니라 pnpm 설정용(allowBuilds) — pnpm 11 이 여기서 읽는다
 .nojekyll        # Pages 가 밑줄로 시작하는 경로를 산출물에서 빼지 않게 한다
 ```
@@ -53,8 +55,19 @@ pnpm test           # node:test
 pnpm build:dist     # 정적 호스트용 dist (Pages 배포 산출물)
 ```
 
+개발기 상주(pm2):
+
+```bash
+pm2 start ecosystem.config.cjs && pm2 save   # 앱 이름 calory-ui
+pm2 resurrect                                # 재부팅 후 — Windows 는 부팅 훅이 없다(memo.md)
+pm2 logs calory-ui --lines 30
+```
+
 - `public/app.css` 는 **gitignore 산출물**이다. 빌드하지 않으면 UI 가 무스타일로 나온다.
-- TODO: Pages 배포 워크플로(GitHub Actions)를 정하면 여기 기록한다.
+- Pages 배포는 `main` push → `.github/workflows/pages.yml`(`pnpm test` → `pnpm build:dist` →
+  `dist/` 발행). 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 둬야 한다.
+- pm2 로 올린 것과 `pnpm start` 는 **같은 포트를 다툰다**. pm2 에 올려 둔 채 `pnpm start` 를
+  치면 `EADDRINUSE` 다 — 어느 쪽이 8180 을 잡고 있는지 `pm2 list` 로 먼저 본다.
 
 ## Tests
 

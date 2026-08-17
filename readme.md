@@ -10,6 +10,7 @@ PTZ CCTV **커미셔닝 콘솔 웹 UI**. 카메라를 현장에 붙일 때 필�
 
 - [무엇](#무엇)
 - [실행](#실행)
+- [상주 (pm2)](#상주-pm2)
 - [빌드](#빌드)
 - [정적 배포 (GitHub Pages)](#정적-배포-github-pages)
 - [백엔드 주소 지정](#백엔드-주소-지정)
@@ -41,6 +42,48 @@ node server.mjs --port 8180 --backend http://<백엔드호스트>:8080
 때문이다. LAN 노출은 `--host 0.0.0.0` 으로 **명시적 선택**이어야 한다.
 
 기본 포트가 `8180` 인 이유: `808x`(8081~) 는 UE 시뮬레이터 카메라의 HTTP 포트 규약이라 피한다.
+
+플래그를 매번 치지 않으려면 `.env` 를 둔다(`cp .env.example .env`). `server.mjs` 가 node 내장
+`loadEnvFile` 로 직접 읽으므로 의존성이 늘지 않는다. 우선순위는 **CLI 플래그 > 이미 셸에 있는
+환경변수 > `.env` > 기본값** 이고, `.env` 는 gitignore 다 — 백엔드 주소는 커밋하지 않는다.
+
+## 상주 (pm2)
+
+개발기에서 계속 띄워 둘 때는 pm2 에 맡긴다. 저장소 루트의 `ecosystem.config.cjs` 하나로 뜬다
+(앱 이름 `calory-ui`).
+
+```bash
+pm2 start ecosystem.config.cjs
+pm2 save            # 이걸 빠뜨리면 다음 resurrect 에서 없던 일이 된다
+pm2 logs calory-ui --lines 30
+```
+
+**설정값은 `ecosystem.config.cjs` 에 두지 않는다 — `.env` 가 유일한 출처다.** pm2 의 `env` 로
+`BARO_*` 를 주면 두 가지가 무너진다.
+
+- pm2 는 **등록 시점의 환경 전체를 스냅샷해 매 기동에 다시 주입한다.** 그 스냅샷에 키가 있으면
+  `.env` 를 고쳐도 안 듣고(`--update-env` 도 소용없다 — 그건 *현재 셸*을 다시 읽는다), 어떤
+  키는 먹고 어떤 키는 안 먹는 **캐시 버그처럼 보이는 상태**가 된다.
+- 주소가 `~/.pm2/dump.pm2` 로 복사돼 굳는다. 이 저장소는 공개이고 백엔드 주소를 커밋하지 않는
+  것이 규칙인데, 저장소 밖에 사본이 하나 더 생긴다.
+
+스냅샷을 비워 뒀으므로 이 저장소에서는 **`.env` 를 고치고 `pm2 restart calory-ui` 하면 반영된다**
+(2026-08-17 실측 — `pm2 jlist` 의 `pm2_env` 에 `BARO_*` 가 없음을 확인하고, 값을 바꿔 재시작해
+기동 로그가 새 주소를 찍는 것까지 봤다). 반대로 **`ecosystem.config.cjs` 를 고쳤을 때는 재시작으로
+안 된다** — pm2 가 실행 중 항목에 설정을 캐시하므로 등록을 다시 만들어야 한다.
+
+```bash
+pm2 delete calory-ui && pm2 start ecosystem.config.cjs && pm2 save
+```
+
+**Windows 에는 부팅 훅이 없다.** `pm2 startup` 은 systemd/launchd 를 찾다가
+`Init system not found` 로 실패한다(Linux·macOS 전용). 즉 `pm2 save` 는 덤프를 쓰기만 하고
+아무도 읽지 않으므로, 재부팅 뒤에는 손으로 되살린다.
+
+```bash
+pm2 resurrect       # 저장된 덤프 복구. 첫 pm2 명령이 데몬도 함께 띄운다
+pm2 list            # status 만 보지 말고 ↺(재시작 횟수)를 볼 것 — 크래시 루프도 online 이다
+```
 
 ## 빌드
 

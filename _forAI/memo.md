@@ -6,6 +6,7 @@
 - [API 주소 주입](#api-주소-주입)
 - [GitHub Pages 제약](#github-pages-제약)
 - [런타임 구조 메모](#런타임-구조-메모)
+- [개발기 상주 (pm2)](#개발기-상주-pm2)
 - [동작 규칙](#동작-규칙)
 - [시뮬레이터 인스턴스 계약 (다중 실행)](#시뮬레이터-인스턴스-계약-다중-실행)
 - [반복 금지](#반복-금지)
@@ -59,6 +60,32 @@ Pages 는 **재작성 규칙이 없는 순수 정적 호스트**다. 다음이 �
 - 테마는 `<html data-theme>` + CSS 변수 토큰. 색·글꼴·반경을 하드코딩하면 테마 교체가 깨진다.
 - 버전 표시는 `public/app-versions.json` 을 페이지가 **직접** 읽는다. 백엔드가 대신 읽어 주면
   프런트만 배포한 순간 거짓말이 된다.
+
+## 개발기 상주 (pm2)
+
+2026-08-17 추가. `ecosystem.config.cjs` → 앱 이름 **`calory-ui`**. 이건 개발기 편의이고
+**배포 경로가 아니다** — 배포는 여전히 정적 호스트다(`server.mjs` 는 배포에 없다).
+
+- **설정값을 ecosystem 파일에 두지 않는다. `.env` 가 유일한 출처다.** pm2 는 **등록 시점의
+  환경 전체를 스냅샷해 매 기동에 다시 주입**하므로, 스냅샷에 `BARO_*` 가 들어가면 `.env` 를
+  고쳐도 안 듣는다. `--update-env` 는 *현재 셸*을 다시 읽는 것이라 도움이 안 된다. 증상이
+  고약한 것은 **어떤 키는 먹고 어떤 키는 안 먹어서 캐시 버그처럼 보이는** 점이다(팀 보드 #56 —
+  형제 프로젝트 dwarf 가 이걸로 한 시간을 썼다. 그쪽은 ecosystem 에서 `dotenv.config()` 를
+  부르는 구조라 스냅샷에 값이 들어간다).
+- 여기서는 스냅샷을 비워 뒀으므로 **`.env` 수정 → `pm2 restart calory-ui` 로 반영된다.**
+  실측(2026-08-17): `pm2 jlist` 의 `pm2_env` 에 `BARO_*` 없음 확인 → `BARO_BACKEND_URL` 을
+  더미로 바꿔 재시작 → 기동 로그가 더미를 찍음 → 원복 후 재시작 → 원값 복귀·`/api/version` 200.
+  **파일이 아니라 프로세스를 본다** — `pm2 jlist` 의 `pm2_env.<KEY>` 가 정본이다.
+- **`ecosystem.config.cjs` 를 고쳤을 때는 restart 로 안 된다.** pm2 가 실행 중 항목에 설정을
+  캐시한다 → `pm2 delete calory-ui` → `pm2 start ecosystem.config.cjs` → `pm2 save`.
+- **`.mjs` 는 pm2 의 확장자→인터프리터 매핑에 없다.** `interpreter: 'node'` 를 비워 두면
+  호스트에 따라 즉사한다.
+- **Windows 에는 부팅 훅이 없다.** `pm2 startup` 은 `Init system not found`(Startup.js:216)로
+  실패한다 — systemd/upstart/launchd 전용이다. 작업 스케줄러·Run 키·서비스 어디에도 항목이
+  없으므로 `pm2 save` 는 덤프를 쓰기만 하고 아무도 읽지 않는다. 재부팅 뒤 **`pm2 resurrect`
+  를 손으로** 부른다(이교수님이 자동화 대신 수동을 택했다, 2026-08-17).
+- `pm2 list` 의 `status=online` 만 믿지 않는다 — 크래시 루프 중에도 online 이다. `↺`(재시작
+  횟수)가 오르는지와 실제 응답(`/api/version`)으로 판정한다.
 
 ## 동작 규칙
 
