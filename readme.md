@@ -124,6 +124,7 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 | `/simulator` | `public/simulator.html` | 시뮬레이터 셋업 (씬·시뮬 카메라) |
 | `/settings` | `public/settings.html` | 설정 (기기·API 서버·검출기·LPR·API 키) |
 | `/calibration` | `public/calibration.html` | 카메라 캘리브레이션 (기기별 광학·조준 실측) |
+| `/height` | `public/height.html` | 설치 높이 · 측량 (시공 실측 정본 + 영상 자동 측정) |
 | `/v0` | `public/cctv.html` | CCTV alias |
 
 페이지 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드가 전부 이 표를 보고,
