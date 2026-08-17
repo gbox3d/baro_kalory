@@ -197,6 +197,9 @@ const DICT = {
       vi: "Nhập tên — đây là ghi chép duy nhất trong scene về ai đã dựng camera này và vì sao." },
   "이름 저장 실패 — 카메라는 세워졌습니다":
     { en: "Could not save the name — the camera was placed", vi: "Không lưu được tên — camera đã được dựng" },
+  "카메라 포트 대역({from}~{to})이 가득 찼습니다 — 카메라를 지우거나 더 넓은 대역으로 시뮬레이터를 다시 띄우세요.":
+    { en: "The camera port band ({from}~{to}) is full — delete a camera, or relaunch the simulator with a wider band.",
+      vi: "Dải cổng camera ({from}~{to}) đã đầy — hãy xoá một camera, hoặc khởi động lại trình mô phỏng với dải rộng hơn." },
   "허용 포트 {hf}–{ht} · MJPEG {mf}–{mt}":
     { en: "Allowed ports {hf}–{ht} · MJPEG {mf}–{mt}", vi: "Cổng cho phép {hf}–{ht} · MJPEG {mf}–{mt}" },
   "포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.":

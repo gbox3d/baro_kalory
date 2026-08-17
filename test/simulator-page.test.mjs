@@ -649,14 +649,48 @@ test("화면이 부르는 element id 는 전부 실재한다", async () => {
 // 스폰 포트의 정본은 서버다. 카메라 포트 대역은 인스턴스마다 다르므로(다중 인스턴스 계약,
 // v0.1.17 부터 대역 밖 스폰은 409) 프런트가 관례로 고르면 안 된다 — 8200 하드코딩이 정확히
 // 그 사고였다(2026-08-17 재현: 대역 8030~8040 인스턴스에서 폼이 8200 을 채워 409 로 끝남).
-test("스폰 포트는 서버가 정한다 — /simulator/ports 의 nextFree 가 먼저, 로컬 추측은 폴백", async () => {
+test("스폰 포트는 서버가 정한다 — nextFree · 대역 만원 · 대역 없음 세 갈래", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
   assert.match(html, /api\("\/simulator\/ports"\)/, "대역·빈 쌍을 서버에서 읽어야 한다");
+
+  const pick = html.slice(html.indexOf("function pickSpawnPorts"), html.indexOf("function bandFullNotice"));
+  const next = pick.indexOf("simPortInfo?.nextFree");
+  const full = pick.indexOf("simPortInfo?.cameraPortRange");
+  const conv = pick.indexOf("suggestPortsByConvention()");
+  assert.ok(next > -1 && full > -1 && conv > -1, "세 갈래가 모두 있어야 한다");
+  assert.ok(next < full && full < conv,
+    "가운데(대역 만원)를 빠뜨리면 대역 밖 값을 다시 제안한다 — 관례 탐색은 맨 끝이어야 한다");
+
+  // 관례 탐색(8200·+100)은 **대역 없는 인스턴스 전용**이다. 이름이 그 사실을 들고 있어야
+  // 다음 사람이 대역 있는 자리에 다시 끌어다 쓰지 않는다.
+  assert.ok(!/function suggestPorts\(/.test(html), "옛 이름이 남으면 용도가 다시 흐려진다");
+  assert.match(html, /function suggestPortsByConvention\(/);
+});
+
+// 대역이 꽉 차면 빈칸 둘만 남는데, 빈칸은 "포트를 입력하세요"로 끝난다 — 사람은 아무 값도
+// 안 된다는 사실을 시도해 봐야만 알게 된다. 만원은 입력 실수가 아니라 상태다.
+test("대역 만원은 빈칸이 아니라 말로 알린다", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  assert.match(html, /function bandFullNotice\(\)/);
+  // 만원 판정은 "대역은 있는데 빈 쌍이 없다" 하나다.
+  assert.match(html, /if \(!range \|\| simPortInfo\?\.nextFree\) return "";/);
+
   const finish = html.slice(html.indexOf("function finishPlacing"), html.indexOf("function beginCameraDrag"));
-  const next = finish.indexOf("simPortInfo?.nextFree");
-  const legacy = finish.indexOf("suggestPorts()");
-  assert.ok(next > -1 && legacy > -1 && next < legacy,
-    "finishPlacing 은 서버 nextFree 를 먼저 보고, suggestPorts 는 폴백으로만 남는다");
+  assert.match(finish, /bandFullNotice\(\)/, "폼을 여는 순간 알려야 한다");
+
+  const fn = html.slice(html.indexOf("async function spawnSceneCamera"), html.indexOf("async function removeSceneCamera"));
+  assert.match(fn, /setCamStatus\(bandFullNotice\(\) \|\| t\("포트를 입력하세요\."\)\)/,
+    "빈칸으로 제출해도 만원이면 만원이라고 답해야 한다");
+});
+
+// 포트는 옆 세션의 스폰이나 시뮬 재시작으로 낡는다. 다만 조기반환 **뒤**여야 한다 —
+// 앞에 두면 아무것도 안 바뀐 5초 주기마다 요청 하나를 공짜로 버린다.
+test("포트 갱신은 리그가 실제로 바뀐 뒤에만 — 폴링 조기반환 뒤", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  const poll = html.slice(html.indexOf("async function pollRig"), html.indexOf("// 상태 폴링도 숨겨진 탭에서는"));
+  const early = poll.indexOf("if (rigSignature() === before) return;");
+  const fetchPorts = poll.indexOf("fetchSimPorts()");
+  assert.ok(early > -1 && fetchPorts > -1 && early < fetchPorts, "조기반환보다 뒤에 있어야 한다");
 });
 
 test("대역 밖 포트는 제출 전에 끊는다 — 서버 409 를 사람 말로 먼저", async () => {

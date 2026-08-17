@@ -1463,7 +1463,7 @@ async function fetchSimCameras() {
 // 포트 대역은 **인스턴스마다 다르므로**(다중 인스턴스 계약, v0.1.17부터 대역 밖 스폰은 409)
 // 프런트가 관례로 고르면 안 된다 — 8200 하드코딩이 정확히 그 사고였다(2026-08-17 재현:
 // 대역 8030~8040 인스턴스에서 폼이 8200 을 채워 409). 실패하면 null 로 남기고, 프리필은
-// 옛 백엔드 폴백(suggestPorts)이 받는다.
+// 대역 없는 인스턴스용 관례 탐색이 받는다.
 async function fetchSimPorts() {
   try { simPortInfo = await getJson(api("/simulator/ports")); }
   catch { simPortInfo = null; }
@@ -1488,6 +1488,27 @@ function applyPortRangeToForm() {
     mjpegEl.min = 1; mjpegEl.max = 65535;
     hintEl.hidden = true;
   }
+}
+
+// 세울 포트를 고른다. **세 갈래이고 가운데를 빠뜨리면 고치려던 증상이 그대로 돌아온다.**
+//  - nextFree 있음            → 그 쌍. 서버가 이 인스턴스의 대역 안에서, 씬이 연 포트를 피해 골랐다
+//  - 대역 있는데 nextFree 없음 → **대역 만원**이다. 관례로 내려가면 대역 밖 값을 다시 제안한다
+//  - 대역 자체가 없음          → 무제한 인스턴스이거나 대역 계약 이전 백엔드. 이때만 관례 탐색
+// nextFree 는 **쌍이거나 null 이지 반쪽이 아니다** — 반쪽을 주면 받는 쪽이 나머지를 +100 으로
+// 지어내게 되고, 두 대역이 100 차이라는 보장은 어디에도 없다(인자가 넷이라 독립이다).
+function pickSpawnPorts() {
+  const next = simPortInfo?.nextFree;
+  if (next) return { http: next.httpPort, mjpeg: next.mjpegPort };
+  if (simPortInfo?.cameraPortRange) return { http: "", mjpeg: "" };
+  return suggestPortsByConvention();
+}
+
+// 대역이 있는데 빈 쌍이 없다 = 만원. 빈 문자열이면 만원이 아니다(호출부가 그대로 쓴다).
+function bandFullNotice() {
+  const range = simPortInfo?.cameraPortRange;
+  if (!range || simPortInfo?.nextFree) return "";
+  return t("카메라 포트 대역({from}~{to})이 가득 찼습니다 — 카메라를 지우거나 더 넓은 대역으로 시뮬레이터를 다시 띄우세요.",
+    { from: range.httpFrom, to: range.httpTo });
 }
 
 // 카메라마다 지금 자세를 묻는다(백엔드가 카메라마다 실제로 물어본 값이다). 닿지 않는 카메라는
@@ -2475,13 +2496,14 @@ function num(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-// **옛 백엔드 폴백.** /simulator/ports 가 생기기 전의 로컬 추측이다 — 지금의 정본은 서버의
-// nextFree(fetchSimPorts)고, 이 함수는 그 응답이 없을 때만 불린다. 8200 시작 대역도 그 시절
-// 관례라 대역 계약(v0.1.17) 인스턴스에서는 범위 밖으로 떨어진다 — 그래서 기본 경로가 아니다.
+// **대역이 없는 인스턴스 전용 관례 탐색.** 무제한 인스턴스이거나 대역 계약 이전(플러그인
+// 0.1.17 미만) 백엔드라 서버가 고를 근거를 못 주는 경우다. 그때는 어느 빈 포트든 합법이라
+// 창(8200~)도 짝(+100)도 이쪽의 관례일 뿐이다 — **대역이 있는 인스턴스에는 절대 쓰지 않는다.**
+// 그 구분을 빠뜨리면 대역 밖 값을 다시 제안하게 되고, 그게 원래 증상이었다.
 // 빈 포트를 고르는 근거는 **씬이 지금 열고 있는 포트**다. 포트는 그 카메라의 신원이기도
 // 하므로(기기 id 가 sim-cam-<포트>) 겹치면 두 카메라가 한 기기가 된다. 관례(+1)로
 // 유추하지 않는다.
-function suggestPorts() {
+function suggestPortsByConvention() {
   const used = new Set();
   for (const cam of simCameras) {
     if (Number.isFinite(Number(cam.hucomsPort))) used.add(Number(cam.hucomsPort));
@@ -2551,13 +2573,13 @@ function finishPlacing() {
   const { yawDeg, pitchDeg } = poseFromPlacement();
   document.getElementById("sim-cam-yaw").value = yawDeg.toFixed(1);
   document.getElementById("sim-cam-pitch").value = pitchDeg.toFixed(1);
-  // 자동 할당 — 서버의 nextFree 가 정본이다(이 인스턴스의 대역 안에서, 씬이 연 포트를
-  // 피해 온다). 그 응답이 없는 옛 백엔드에서만 로컬 추측(suggestPorts)으로 넘어간다.
-  const ports = simPortInfo?.nextFree
-    ? { http: simPortInfo.nextFree.httpPort, mjpeg: simPortInfo.nextFree.mjpegPort }
-    : suggestPorts();
+  const ports = pickSpawnPorts();
   document.getElementById("sim-cam-http").value = ports.http;
   document.getElementById("sim-cam-mjpeg").value = ports.mjpeg;
+  // 대역이 꽉 찼으면 빈칸만 남는데, 빈칸은 "입력하세요"로 끝나 사람이 **아무 값도 안 된다는
+  // 사실**을 시도해 봐야만 알게 된다. 그래서 여기서 먼저 말한다.
+  const full = bandFullNotice();
+  if (full) setCamStatus(full);
   // 이름은 자동으로 채우지 않는다 — 직전에 세운 카메라의 근거가 다음 카메라에 묻어가면
   // 기록이 있는 것처럼 보이면서 틀린다. 빈칸이라야 사람이 자기 근거를 적는다.
   document.getElementById("sim-cam-note").value = "";
@@ -3323,7 +3345,9 @@ async function spawnSceneCamera(event) {
   if (!note) { setCamStatus(t("이름을 입력하세요 — 누가 왜 세웠는지가 씬에 남는 유일한 기록입니다.")); return; }
   const httpPort = num(document.getElementById("sim-cam-http").value);
   const mjpegPort = num(document.getElementById("sim-cam-mjpeg").value);
-  if (httpPort === null || mjpegPort === null) { setCamStatus(t("포트를 입력하세요.")); return; }
+  // 대역이 꽉 차서 비어 있는 것과, 사람이 지운 것은 다른 사실이다. 전자에 "입력하세요"라고
+  // 답하면 넣을 값이 있는 것처럼 들린다 — 없다.
+  if (httpPort === null || mjpegPort === null) { setCamStatus(bandFullNotice() || t("포트를 입력하세요.")); return; }
   // 대역 검증은 제출 전에 한다 — 서버의 409 도 정확하지만, 자리·높이까지 다 정한 뒤에
   // 받는 거절은 비싸다. 대역을 **알 때만** 막는다(모르면 서버가 판정한다 — 추측으로 막아
   // 옛 백엔드의 스폰까지 죽이지 않는다).
@@ -3717,6 +3741,9 @@ async function pollRig() {
   const before = rigSignature();
   await Promise.all([fetchSimCameras(), fetchSimPtz()]);
   if (rigSignature() === before) return;
+  // 리그가 **실제로 바뀐** 뒤에만 포트를 다시 읽는다 — 옆 세션이 스폰했거나 시뮬이 재시작돼
+  // 대역이 통째로 달라진 경우다. 조기반환 위에 두면 5초마다 한 요청을 공짜로 버린다.
+  fetchSimPorts();
   resolveActiveCam();
   renderMap();
   renderCameraEditForm();
