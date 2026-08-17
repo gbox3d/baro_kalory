@@ -195,6 +195,9 @@ const DICT = {
   "이름을 입력하세요 — 누가 왜 세웠는지가 씬에 남는 유일한 기록입니다.":
     { en: "Enter a name — it is the only record in the scene of who placed this camera and why.",
       vi: "Nhập tên — đây là ghi chép duy nhất trong scene về ai đã dựng camera này và vì sao." },
+  "세웠습니다 — 응답이 카메라를 싣지 않아 이름은 목록에서 확인하세요 (sim-cam-{port})":
+    { en: "Placed — the response carried no camera, so check the name in the list (sim-cam-{port})",
+      vi: "Đã dựng — phản hồi không kèm camera, hãy kiểm tra tên trong danh sách (sim-cam-{port})" },
   "이름 저장 실패 — 카메라는 세워졌습니다":
     { en: "Could not save the name — the camera was placed", vi: "Không lưu được tên — camera đã được dựng" },
   "카메라 포트 대역({from}~{to})이 가득 찼습니다 — 카메라를 지우거나 더 넓은 대역으로 시뮬레이터를 다시 띄우세요.":

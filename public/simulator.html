@@ -3377,20 +3377,32 @@ async function spawnSceneCamera(event) {
   setCamStatus(t("세우는 중…"));
   try {
     const r = await postJson(api("/simulator/cameras"), body);
-    log(t("카메라 세움: {id} :{port}", { id: r.camera.id, port: r.camera.hucomsPort }));
-    // **백엔드가 스폰 본문의 note 를 버린다**(2026-08-17 실측: POST 로 보낸 note 가 씬에
-    // 빈 문자열로 남고, PATCH 로는 들어간다). 그래서 안 들어갔을 때만 한 번 더 쓴다 —
-    // 무조건 PATCH 하지 않는 이유는 백엔드가 통과시키기 시작하면 이 왕복이 스스로 사라지게
-    // 하려는 것이다. 이름은 이 카메라의 유일한 출처 기록이라 조용히 비워 둘 수 없다.
-    if (String(r.camera.note ?? "") !== note) {
+    // **스폰 응답을 그대로 믿지 않는다.** 백엔드도 씬도 note 를 버리지 않지만(baro_memo #55
+    // 코멘트에서 백엔드가 소스로 확인: 필터가 없고 그대로 전달한다), 한 번 관측된 실패가
+    // 있다 — 응답에 `camera` 키가 통째로 없고 note 가 ""로 남았는데, **카메라는 실제로
+    // 세워져 있었다**(2026-08-17). 재현되지 않아 원인은 미정이고, 프로세스 첫 스폰 가설도
+    // 반증됐다(재시작 직후 첫 스폰은 정상). 즉 간헐이다.
+    //
+    // 그래서 응답을 방어적으로 읽는다. `r.camera.id` 를 곧장 읽으면 **성공한 스폰에서
+    // 예외가 나** 화면이 "실패"라고 말하는데 카메라는 씬에 서 있는 상태가 된다.
+    const spawned = r.camera || null;
+    const camId = spawned?.id || null;
+    const camPort = spawned?.hucomsPort ?? httpPort;
+    log(t("카메라 세움: {id} :{port}", { id: camId || "?", port: camPort }));
+    // 이름은 이 카메라의 유일한 출처 기록이라 조용히 비워 둘 수 없다. 안 들어갔을 때만
+    // 한 번 더 쓴다 — 간헐 실패에는 무조건 왕복보다 재시도가 맞는 모양이다.
+    if (camId && String(spawned.note ?? "") !== note) {
       try {
-        await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(r.camera.id)}`), { note });
+        await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(camId)}`), { note });
       } catch (noteError) {
         log(t("이름 저장 실패 — 카메라는 세워졌습니다") + ": " + noteError.message);
       }
     }
     // 기기는 따로 만들지 않는다 — 이 카메라가 곧 기기다(sim-cam-<포트>).
-    setCamStatus(t("세웠습니다: {id} · 기기 sim-cam-{port}", { id: r.camera.id, port: r.camera.hucomsPort }));
+    // 응답이 카메라를 안 실어 보냈어도 세워진 것은 사실이다 — refreshRig 가 씬에서 다시 읽는다.
+    setCamStatus(camId
+      ? t("세웠습니다: {id} · 기기 sim-cam-{port}", { id: camId, port: camPort })
+      : t("세웠습니다 — 응답이 카메라를 싣지 않아 이름은 목록에서 확인하세요 (sim-cam-{port})", { port: camPort }));
     cancelPlacing();
     await refreshRig();
   } catch (e) {

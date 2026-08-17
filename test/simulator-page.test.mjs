@@ -721,10 +721,15 @@ test("세우기는 이름을 요구한다 — 출처가 씬에 남는 유일한 
   assert.ok(guard > -1 && guard < post, "빈 이름은 POST 보다 먼저 끊어야 한다");
   assert.match(fn, /httpPort, mjpegPort, note,/, "note 를 스폰 본문에 실어야 한다");
 
-  // 백엔드가 스폰 본문의 note 를 버린다(실측) — 안 들어갔으면 PATCH 로 한 번 더 쓴다.
-  // 무조건 PATCH 가 아니라 조건부라야, 백엔드가 통과시키기 시작하면 왕복이 스스로 사라진다.
-  assert.match(fn, /if \(String\(r\.camera\.note \?\? ""\) !== note\)/);
-  assert.match(fn, /reqJson\("PATCH", api\(`\/simulator\/cameras\/\$\{encodeURIComponent\(r\.camera\.id\)\}`\), \{ note \}\)/);
+  // 스폰 응답은 방어적으로 읽는다. 한 번 관측된 실패에서 응답에 `camera` 키가 없었는데
+  // **카메라는 실제로 세워져 있었다** — r.camera.id 를 곧장 읽으면 성공한 스폰에서 예외가 나
+  // 화면이 "실패"라고 말하면서 카메라는 씬에 서 있는 상태가 된다(baro_memo #55 코멘트).
+  // 주석은 걷어내고 본다 — 이 규칙을 설명하는 주석 자체가 예시로 `r.camera.id` 를 인용한다.
+  const code = fn.replace(/^\s*\/\/.*$/gm, "");
+  assert.doesNotMatch(code, /r\.camera\.id/, "응답의 camera 를 무방비로 읽으면 안 된다");
+  assert.match(fn, /const spawned = r\.camera \|\| null;/);
+  assert.match(fn, /if \(camId && String\(spawned\.note \?\? ""\) !== note\)/,
+    "이름 보정은 카메라를 받았을 때만 — 간헐 실패에는 재시도가 맞는 모양이다");
 
   // 직전 카메라의 근거가 다음 카메라에 묻어가면 기록이 있는 것처럼 보이면서 틀린다.
   const finish = html.slice(html.indexOf("function finishPlacing"), html.indexOf("function beginCameraDrag"));
