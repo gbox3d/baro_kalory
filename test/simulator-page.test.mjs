@@ -645,3 +645,30 @@ test("화면이 부르는 element id 는 전부 실재한다", async () => {
   assert.ok(referenced.size > 50, "참조를 못 읽었다");
   assert.deepEqual([...referenced].filter((id) => !present.has(id)), []);
 });
+
+// 스폰 포트의 정본은 서버다. 카메라 포트 대역은 인스턴스마다 다르므로(다중 인스턴스 계약,
+// v0.1.17 부터 대역 밖 스폰은 409) 프런트가 관례로 고르면 안 된다 — 8200 하드코딩이 정확히
+// 그 사고였다(2026-08-17 재현: 대역 8030~8040 인스턴스에서 폼이 8200 을 채워 409 로 끝남).
+test("스폰 포트는 서버가 정한다 — /simulator/ports 의 nextFree 가 먼저, 로컬 추측은 폴백", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  assert.match(html, /api\("\/simulator\/ports"\)/, "대역·빈 쌍을 서버에서 읽어야 한다");
+  const finish = html.slice(html.indexOf("function finishPlacing"), html.indexOf("function beginCameraDrag"));
+  const next = finish.indexOf("simPortInfo?.nextFree");
+  const legacy = finish.indexOf("suggestPorts()");
+  assert.ok(next > -1 && legacy > -1 && next < legacy,
+    "finishPlacing 은 서버 nextFree 를 먼저 보고, suggestPorts 는 폴백으로만 남는다");
+});
+
+test("대역 밖 포트는 제출 전에 끊는다 — 서버 409 를 사람 말로 먼저", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  const fn = html.slice(html.indexOf("async function spawnSceneCamera"), html.indexOf("async function removeSceneCamera"));
+  const gate = fn.indexOf("cameraPortRange");
+  const post = fn.indexOf('postJson(api("/simulator/cameras")');
+  assert.ok(gate > -1 && post > -1 && gate < post, "대역 검증이 POST 보다 먼저여야 한다");
+  // 대역을 모르면(옛 백엔드) 막지 않는다 — 추측으로 막으면 스폰 자체가 불가능해진다.
+  assert.match(fn, /range && \(/);
+  // 대역은 폼에도 새겨진다 — min/max 와 힌트 줄(실재하는 id 여야 한다).
+  assert.match(html, /id="sim-cam-port-range"/);
+  const applyIdx = html.indexOf("function applyPortRangeToForm");
+  assert.ok(applyIdx > -1, "대역을 폼(min/max·힌트)에 새기는 자리가 있어야 한다");
+});

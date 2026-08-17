@@ -853,6 +853,7 @@ header h1 .ver {
                 <label class="sim-cam-place-cell wide"><span>포트</span><input id="sim-cam-http" type="number" min="1" max="65535" title="Hucoms 제어 포트 — 기기 id 가 됩니다 (sim-cam-&lt;포트&gt;)" /></label>
                 <label class="sim-cam-place-cell wide"><span>MJPEG</span><input id="sim-cam-mjpeg" type="number" min="1" max="65535" title="MJPEG 스트림 포트" /></label>
               </div>
+              <div id="sim-cam-port-range" class="muted" hidden></div>
               <input id="sim-cam-yaw" type="hidden" />
               <input id="sim-cam-pitch" type="hidden" />
               <div class="sim-rig-actions">
@@ -1043,6 +1044,7 @@ let lastPtz = null;
 let simDevices = [];   // mode:sim config 기기(카메라 포즈 조인용 port 포함)
 let simActiveCameraId = "";
 let simCameras = [];   // /api/simulator/cameras 포즈 목록
+let simPortInfo = null; // /api/simulator/ports — 카메라 포트 대역·씬이 연 포트·다음 빈 쌍(서버가 정본)
 // 카메라마다의 **지금 시야**(port → {ptz, viewYawDeg, hfovDeg}). 평면도가 시야를 그리려면
 // 몰고 있는 한 대가 아니라 카메라마다의 자세가 있어야 한다 — 한 대의 값으로 나머지를 채우면
 // 89° 어긋난 곳을 그린다(2026-08-12 실측). 방위·화각은 서버가 광학 모델로 낸 값이다.
@@ -1451,6 +1453,37 @@ async function loadPtz() {
 async function fetchSimCameras() {
   try { const r = await getJson(api("/simulator/cameras")); simCameras = r.cameras || []; }
   catch (e) { simCameras = []; }
+}
+
+// 스폰 포트의 정본은 서버다(/simulator/ports: 대역 · 씬이 연 포트 · 다음 빈 쌍). 카메라
+// 포트 대역은 **인스턴스마다 다르므로**(다중 인스턴스 계약, v0.1.17부터 대역 밖 스폰은 409)
+// 프런트가 관례로 고르면 안 된다 — 8200 하드코딩이 정확히 그 사고였다(2026-08-17 재현:
+// 대역 8030~8040 인스턴스에서 폼이 8200 을 채워 409). 실패하면 null 로 남기고, 프리필은
+// 옛 백엔드 폴백(suggestPorts)이 받는다.
+async function fetchSimPorts() {
+  try { simPortInfo = await getJson(api("/simulator/ports")); }
+  catch { simPortInfo = null; }
+  applyPortRangeToForm();
+}
+
+// 대역을 폼에 새긴다 — min/max(브라우저 1차 방어)와 힌트 한 줄. 모르면 새기지 않는다
+// (추측으로 좁히면 옛 백엔드에서 스폰 자체가 막힌다).
+function applyPortRangeToForm() {
+  const range = simPortInfo?.cameraPortRange || null;
+  const httpEl = document.getElementById("sim-cam-http");
+  const mjpegEl = document.getElementById("sim-cam-mjpeg");
+  const hintEl = document.getElementById("sim-cam-port-range");
+  if (range) {
+    httpEl.min = range.httpFrom; httpEl.max = range.httpTo;
+    mjpegEl.min = range.mjpegFrom; mjpegEl.max = range.mjpegTo;
+    hintEl.textContent = t("허용 포트 {hf}–{ht} · MJPEG {mf}–{mt}",
+      { hf: range.httpFrom, ht: range.httpTo, mf: range.mjpegFrom, mt: range.mjpegTo });
+    hintEl.hidden = false;
+  } else {
+    httpEl.min = 1; httpEl.max = 65535;
+    mjpegEl.min = 1; mjpegEl.max = 65535;
+    hintEl.hidden = true;
+  }
 }
 
 // 카메라마다 지금 자세를 묻는다(백엔드가 카메라마다 실제로 물어본 값이다). 닿지 않는 카메라는
@@ -2438,6 +2471,9 @@ function num(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+// **옛 백엔드 폴백.** /simulator/ports 가 생기기 전의 로컬 추측이다 — 지금의 정본은 서버의
+// nextFree(fetchSimPorts)고, 이 함수는 그 응답이 없을 때만 불린다. 8200 시작 대역도 그 시절
+// 관례라 대역 계약(v0.1.17) 인스턴스에서는 범위 밖으로 떨어진다 — 그래서 기본 경로가 아니다.
 // 빈 포트를 고르는 근거는 **씬이 지금 열고 있는 포트**다. 포트는 그 카메라의 신원이기도
 // 하므로(기기 id 가 sim-cam-<포트>) 겹치면 두 카메라가 한 기기가 된다. 관례(+1)로
 // 유추하지 않는다.
@@ -2472,6 +2508,10 @@ function suggestPorts() {
 
 function startPlacing() {
   placing = { stage: "position" };
+  // 대역·빈 쌍을 지금 다시 읽는다(await 없음 — 자리 두 번 클릭하는 사이에 도착한다).
+  // 탭을 오래 열어 둔 사이 다른 손이 스폰했으면 nextFree 가 낡는데, 그 낡은 값의 최종
+  // 판정은 어차피 서버 몫이다 — 여기는 실패를 줄이는 자리지 막는 자리가 아니다.
+  fetchSimPorts();
   mapSelectedCameraId = "";
   markClean();
   camEditFormEl.hidden = true;
@@ -2507,7 +2547,11 @@ function finishPlacing() {
   const { yawDeg, pitchDeg } = poseFromPlacement();
   document.getElementById("sim-cam-yaw").value = yawDeg.toFixed(1);
   document.getElementById("sim-cam-pitch").value = pitchDeg.toFixed(1);
-  const ports = suggestPorts();
+  // 자동 할당 — 서버의 nextFree 가 정본이다(이 인스턴스의 대역 안에서, 씬이 연 포트를
+  // 피해 온다). 그 응답이 없는 옛 백엔드에서만 로컬 추측(suggestPorts)으로 넘어간다.
+  const ports = simPortInfo?.nextFree
+    ? { http: simPortInfo.nextFree.httpPort, mjpeg: simPortInfo.nextFree.mjpegPort }
+    : suggestPorts();
   document.getElementById("sim-cam-http").value = ports.http;
   document.getElementById("sim-cam-mjpeg").value = ports.mjpeg;
   camFormEl.hidden = false;
@@ -3270,6 +3314,20 @@ async function spawnSceneCamera(event) {
   const httpPort = num(document.getElementById("sim-cam-http").value);
   const mjpegPort = num(document.getElementById("sim-cam-mjpeg").value);
   if (httpPort === null || mjpegPort === null) { setCamStatus(t("포트를 입력하세요.")); return; }
+  // 대역 검증은 제출 전에 한다 — 서버의 409 도 정확하지만, 자리·높이까지 다 정한 뒤에
+  // 받는 거절은 비싸다. 대역을 **알 때만** 막는다(모르면 서버가 판정한다 — 추측으로 막아
+  // 옛 백엔드의 스폰까지 죽이지 않는다).
+  const range = simPortInfo?.cameraPortRange;
+  if (range && (httpPort < range.httpFrom || httpPort > range.httpTo)) {
+    setCamStatus(t("포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.",
+      { p: httpPort, from: range.httpFrom, to: range.httpTo }));
+    return;
+  }
+  if (range && (mjpegPort < range.mjpegFrom || mjpegPort > range.mjpegTo)) {
+    setCamStatus(t("MJPEG 포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.",
+      { p: mjpegPort, from: range.mjpegFrom, to: range.mjpegTo }));
+    return;
+  }
   // 높이는 지면 기준이다 — 월드 z 로 바꾸려면 이 레벨의 지면을 더해야 한다. 모르면
   // 세우지 않는다: 0 으로 가정하면 지면이 z=0 이 아닌 레벨에서 그 차이가 통째로 높이
   // 오차가 되고, 그 오차는 나중에 높이 축이 "실측"으로 읽는다.
@@ -3318,7 +3376,7 @@ async function removeSceneCamera(cam, device) {
 // 방금 지운 것을 계속 보여준다.
 async function refreshRig() {
   const activeBefore = simActiveCameraId;
-  await Promise.all([fetchSimCameras(), fetchSimPtz()]);
+  await Promise.all([fetchSimCameras(), fetchSimPtz(), fetchSimPorts()]);
   await loadCameras();
   resolveActiveCam();
   // 보고 있던 카메라를 지우면 서버가 활성 sim 기기를 스스로 갈아 끼운다(그리고 프리뷰는

@@ -192,6 +192,14 @@ const DICT = {
   "조준점은 평면도 안에서 찍어야 합니다.": { en: "The aim point has to be clicked inside the map.", vi: "Điểm ngắm phải được nhấp bên trong sơ đồ." },
   "높이를 입력하세요 (m).": { en: "Enter the height (m).", vi: "Nhập độ cao (m)." },
   "포트를 입력하세요.": { en: "Enter the ports.", vi: "Nhập cổng." },
+  "허용 포트 {hf}–{ht} · MJPEG {mf}–{mt}":
+    { en: "Allowed ports {hf}–{ht} · MJPEG {mf}–{mt}", vi: "Cổng cho phép {hf}–{ht} · MJPEG {mf}–{mt}" },
+  "포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.":
+    { en: "Port {p} is outside this instance's allowed range ({from}~{to}).",
+      vi: "Cổng {p} nằm ngoài dải cho phép của phiên bản này ({from}~{to})." },
+  "MJPEG 포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.":
+    { en: "MJPEG port {p} is outside this instance's allowed range ({from}~{to}).",
+      vi: "Cổng MJPEG {p} nằm ngoài dải cho phép của phiên bản này ({from}~{to})." },
   "레벨 저작": { en: "Level-authored", vi: "Tạo trong level" },
   "포즈 없음": { en: "No camera", vi: "Không có camera" },
   "{id} · 기기 {dev}": { en: "{id} · device {dev}", vi: "{id} · thiết bị {dev}" },
