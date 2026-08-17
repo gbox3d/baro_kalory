@@ -672,3 +672,27 @@ test("대역 밖 포트는 제출 전에 끊는다 — 서버 409 를 사람 말
   const applyIdx = html.indexOf("function applyPortRangeToForm");
   assert.ok(applyIdx > -1, "대역을 폼(min/max·힌트)에 새기는 자리가 있어야 한다");
 });
+
+// 씬 API 에는 감사 로그가 없다. 그래서 카메라의 note(이름)가 "누가 왜 세웠나"의 유일한
+// 기록이고, 비워 둘 수 있게 하면 그 답이 아무 데도 남지 않는다 — 2026-08-17 에 실제로
+// 서버 씬의 카메라 한 대를 두고 그 답을 못 찾았다(note 가 빈 문자열이었다).
+test("세우기는 이름을 요구한다 — 출처가 씬에 남는 유일한 기록이다", async () => {
+  const html = await readFile(simulatorPageUrl, "utf8");
+  const form = html.slice(html.indexOf('<form id="sim-cam-form"'), html.indexOf('id="sim-cam-spawn"'));
+  assert.match(form, /id="sim-cam-note"[^>]*required/, "세우기 폼에 필수 이름 칸이 있어야 한다");
+
+  const fn = html.slice(html.indexOf("async function spawnSceneCamera"), html.indexOf("async function removeSceneCamera"));
+  const guard = fn.indexOf("if (!note)");
+  const post = fn.indexOf('postJson(api("/simulator/cameras")');
+  assert.ok(guard > -1 && guard < post, "빈 이름은 POST 보다 먼저 끊어야 한다");
+  assert.match(fn, /httpPort, mjpegPort, note,/, "note 를 스폰 본문에 실어야 한다");
+
+  // 백엔드가 스폰 본문의 note 를 버린다(실측) — 안 들어갔으면 PATCH 로 한 번 더 쓴다.
+  // 무조건 PATCH 가 아니라 조건부라야, 백엔드가 통과시키기 시작하면 왕복이 스스로 사라진다.
+  assert.match(fn, /if \(String\(r\.camera\.note \?\? ""\) !== note\)/);
+  assert.match(fn, /reqJson\("PATCH", api\(`\/simulator\/cameras\/\$\{encodeURIComponent\(r\.camera\.id\)\}`\), \{ note \}\)/);
+
+  // 직전 카메라의 근거가 다음 카메라에 묻어가면 기록이 있는 것처럼 보이면서 틀린다.
+  const finish = html.slice(html.indexOf("function finishPlacing"), html.indexOf("function beginCameraDrag"));
+  assert.match(finish, /getElementById\("sim-cam-note"\)\.value = "";/);
+});

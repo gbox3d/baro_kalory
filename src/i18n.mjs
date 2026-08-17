@@ -192,6 +192,11 @@ const DICT = {
   "조준점은 평면도 안에서 찍어야 합니다.": { en: "The aim point has to be clicked inside the map.", vi: "Điểm ngắm phải được nhấp bên trong sơ đồ." },
   "높이를 입력하세요 (m).": { en: "Enter the height (m).", vi: "Nhập độ cao (m)." },
   "포트를 입력하세요.": { en: "Enter the ports.", vi: "Nhập cổng." },
+  "이름을 입력하세요 — 누가 왜 세웠는지가 씬에 남는 유일한 기록입니다.":
+    { en: "Enter a name — it is the only record in the scene of who placed this camera and why.",
+      vi: "Nhập tên — đây là ghi chép duy nhất trong scene về ai đã dựng camera này và vì sao." },
+  "이름 저장 실패 — 카메라는 세워졌습니다":
+    { en: "Could not save the name — the camera was placed", vi: "Không lưu được tên — camera đã được dựng" },
   "허용 포트 {hf}–{ht} · MJPEG {mf}–{mt}":
     { en: "Allowed ports {hf}–{ht} · MJPEG {mf}–{mt}", vi: "Cổng cho phép {hf}–{ht} · MJPEG {mf}–{mt}" },
   "포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.":

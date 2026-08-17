@@ -854,6 +854,10 @@ header h1 .ver {
                 <label class="sim-cam-place-cell wide"><span>MJPEG</span><input id="sim-cam-mjpeg" type="number" min="1" max="65535" title="MJPEG 스트림 포트" /></label>
               </div>
               <div id="sim-cam-port-range" class="muted" hidden></div>
+              <!-- 세운 사람과 이유는 씬에 남아야 한다. 씬 API 에 감사 로그가 없어서, 이 칸을
+                   비워 두면 나중에 "이 카메라 누가 왜 세웠나"에 답할 방법이 아무 데도 없다
+                   (2026-08-17 실제로 못 찾았다). 아래 편집 폼의 「이름」과 같은 값이다. -->
+              <label class="sim-cam-name"><span>이름</span><input id="sim-cam-note" type="text" maxlength="60" required placeholder="누가·왜 — 씬에 남습니다" title="사람이 부르는 별명 — 씬에 저장되고 스냅샷·복원에 따라옵니다. 세운 근거를 적으세요." /></label>
               <input id="sim-cam-yaw" type="hidden" />
               <input id="sim-cam-pitch" type="hidden" />
               <div class="sim-rig-actions">
@@ -2554,6 +2558,9 @@ function finishPlacing() {
     : suggestPorts();
   document.getElementById("sim-cam-http").value = ports.http;
   document.getElementById("sim-cam-mjpeg").value = ports.mjpeg;
+  // 이름은 자동으로 채우지 않는다 — 직전에 세운 카메라의 근거가 다음 카메라에 묻어가면
+  // 기록이 있는 것처럼 보이면서 틀린다. 빈칸이라야 사람이 자기 근거를 적는다.
+  document.getElementById("sim-cam-note").value = "";
   camFormEl.hidden = false;
   mapHint(t("높이를 확인하고 세우세요 — 하향각은 높이에서 다시 계산됩니다."));
   renderMap();
@@ -3311,6 +3318,9 @@ async function spawnSceneCamera(event) {
   if (!placing || !placing.location) { setCamStatus(t("먼저 평면도에서 자리를 정하세요.")); return; }
   const height = num(document.getElementById("sim-cam-height").value);
   if (height === null || height <= 0) { setCamStatus(t("높이를 입력하세요 (m).")); return; }
+  // 이름은 필수다. 씬 API 에 감사 로그가 없어서 이 값이 "누가 왜 세웠나"의 유일한 기록이다.
+  const note = document.getElementById("sim-cam-note").value.trim();
+  if (!note) { setCamStatus(t("이름을 입력하세요 — 누가 왜 세웠는지가 씬에 남는 유일한 기록입니다.")); return; }
   const httpPort = num(document.getElementById("sim-cam-http").value);
   const mjpegPort = num(document.getElementById("sim-cam-mjpeg").value);
   if (httpPort === null || mjpegPort === null) { setCamStatus(t("포트를 입력하세요.")); return; }
@@ -3337,15 +3347,25 @@ async function spawnSceneCamera(event) {
     location: { x: placing.location.x, y: placing.location.y, z: height * 100 + ground },
     yawDeg: num(document.getElementById("sim-cam-yaw").value) ?? 0,
     pitchDeg: num(document.getElementById("sim-cam-pitch").value) ?? -20,
-    httpPort, mjpegPort,
+    httpPort, mjpegPort, note,
   };
   setBusy(true, "카메라를 세우는 중…");
   setCamStatus(t("세우는 중…"));
   try {
     const r = await postJson(api("/simulator/cameras"), body);
     log(t("카메라 세움: {id} :{port}", { id: r.camera.id, port: r.camera.hucomsPort }));
-    // 기기는 따로 만들지 않는다 — 이 카메라가 곧 기기다(sim-cam-<포트>). 이름도 씬이 보고한
-    // 높이에서 나오므로 여기서 정할 것이 없다.
+    // **백엔드가 스폰 본문의 note 를 버린다**(2026-08-17 실측: POST 로 보낸 note 가 씬에
+    // 빈 문자열로 남고, PATCH 로는 들어간다). 그래서 안 들어갔을 때만 한 번 더 쓴다 —
+    // 무조건 PATCH 하지 않는 이유는 백엔드가 통과시키기 시작하면 이 왕복이 스스로 사라지게
+    // 하려는 것이다. 이름은 이 카메라의 유일한 출처 기록이라 조용히 비워 둘 수 없다.
+    if (String(r.camera.note ?? "") !== note) {
+      try {
+        await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(r.camera.id)}`), { note });
+      } catch (noteError) {
+        log(t("이름 저장 실패 — 카메라는 세워졌습니다") + ": " + noteError.message);
+      }
+    }
+    // 기기는 따로 만들지 않는다 — 이 카메라가 곧 기기다(sim-cam-<포트>).
     setCamStatus(t("세웠습니다: {id} · 기기 sim-cam-{port}", { id: r.camera.id, port: r.camera.hucomsPort }));
     cancelPlacing();
     await refreshRig();
