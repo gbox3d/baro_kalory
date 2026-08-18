@@ -180,7 +180,7 @@
         <button id="prof-act-copy" title="다른 카메라의 발행본을 이 카메라의 새 리비전으로 복사합니다. 같은 모델을 여러 대 들일 때 20분 스윕을 매번 돌리지 않아도 됩니다.">복사</button>
         <button id="prof-act-import" title="곡선을 직접 넣어 발행합니다. 스윕을 돌릴 수 없는 기기(클릭 센터링이 없거나 실기 시간을 못 얻은 기기)를 위한 문입니다.">수입</button>
         <button id="prof-act-apply" title="런타임이 읽을 발행본을 확인하고, 옛 리비전으로 되돌립니다. 런타임은 언제나 최신 발행본을 읽으므로 되돌리기는 그 리비전을 새 리비전으로 다시 발행하는 것입니다.">되돌리기</button>
-        <button id="prof-act-retire" title="이 카메라의 발행본 전체를 퇴역시킵니다. 파일은 .trash 로 옮겨질 뿐 지워지지 않고, 돌고 있는 카메라는 지금 곡선을 계속 쓰다가, 카메라를 다시 고르거나 백엔드를 재시작하면 config 씨앗값으로 돌아갑니다.">퇴역</button>
+        <button id="prof-act-retire" title="이 카메라의 발행본 전체를 퇴역시킵니다. 파일은 .trash 로 옮겨질 뿐 지워지지 않지만 목록에서는 사라지고, 이 카메라는 config 씨앗값으로 조준하게 됩니다.">퇴역</button>
       </div>
       <div id="profile-panel" style="display:none; margin-bottom:10px;"></div>
       <div id="profile-msg" class="hint" style="margin-bottom:8px;"></div>
@@ -552,12 +552,13 @@ async function saveSweep(box, force) {
       ...(force ? { force: true } : {}),
     });
     const rev = res && res.minted ? ` (rev ${res.minted.revision} 발행)` : "";
-    // 발행 직후 곧바로 적재한다 — 여기서 멈추면 20분을 들인 곡선이 문서로만 남고, 조준은
-    // 계속 옛 값으로 돈다(증상이 없어서 사람은 그 사실을 모른다).
-    const applied = await applyPublishedToRuntime(await currentCameraId());
+    // 발행 직후 적재까지 확인한다 — 여기서 멈추면 20분을 들인 곡선이 문서로만 남고, 조준은
+    // 계속 옛 값으로 돈다(증상이 없어서 사람은 그 사실을 모른다). 0.17.0 은 이미 적용돼 있어
+    // 아무것도 더 하지 않고, 그 이전 백엔드에서만 재선택이 나간다.
+    const applied = await applyPublishedToRuntime(await currentCameraId(), res);
     box.replaceChildren();
     const ok = document.createElement("div");
-    ok.style.color = applied ? "var(--color-accent,#4a4)" : "var(--color-warn,#ca4)";
+    ok.style.color = applied.applied ? "var(--color-accent,#4a4)" : "var(--color-warn,#ca4)";
     ok.textContent = `저장했습니다${rev}.` + appliedSuffix(applied);
     box.appendChild(ok);
     if (res && res.forced && res.forced.length) {
@@ -896,31 +897,62 @@ async function currentCameraId() {
   try { return ((await getJson(api("/cctv/config"))).devices || {}).active || null; } catch { return null; }
 }
 
-// 발행은 문서를 만들 뿐이다. 돌고 있는 드라이버는 **생성 시점의 광학**을 물고 있어서, 방금
-// 발행한 곡선을 모른다 — 화면은 그 상태를 「발행본과 지금 쓰는 값이 다릅니다」로 경고한다.
+// 백엔드 0.17.0 부터 드라이버가 광학을 **읽는 시점에** 해결한다 — 발행하면 다음 조준이 새
+// 문서를 본다. 재시작도 재선택도 없다. 그 이전 백엔드는 부팅과 기기 재선택 때만 읽으므로 같은
+// 기기를 다시 골라야 했고, 거기서는 **force 가 필수다** — 없으면 `{unchanged:true}` 로 튕기고
+// 광학이 옛 상태로 남는다(2026-08-18 실측. 이 함정 때문에 재시작이 유일한 길처럼 보였다).
 //
-// 백엔드는 최신 발행본을 **부팅 또는 기기 재선택** 때 읽는다(`POST /api/cctv/active` — 문서에
-// 「with no restart」라고 적혀 있다). 그러니 발행 직후 같은 기기를 다시 고르면 그 자리에서
-// 적용된다. 20분짜리 실기 작업의 마지막 한 걸음을 사람에게 pm2 로 떠넘길 이유가 없었다.
+// **버전으로 갈래를 고르지 않고 응답을 읽는다.** 백엔드가 `reload` 로 「더 할 일이 있는가」를
+// 스스로 답한다(0.16.6+). 지금 개발기는 0.17.0, 배포기는 0.16.2 라 두 계약이 동시에 살아 있고,
+// 0.16.x 가 사라지면 아래 옛 갈래는 저절로 죽는다.
 //
-// **force 가 필수다.** 같은 id 를 force 없이 보내면 백엔드가 `{unchanged:true}` 로 튕기고
-// 광학은 옛 상태 그대로 남는다(2026-08-18 실측 — 이 함정 때문에 재시작이 유일한 길처럼 보였다).
-async function applyPublishedToRuntime(id) {
-  if (!id) return false;
+// 0.17.0 에서 재선택은 불필요할 뿐 아니라 **해롭다** — 기기 컨텍스트를 다시 지으면서 스윕
+// 결과를 쥔 캘리브레이션 매니저가 갈아치워진다(같은 스윕으로 두 번째 발행이 막힌다).
+async function applyPublishedToRuntime(id, res) {
+  const reload = res && typeof res === "object" ? res.reload : null;
+  if (reload && reload.required === false) {
+    // 핀(고정)이 생기면 「할 일 없음」과 「조준이 바뀌었음」이 갈라진다(baro_memo #73).
+    // 그때를 위해 applied 를 따로 읽는다 — 필드가 없으면 지금처럼 적용된 것이다.
+    return { applied: reload.applied !== false, how: "read-time", note: reload.note || "" };
+  }
+  if (!id) return { applied: false, how: "failed", note: "" };
   try {
     await postJson(api("/cctv/active"), { id, force: true });
-    return true;
+    return { applied: true, how: "reselect", note: "" };
   } catch {
     // 발행은 이미 성공했다 — 적재에 실패했다고 그 사실까지 실패로 말하면 안 된다.
-    return false;
+    return { applied: false, how: "failed", note: "" };
   }
 }
 
-// 발행 뒤 적재까지 한 문장으로 말한다. 적재가 안 됐을 때만 사람이 할 일을 알려 준다.
-function appliedSuffix(applied) {
-  return applied
-    ? t(" — 지금 이 카메라에 적용됐습니다.")
+// 발행 뒤 적재까지 한 문장으로 말한다. 왜 그런지는 백엔드가 말한 것을 그대로 옮긴다 —
+// 우리가 지어내면 백엔드가 바뀔 때마다 화면이 조용히 거짓말을 시작한다.
+function appliedSuffix(state) {
+  const s = state && typeof state === "object"
+    ? state
+    : { applied: !!state, how: state ? "reselect" : "failed", note: "" };
+  if (s.applied) {
+    return s.how === "read-time"
+      ? t(" — 발행 즉시 적용됐습니다. 재시작도 카메라 재선택도 필요 없습니다.")
+      : t(" — 지금 이 카메라에 적용됐습니다.");
+  }
+  // 발행은 됐는데 조준이 안 바뀐 경우다. 이유는 백엔드만 안다 — 있으면 그대로 보여 준다.
+  return s.how === "read-time"
+    ? t(" — 다만 조준은 아직 이 곡선으로 바뀌지 않았습니다.") + (s.note ? " " + s.note : "")
     : t(" — 다만 런타임 적재에 실패했습니다. 헤더에서 카메라를 다시 고르면 적용됩니다.");
+}
+
+// 퇴역은 적재의 반대라 적용 경로를 쓸 수 없다. 그리고 언제 씨앗값으로 돌아가는지는 백엔드가
+// 광학을 **언제 읽느냐**에 달려 있다 — 계약마다 다르다. 예측하는 갈래를 만드는 대신 **물어본다.**
+async function opticsDeclaredNow() {
+  try { return !!((await getJson(api("/help?format=json"))).live || {}).optics?.declared; }
+  catch { return null; }
+}
+
+function retireEffect(declared) {
+  if (declared === false) return t("이 카메라는 지금 config 씨앗값으로 조준합니다.");
+  if (declared === true) return t("돌고 있는 카메라는 아직 지금 곡선을 씁니다 — 카메라를 다시 고르거나 백엔드를 재시작하면 씨앗값으로 돌아갑니다.");
+  return t("이제 config 씨앗값으로 조준합니다(광학 상태를 다시 읽지는 못했습니다).");
 }
 
 async function loadProfile() {
@@ -1139,23 +1171,23 @@ function openPanel(title, build) {
 // 한다(같은 카메라에서 fromRevision 으로 copy). 예전에는 mint 가 config 에 런타임 사본을 함께
 // 썼는데, 사본 둘이 갈라져 "아무도 안 읽는 발행본"이 생겼고 그 화해 장치가 사고를 더 냈다.
 // 확인만 하고 끝나는 버튼은 이 상황에서 쓸모가 없다 — 사람이 알고 싶은 것은 "무엇이 읽힐
-// 예정인가"가 아니라 "지금 맞게 돌고 있나"다. apply 로 어느 리비전인지 확인하고, 곧바로
-// 기기 재선택으로 그것을 적재한다.
+// 예정인가"가 아니라 "지금 맞게 돌고 있나"다. apply 로 어느 리비전인지 확인하고, 백엔드가
+// 더 할 일이 있다고 답할 때만(옛 계약) 재선택으로 적재한다.
 async function applyLatestToRuntime() {
   const id = await currentCameraId();
   if (!id) return;
   await profileWrite(
     async () => {
       const res = await postJson(api(`/profiles/camera/${encodeURIComponent(id)}/apply`), {});
-      return { res, applied: await applyPublishedToRuntime(id) };
+      return { res, applied: await applyPublishedToRuntime(id, res) };
     },
     ({ res, applied }) => {
       // 응답 모양을 단정하지 않는다 — 키 하나 어긋났다고 성공이 빨간 줄로 보이면 안 된다.
       const rev = res?.applied?.revision ?? res?.latest?.revision ?? res?.revision;
       const what = rev == null ? t("최신 발행본") : `rev ${rev}`;
-      return applied
-        ? t("{what} 을 지금 이 카메라에 적용했습니다.", { what })
-        : t("{what} 이 읽힐 예정입니다", { what }) + appliedSuffix(false);
+      return applied.applied
+        ? t("{what} 을 이 카메라가 쓰고 있습니다.", { what })
+        : t("{what} 이 읽힐 예정입니다", { what }) + appliedSuffix(applied);
     },
   );
 }
@@ -1170,7 +1202,7 @@ async function rollbackToRevision(revision) {
         fromRevision: revision,
         note: `rollback to rev ${revision}`,
       });
-      return { res, applied: await applyPublishedToRuntime(id) };
+      return { res, applied: await applyPublishedToRuntime(id, res) };
     },
     ({ res, applied }) => {
       const rev = res?.published?.revision ?? res?.revision;
@@ -1228,7 +1260,7 @@ async function openCopyPanel(preselect) {
             ...(src ? { fromRevision: src.revision } : {}),
             ...(note.value.trim() ? { note: note.value.trim() } : {}),
           });
-          return { res, applied: await applyPublishedToRuntime(id) };
+          return { res, applied: await applyPublishedToRuntime(id, res) };
         },
         ({ res, applied }) => t("{from} 에서 복사해 rev {rev} 로 발행했습니다",
           { from: sel.value, rev: res?.published?.revision ?? "?" }) + appliedSuffix(applied),
@@ -1269,7 +1301,7 @@ async function openImportPanel() {
         async () => {
           const res = await postJson(api(`/profiles/camera/${encodeURIComponent(id)}`),
             { ...body, ...(note.value.trim() ? { note: note.value.trim() } : {}) });
-          return { res, applied: await applyPublishedToRuntime(id) };
+          return { res, applied: await applyPublishedToRuntime(id, res) };
         },
         ({ res, applied }) => t("rev {rev} 로 발행했습니다", { rev: res?.published?.revision ?? "?" }) + appliedSuffix(applied),
       );
@@ -1326,13 +1358,17 @@ async function retireProfile() {
   // 파기가 아니라 퇴역이지만, 목록에서 사라지는 것은 되돌리는 방법이 화면에 없다 — 확인을 받는다.
   // 퇴역은 **그 카메라의 발행본 전체**를 한 번에 치운다(라우트에 revision 인자가 없다).
   // 되돌리는 길이 API 에 없으므로(.trash 복구 라우트 없음) 확인을 받는다.
-  if (!confirm(`${id} 의 발행본 전체를 퇴역시킵니다.\n\n파일은 .trash 로 옮겨질 뿐 지워지지 않지만, 목록과 조회에서는 사라지고 API 로 되돌릴 방법이 없습니다.\n돌고 있는 카메라는 지금 곡선을 계속 쓰다가, 카메라를 다시 고르거나 백엔드를 재시작하면 config 씨앗값으로 돌아갑니다. 계속할까요?`)) return;
-  // 여기서는 일부러 자동 적재를 하지 않는다 — 발행과 달리 퇴역은 정리 동작이라, 누른 즉시
-  // 광학이 사라지면 시연 중에 놀랄 일이 된다. 대신 언제 어떻게 반영되는지를 정확히 말한다
-  // (「적용 해제」가 생기면 이 자리는 그쪽으로 간다 — baro_memo #73).
+  // 언제 씨앗값으로 돌아가는지는 백엔드 계약마다 다르므로 여기서 단정하지 않는다 — 확인창은
+  // 되돌릴 수 없다는 것과 결과만 말하고, 시점은 끝난 뒤에 실제로 읽어서 말한다.
+  if (!confirm(`${id} 의 발행본 전체를 퇴역시킵니다.\n\n파일은 .trash 로 옮겨질 뿐 지워지지 않지만, 목록과 조회에서는 사라지고 API 로 되돌릴 방법이 없습니다.\n이 카메라는 발행본을 잃고 config 씨앗값으로 조준하게 됩니다. 계속할까요?`)) return;
+  // 「적용 해제」가 생기면 비교 시연은 그쪽으로 간다 — 퇴역은 지우는 쪽이다(baro_memo #73).
   await profileWrite(
-    () => reqJson("DELETE", api(`/profiles/camera/${encodeURIComponent(id)}`)),
-    (res) => t("rev {revs} 를 퇴역시켰습니다 — 지금 곡선은 계속 쓰이고, 카메라를 다시 고르거나 백엔드를 재시작하면 config 씨앗값으로 돌아갑니다.", { revs: res.revisions.join(", ") }),
+    async () => ({
+      res: await reqJson("DELETE", api(`/profiles/camera/${encodeURIComponent(id)}`)),
+      declared: await opticsDeclaredNow(),
+    }),
+    ({ res, declared }) =>
+      t("rev {revs} 를 퇴역시켰습니다", { revs: res.revisions.join(", ") }) + " — " + retireEffect(declared),
   );
 }
 

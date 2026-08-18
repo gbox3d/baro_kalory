@@ -285,11 +285,13 @@ test("캘리브레이션 페이지 — 프로파일 관리 창구", async () => 
 
   // 퇴역은 목록에서 사라지고, 되돌리는 방법이 화면에 없다 — 확인을 받아야 한다.
   assert.match(html, /async function retireProfile\(\)[\s\S]{0,600}confirm\(/, "퇴역은 확인을 받아야 한다");
-  // 문서를 치웠다고 돌고 있는 카메라의 조준이 말없이 바뀌면 그게 더 나쁘다. 다만 "그대로"는
-  // 영원이 아니고, 되돌아가는 길도 재시작만 있는 게 아니다 — 기기 재선택이 더 싸다.
-  // 시점과 방법을 함께 안 적으면 사람을 SSH 로 보내게 된다.
-  assert.match(html, /카메라를 다시 고르거나[\s\S]{0,40}config 씨앗값으로 돌아갑니다/,
-    "퇴역이 언제 어떻게 반영되는지, 기기 재선택으로도 된다는 것까지 말해야 한다");
+  // **언제** 씨앗값으로 돌아가는지는 백엔드 계약마다 다르다 — 0.17.0 은 다음 조준부터고,
+  // 그 이전은 기기 재선택·재시작부터다. 화면이 그 시점을 예측해 적어 두면 백엔드가 바뀔 때마다
+  // 조용히 거짓말을 시작한다(실제로 하루 만에 두 번 바뀌었다). 예측하지 말고 끝난 뒤에 읽는다.
+  assert.match(html, /async function opticsDeclaredNow\(\)/, "퇴역 뒤 상태는 예측하지 말고 읽어야 한다");
+  assert.match(html, /declared: await opticsDeclaredNow\(\)/, "퇴역 결과 문구는 실제로 읽은 값으로 지어야 한다");
+  assert.match(html, /function retireEffect\(declared\)[\s\S]{0,500}declared === false[\s\S]{0,500}declared === true/,
+    "읽어 온 상태로 갈라 말해야 한다 — 아직 옛 곡선을 쓰는 백엔드가 살아 있다");
 
   // 발행이 곧 적용이다 — 런타임은 최신 발행본을 스스로 읽는다. 그래서 apply 는 확인이고,
   // 옛 리비전을 실어 보내면 409 다(백엔드 0.16.4). 되돌리기는 그 리비전의 **재발행**이다.
@@ -406,26 +408,38 @@ test("설정 › 기기 속성 — 설치 높이는 발행 창구로 나간다",
     "높이 발행은 프로파일 빌려오기 다음이어야 한다");
 });
 
-// 20분짜리 스윕의 마지막 한 걸음을 사람에게 떠넘기면 안 된다. 발행은 문서를 만들 뿐이고
-// 돌고 있는 드라이버는 생성 시점 광학을 물고 있으므로, 발행 직후 화면이 적재까지 해야
-// 「발행본과 지금 쓰는 값이 다릅니다」 경고를 사람이 볼 일이 없다.
-test("캘리브레이션 페이지 — 발행하면 런타임까지 적재한다 (사람을 pm2 로 보내지 않는다)", async () => {
+// 20분짜리 스윕의 마지막 한 걸음을 사람에게 떠넘기면 안 된다. 백엔드 0.17.0 부터는 드라이버가
+// 광학을 **읽는 시점에** 해결하므로 발행이 곧 적용이고, 그 이전 백엔드에서는 기기 재선택이
+// 유일한 길이었다. 두 계약이 지금 **동시에** 살아 있다(개발기 0.17.0 · 배포기 0.16.2).
+// 그래서 화면은 버전을 보고 고르지 않고 백엔드가 응답에 적어 준 답을 읽는다.
+test("캘리브레이션 페이지 — 발행이 적용까지 닿는다 (버전이 아니라 응답을 읽는다)", async () => {
   const html = await read("../public/calibration.html");
 
-  // 적재 창구는 기기 재선택이다 — 백엔드 문서가 "with no restart" 라고 적은 그 라우트.
-  assert.match(html, /async function applyPublishedToRuntime\(id\)/, "적재 헬퍼가 있어야 한다");
+  assert.match(html, /async function applyPublishedToRuntime\(id, res\)/,
+    "적재 헬퍼는 발행 응답을 받아야 한다 — 무엇을 더 해야 하는지가 거기 적혀 있다");
+  assert.match(html, /reload\.required === false/,
+    "백엔드가 할 일 없다고 답하면 아무것도 하지 않아야 한다 (0.17.0)");
   assert.match(html, /postJson\(api\("\/cctv\/active"\), \{ id, force: true \}\)/,
-    "같은 기기 재선택은 force 가 있어야 한다 — 없으면 백엔드가 unchanged:true 로 튕긴다");
+    "옛 계약에서는 재선택이 유일한 길이고, force 없이는 unchanged:true 로 튕긴다");
+  assert.doesNotMatch(html, /backendVersion/,
+    "백엔드 버전으로 갈래를 고르면 안 된다 — 응답이 답을 갖고 있고, 그래야 옛 갈래가 저절로 퇴역한다");
 
-  // 발행하는 경로가 넷이다(스윕 mint · 복사 · 수입 · 되돌리기 재발행). 하나라도 빠지면
-  // 그 경로로 발행한 사람만 조용히 옛 곡선으로 조준하게 된다.
+  // 발행하는 경로가 다섯이다(스윕 mint · 확인 · 복사 · 수입 · 되돌리기 재발행). 하나라도 응답을
+  // 안 넘기면 그 경로만 0.17.0 에서 쓸데없이 재선택을 때린다 — 그러면 기기 컨텍스트가 다시
+  // 지어지면서 스윕 결과를 쥔 캘리브레이션 매니저가 갈아치워진다(같은 스윕 두 번째 발행이 막힌다).
   const applies = html.match(/applyPublishedToRuntime\(/g) || [];
-  assert.ok(applies.length >= 5, `발행 경로마다 적재해야 한다 (정의 1 + 호출 4 이상, 지금 ${applies.length})`);
+  assert.ok(applies.length >= 6, `발행 경로마다 적재를 확인해야 한다 (정의 1 + 호출 5 이상, 지금 ${applies.length})`);
+  const withRes = html.match(/applyPublishedToRuntime\(id, res\)/g) || [];
+  assert.equal(withRes.length, 5, `네 경로가 전부 응답을 넘겨야 한다 — 정의 1 + 호출 4 (지금 ${withRes.length})`);
+  assert.match(html, /applyPublishedToRuntime\(await currentCameraId\(\), res\)/,
+    "스윕 발행도 응답을 넘겨야 한다");
 
   // 사람을 SSH 로 보내던 문구는 사라져야 한다 — 더 싼 길을 알면서 안 알려주는 안내였다.
-  assert.doesNotMatch(html, /pm2 restart/, "재시작을 시키지 않는다 — 기기 재선택으로 끝난다");
+  assert.doesNotMatch(html, /pm2 restart/, "재시작을 시키지 않는다");
 
-  // 적재가 실패했을 때만 사람이 할 일을 알려 준다. 발행 성공까지 실패로 말하면 안 된다.
-  assert.match(html, /function appliedSuffix\(applied\)/, "적재 성공·실패를 갈라 말해야 한다");
+  // 「적용했다」와 「할 일이 없었다」와 「안 됐다」는 다른 말이다. 셋을 한 문장으로 뭉치면
+  // 사람이 화면을 안 믿기 시작한다.
+  assert.match(html, /function appliedSuffix\(state\)/, "적재 결과를 갈라 말해야 한다");
+  assert.match(html, /발행 즉시 적용됐습니다/, "아무것도 안 해도 됐다는 사실을 말해야 한다");
   assert.match(html, /카메라를 다시 고르면 적용됩니다/, "실패 시 사람이 할 일을 말해야 한다");
 });
