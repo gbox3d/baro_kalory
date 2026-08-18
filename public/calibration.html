@@ -1324,10 +1324,15 @@ async function retireProfile() {
   const id = await currentCameraId();
   if (!id) return;
   // 파기가 아니라 퇴역이지만, 목록에서 사라지는 것은 되돌리는 방법이 화면에 없다 — 확인을 받는다.
-  if (!confirm(`${id} 의 발행본 전체를 퇴역시킵니다.\n\n파일은 .trash 로 옮겨질 뿐 지워지지 않지만, 목록과 조회에서는 사라집니다.\n돌고 있는 카메라는 재시작 전까지 지금 곡선을 그대로 쓰고, 재시작하면 config 씨앗값으로 돌아갑니다. 계속할까요?`)) return;
+  // 퇴역은 **그 카메라의 발행본 전체**를 한 번에 치운다(라우트에 revision 인자가 없다).
+  // 되돌리는 길이 API 에 없으므로(.trash 복구 라우트 없음) 확인을 받는다.
+  if (!confirm(`${id} 의 발행본 전체를 퇴역시킵니다.\n\n파일은 .trash 로 옮겨질 뿐 지워지지 않지만, 목록과 조회에서는 사라지고 API 로 되돌릴 방법이 없습니다.\n돌고 있는 카메라는 지금 곡선을 계속 쓰다가, 카메라를 다시 고르거나 백엔드를 재시작하면 config 씨앗값으로 돌아갑니다. 계속할까요?`)) return;
+  // 여기서는 일부러 자동 적재를 하지 않는다 — 발행과 달리 퇴역은 정리 동작이라, 누른 즉시
+  // 광학이 사라지면 시연 중에 놀랄 일이 된다. 대신 언제 어떻게 반영되는지를 정확히 말한다
+  // (「적용 해제」가 생기면 이 자리는 그쪽으로 간다 — baro_memo #73).
   await profileWrite(
     () => reqJson("DELETE", api(`/profiles/camera/${encodeURIComponent(id)}`)),
-    (res) => t("rev {revs} 를 퇴역시켰습니다 — 재시작 전까지는 지금 곡선을 쓰고, 재시작하면 config 씨앗값으로 돌아갑니다.", { revs: res.revisions.join(", ") }),
+    (res) => t("rev {revs} 를 퇴역시켰습니다 — 지금 곡선은 계속 쓰이고, 카메라를 다시 고르거나 백엔드를 재시작하면 config 씨앗값으로 돌아갑니다.", { revs: res.revisions.join(", ") }),
   );
 }
 

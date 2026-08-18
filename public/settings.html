@@ -139,7 +139,7 @@
           <!-- 캘리브레이션은 카메라 **개체**의 성질이지 모델의 성질이 아니다. 그래서 남의
                값을 빌려 쓰는 것은 임시 방편이고, 반드시 검증으로 확인해야 한다. -->
           <div class="row" style="margin-bottom:6px;">
-            <label>캘리브레이션</label>
+            <label>광학 씨앗값</label>
             <select id="dev-calib" title="캘리브레이션" style="width:auto; padding:5px; min-width:260px;"></select>
           </div>
           <div class="hint" id="dev-calib-hint" style="margin-bottom:8px;"></div>
@@ -804,7 +804,7 @@ function renderModeHint() {
 // 조준 곡선만 담긴 배열(구형식) · 실측 객체. 어느 쪽인지가 곧 "이 값이 어디서 왔나"이므로
 // 화면은 그걸 구분해 말해야 한다 — 빌려온 값을 "이 카메라 실측"으로 보여 주면 안 된다.
 function describeIntrinsics(ins) {
-  if (!ins) return t("보정 없음");
+  if (!ins) return t("씨앗값 없음");
   if (typeof ins === "string") return t("내장 프리셋") + ` "${ins}"`;
   if (Array.isArray(ins)) return t("조준 곡선만 (구형식)");
   // label 분기는 두지 않는다. 그 값을 만들던 브라우저측 빌려오기는 사라졌고, 없는 과거를
@@ -820,17 +820,29 @@ function describeIntrinsics(ins) {
   return t("지정됨");
 }
 
+// 이 칸은 **씨앗값**을 편집한다 — 지금 조준에 쓰이는 곡선이 아니다. 백엔드 0.16.3 부터
+// 발행본이 곧 적용이고 config 에는 아무것도 안 쓴다(memo 「캘리브레이션」 절). 여기 남은 값은
+// 발행본이 없는 기기를 띄우고, **스윕이 줌 앵커를 잡는 기준**이 된다.
 function renderCalibHint(value, ins) {
   const hint = document.getElementById("dev-calib-hint");
-  if (value === "") hint.textContent = t("클릭 센터링이 보정 없이 동작합니다.");
-  else if (value === "__keep") hint.textContent = t("지금 값을 그대로 둡니다") + " — " + describeIntrinsics(ins);
-  else hint.textContent = t("다른 카메라의 실측값입니다 — 캘리브레이션은 개체마다 다르므로, 적용한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.");
+  hint.style.color = "";
+  if (value === "") {
+    // 지우면 조용히 망가진다 — 벤더마다 줌 눈금이 달라서(IDIS 는 배율 ×100, 100..1200)
+    // 씨앗값이 없으면 스윕이 남의 눈금으로 앵커를 양끝에 몰아 놓고도 **성공으로 끝난다.**
+    // 측정된 것처럼 보이는 표가 남으므로, 사람이 나중에 알아챌 방법이 없다.
+    hint.style.color = "var(--color-warn, #ca4)";
+    hint.textContent = t("씨앗값을 지웁니다 — 지금 조준에 쓰는 곡선(발행본)은 그대로입니다. 다만 이 값은 스윕이 줌 앵커를 잡는 기준이라, 지우면 벤더에 따라 다음 캘리브레이션이 엉뚱한 줌 눈금으로 돌고도 성공으로 끝납니다(측정된 것처럼 보이는 표가 남습니다). 값이 있다면 「유지」를 고르세요.");
+  } else if (value === "__keep") {
+    hint.textContent = t("지금 씨앗값을 그대로 둡니다") + " — " + describeIntrinsics(ins);
+  } else {
+    hint.textContent = t("다른 카메라의 실측값을 이 기기의 새 리비전으로 발행합니다 — 캘리브레이션은 개체마다 다르므로, 발행한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.");
+  }
 }
 
 function fillCalibSelect(ins) {
   const sel = document.getElementById("dev-calib");
   sel.replaceChildren();
-  sel.appendChild(new Option(t("보정 없음"), ""));
+  sel.appendChild(new Option(t("씨앗값 없음"), ""));
   // 지금 들고 있는 값은 목록에 없을 수 있다(내장 프리셋 이름이거나 이 카메라의 실측 객체).
   // 그래서 "건드리지 않는다"를 언제나 고를 수 있게 둔다 — 이걸 고르면 저장이 그 필드를
   // 아예 안 보내고, 백엔드가 기존 값을 그대로 보존한다.
