@@ -137,8 +137,8 @@ test("캘리브레이션 페이지 — 2단 배치와 프로파일 카탈로그"
   assert.match(html, /\.cal-col-detail[^}]*overflow-y: auto/, "작업면은 따로 스크롤해야 한다");
   // 쓰기는 전부 오른쪽 창구를 지난다 — 목록이 자기 몫의 복사/적용을 따로 부르면 두 벌이 되고,
   // 두 벌은 언젠가 한쪽만 고쳐진다.
-  assert.match(html, /openApplyPanel\(\) : openCopyPanel\(p\.profileId\)/,
-    "줄을 누르면 오른쪽 창구가 열려야 한다 (내 것이면 적용, 남의 것이면 그 원본으로 복사)");
+  assert.match(html, /openRevisionPanel\(\) : openCopyPanel\(p\.profileId\)/,
+    "줄을 누르면 오른쪽 창구가 열려야 한다 (내 것이면 리비전, 남의 것이면 그 원본으로 복사)");
   assert.doesNotMatch(html, /profile-list[\s\S]{0,4000}postJson\(api\(`\/profiles/,
     "목록이 직접 쓰기를 부르면 안 된다");
   // 발행·복사·퇴역은 저장소의 목록을 바꾼다 — 함께 다시 읽지 않으면 두 단이 다른 말을 한다.
@@ -285,11 +285,55 @@ test("캘리브레이션 페이지 — 프로파일 관리 창구", async () => 
 
   // 퇴역은 목록에서 사라지고, 되돌리는 방법이 화면에 없다 — 확인을 받아야 한다.
   assert.match(html, /async function retireProfile\(\)[\s\S]{0,600}confirm\(/, "퇴역은 확인을 받아야 한다");
-  // 문서를 치웠다고 돌고 있는 카메라의 조준이 말없이 바뀌면 그게 더 나쁘다.
-  assert.match(html, /지금 쓰고 있는 값\(런타임\)은 그대로 남습니다/, "퇴역이 런타임을 건드리지 않음을 말해야 한다");
+  // 문서를 치웠다고 돌고 있는 카메라의 조준이 말없이 바뀌면 그게 더 나쁘다. 다만 "그대로"는
+  // 영원이 아니다 — 재시작하면 config 씨앗값으로 내려앉는다. 시점을 안 적으면 반쪽만 맞다.
+  assert.match(html, /재시작 전까지 지금 곡선을 그대로 쓰고[\s\S]{0,60}config 씨앗값으로 돌아갑니다/,
+    "퇴역이 런타임에 언제 어떻게 반영되는지 말해야 한다");
+
+  // 발행이 곧 적용이다 — 런타임은 최신 발행본을 스스로 읽는다. 그래서 apply 는 확인이고,
+  // 옛 리비전을 실어 보내면 409 다(백엔드 0.16.4). 되돌리기는 그 리비전의 **재발행**이다.
+  assert.doesNotMatch(html, /\/apply`\), *revision *\?/, "옛 리비전을 apply 에 실어 보내면 안 된다 — 409 다");
+  assert.match(html, /async function rollbackToRevision[\s\S]{0,400}\/copy`\)[\s\S]{0,160}fromRevision/,
+    "되돌리기는 같은 카메라에서 fromRevision 으로 재발행해야 한다");
+  // 응답 모양을 단정하면 키 하나 어긋난 날 성공이 빨간 줄로 보인다(스폰 응답에서 겪은 것과 같은 병).
+  assert.doesNotMatch(html, /res\.applied\.revision/, "응답 키를 단정하지 않는다");
 
   // 복사본을 "이 카메라 실측"이라고 말하면 안 된다 — 창구가 열린 이상 섞여 들어온다.
   assert.match(html, /Number\.isFinite\(ins\.profileRevision\)/, "깔린 리비전 번호로 출처를 말해야 한다");
+});
+
+// 스윕은 실기를 20분 독점한다. 퍼센트만 세는 화면은 "도는 중"과 "굳음"을 구분하지 못하고,
+// 시작 전에는 카메라가 어디를 보는지도 모른 채 시작하게 된다("밝을 때, 무늬 있는 쪽" 전제).
+test("캘리브레이션 페이지 — 라이브 뷰와 스윕 오버레이", async () => {
+  const html = await read("../public/calibration.html");
+
+  // 프리뷰는 공유 모듈을 쓴다. 두 벌째 구현을 두면 스트림 수명·폴백 규칙이 갈라진다.
+  assert.match(html, /import \{ createCameraPreview \} from "\.\/web\/camera-preview\.mjs"/,
+    "프리뷰는 공유 모듈이어야 한다");
+  assert.doesNotMatch(html, /new EventSource|createMjpegPlayer/, "페이지가 스트림을 직접 몰면 안 된다");
+
+  // 페이지를 여는 행위가 카메라 점유가 되면 안 된다 — 켜는 것은 사용자 선택이고 그것만 기억한다.
+  assert.match(html, /calib:preview-on\.v1/, "프리뷰 켬/끔 선택을 기억해야 한다");
+  assert.match(html, /pagehide[\s\S]{0,120}calibPreview\.stop\(\)/,
+    "탭을 떠나면 업스트림도 끊어야 한다 — 유령 시청자가 카메라를 점유한다");
+  assert.match(html, /await calibPreview\.stop\(\)/, "정지는 await 해야 한다 — 전환마다 연결이 누적된다");
+
+  // 좌표는 언제나 1920x1080 논리 프레임이다. naturalWidth 로 재면 프리뷰 해상도가 바뀔 때
+  // 오버레이만 조용히 어긋난다(화각은 그대로인데 픽셀 수만 다르다).
+  assert.match(html, /viewBox="0 0 1920 1080"/, "오버레이는 논리 프레임 viewBox 를 써야 한다");
+  // 단어가 아니라 **사용**을 본다 — 주석에서 "naturalWidth 를 쓰지 않는다"고 적는 것은 정당하다.
+  assert.doesNotMatch(html, /.s*natural(Width|Height)/, "naturalWidth 를 읽으면 안 된다");
+
+  // 잔차는 합격선이 20px 언저리라 실척으로는 화면에서 안 보인다. 확대는 해도 되지만
+  // **배율을 화면에 적어야** 한다 — 말없이 부풀린 그림은 거짓말이다.
+  assert.match(html, /RESIDUAL_ZOOM/, "잔차 확대 배율이 상수로 있어야 한다");
+  assert.match(html, /확대", \{ n: RESIDUAL_ZOOM \}|×\{n\} 확대/, "확대 배율을 화면에 적어야 한다");
+
+  // recent[] 는 백엔드 모양이 바뀔 수 있다 — 없으면 조용히 건너뛰고, 성공으로 단정하지 않는다.
+  assert.match(html, /Array\.isArray\(st\.recent\)/, "recent 를 방어적으로 읽어야 한다");
+  assert.match(html, /s\.usable === false/, "usable 이 없을 때 성공으로 단정하지 않는다");
+  // 서버가 준 값은 textContent 로 — 사람이 적은 값이 섞이면 innerHTML 은 마크업이 된다.
+  assert.doesNotMatch(html, /hud[\s\S]{0,200}innerHTML/, "HUD 는 innerHTML 로 조립하지 않는다");
 });
 
 test("설정 페이지 — 캘리브레이션 빌려오기는 백엔드 창구를 지난다", async () => {
@@ -359,4 +403,28 @@ test("설정 › 기기 속성 — 설치 높이는 발행 창구로 나간다",
   const save = html.slice(html.indexOf("async function saveEditor()"), html.indexOf("function addDevice()"));
   assert.ok(save.indexOf("staged.borrowFrom") < save.indexOf("publishHeightIfChanged"),
     "높이 발행은 프로파일 빌려오기 다음이어야 한다");
+});
+
+// 20분짜리 스윕의 마지막 한 걸음을 사람에게 떠넘기면 안 된다. 발행은 문서를 만들 뿐이고
+// 돌고 있는 드라이버는 생성 시점 광학을 물고 있으므로, 발행 직후 화면이 적재까지 해야
+// 「발행본과 지금 쓰는 값이 다릅니다」 경고를 사람이 볼 일이 없다.
+test("캘리브레이션 페이지 — 발행하면 런타임까지 적재한다 (사람을 pm2 로 보내지 않는다)", async () => {
+  const html = await read("../public/calibration.html");
+
+  // 적재 창구는 기기 재선택이다 — 백엔드 문서가 "with no restart" 라고 적은 그 라우트.
+  assert.match(html, /async function applyPublishedToRuntime\(id\)/, "적재 헬퍼가 있어야 한다");
+  assert.match(html, /postJson\(api\("\/cctv\/active"\), \{ id, force: true \}\)/,
+    "같은 기기 재선택은 force 가 있어야 한다 — 없으면 백엔드가 unchanged:true 로 튕긴다");
+
+  // 발행하는 경로가 넷이다(스윕 mint · 복사 · 수입 · 되돌리기 재발행). 하나라도 빠지면
+  // 그 경로로 발행한 사람만 조용히 옛 곡선으로 조준하게 된다.
+  const applies = html.match(/applyPublishedToRuntime\(/g) || [];
+  assert.ok(applies.length >= 5, `발행 경로마다 적재해야 한다 (정의 1 + 호출 4 이상, 지금 ${applies.length})`);
+
+  // 사람을 SSH 로 보내던 문구는 사라져야 한다 — 더 싼 길을 알면서 안 알려주는 안내였다.
+  assert.doesNotMatch(html, /pm2 restart/, "재시작을 시키지 않는다 — 기기 재선택으로 끝난다");
+
+  // 적재가 실패했을 때만 사람이 할 일을 알려 준다. 발행 성공까지 실패로 말하면 안 된다.
+  assert.match(html, /function appliedSuffix\(applied\)/, "적재 성공·실패를 갈라 말해야 한다");
+  assert.match(html, /카메라를 다시 고르면 적용됩니다/, "실패 시 사람이 할 일을 말해야 한다");
 });

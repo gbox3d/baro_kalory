@@ -51,6 +51,56 @@
     .cal-col-detail { overflow: visible; }
     #profile-list { flex: 0 0 auto; max-height: 240px; }
   }
+
+  /* 라이브 뷰 — 스윕이 지금 무엇을 하고 있는지 그림으로 본다.
+     스테이지를 16:9 로 못박고 이미지를 fill 로 채우는 이유: 오버레이 SVG 가 1920x1080
+     논리 프레임을 viewBox 로 쓰기 때문이다. 레터박스가 생기면 그 매핑이 어긋난다.
+     프리뷰 폭이 1280 이든 640 이든 화각이 같으므로 비례 매핑은 정확하다 —
+     naturalWidth 를 읽지 않는다(저장소 계약). */
+  /* 높이를 묶는다 — 안 그러면 넓은 단에서 16:9 가 그대로 세로로 자라 **검증·시작 버튼이
+     화면 밖으로 밀린다**(실제로 그랬다). 비율은 유지해야 오버레이 viewBox 매핑이 정확하다. */
+  #calib-stage { position: relative; width: 100%; max-width: calc(42vh * 16 / 9);
+                 aspect-ratio: 16 / 9; background: #000; margin-bottom: 6px;
+                 border: 1px solid var(--color-border); overflow: hidden; }
+  #calib-stage > img { display: block; width: 100%; height: 100%; object-fit: fill; }
+  #calib-overlay { position: absolute; inset: 0; width: 100%; height: 100%;
+                   z-index: 6; pointer-events: none; }
+  /* HUD 는 영상 위에 얹히므로 배경을 깔아 밝은 장면에서도 읽히게 한다. */
+  #calib-hud { position: absolute; left: 10px; top: 10px; z-index: 7; pointer-events: none;
+               display: flex; flex-direction: column; gap: 4px;
+               font: 11px var(--font-mono); line-height: 1.4;
+               background: rgba(6, 9, 6, .62); border: 1px solid var(--color-border2);
+               padding: 6px 8px; min-width: 190px; }
+  #calib-hud[hidden] { display: none; }
+  #calib-hud .hud-title { color: var(--color-accent); }
+  #calib-hud .hud-row { display: flex; justify-content: space-between; gap: 10px; color: var(--color-bright); }
+  #calib-hud .hud-bar { height: 4px; background: var(--color-panel2); overflow: hidden; }
+  #calib-hud .hud-bar > i { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width .3s; }
+  #calib-hud .hud-row.good > span:last-child { color: var(--color-accent); }
+  #calib-hud .hud-row.bad > span:last-child { color: var(--color-danger, #e66); }
+  /* 범례 — 기호가 무슨 뜻인지 화면이 스스로 답한다. 처음 보는 사람이 그림을 읽으려면
+     이게 있어야 하고, 없으면 화려한 도형은 그냥 노이즈다. */
+  #calib-legend { position: absolute; right: 10px; top: 10px; z-index: 7; pointer-events: none;
+                  display: flex; flex-direction: column; gap: 3px;
+                  font: 10px var(--font-mono); line-height: 1.35;
+                  background: rgba(6, 9, 6, .62); border: 1px solid var(--color-border2);
+                  padding: 6px 8px; max-width: 260px; color: var(--color-dim); }
+  #calib-legend[hidden] { display: none; }
+  #calib-legend .lg-row { display: flex; gap: 7px; align-items: baseline; }
+  #calib-legend .lg-sym { color: var(--color-accent); min-width: 16px; text-align: center; }
+  /* 캡션 — 서버가 지금 무엇을 하고 있다고 말하는지 그대로. 아래쪽 띠라 영상을 덜 가린다. */
+  #calib-caption { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; pointer-events: none;
+                   display: flex; align-items: center; gap: 8px;
+                   font: 12px var(--font-mono); line-height: 1.4;
+                   background: linear-gradient(to top, rgba(6, 9, 6, .88), rgba(6, 9, 6, 0));
+                   padding: 14px 12px 8px; color: var(--color-bright); }
+  #calib-caption[hidden] { display: none; }
+  #calib-caption .cap-spin { color: var(--color-accent); display: inline-block;
+                             animation: calib-spin 1.2s linear infinite; }
+  @keyframes calib-spin { to { transform: rotate(360deg); } }
+  #calib-viewbar { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  #calib-viewbar .led { width: 8px; height: 8px; border-radius: 50%; background: var(--color-border2); }
+  #calib-viewbar .led.on { background: var(--color-accent); box-shadow: 0 0 6px var(--color-accent); }
 </style>
 </head>
 <body>
@@ -79,6 +129,25 @@
         다른 카메라를 설치했다면 <b>검증</b>부터 돌려 기본값으로 충분한지 확인하세요.
       </div>
       <div id="calib-installed" class="hint" style="margin-bottom:8px;"></div>
+      <!-- 라이브 뷰. 스윕 **전에도** 필요하다 — "밝을 때, 무늬가 있는 쪽을 향한 상태"라는
+           전제를 눈으로 확인하지 않으면 20분을 버리고 나서야 알게 된다. 스윕 중에는
+           status 의 recent[] 를 얹어 매 표본이 어디를 눌렀고 얼마나 빗나갔는지 그린다. -->
+      <div id="calib-stage" class="preview-stage preview-paused" data-paused-label="정지됨">
+        <img id="calib-view" class="preview-waiting-image" alt="camera preview" />
+        <div class="view-crosshair" aria-hidden="true"></div>
+        <svg id="calib-overlay" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div id="calib-hud" hidden></div>
+        <div id="calib-legend" hidden></div>
+        <div id="calib-caption" hidden></div>
+      </div>
+      <div id="calib-viewbar">
+        <span id="calib-preview-led" class="led"></span>
+        <span id="calib-preview-status" class="hint">준비됨</span>
+        <button id="calib-preview-start">프리뷰 시작</button>
+        <button id="calib-preview-stop">종료</button>
+        <button id="calib-preview-mode">프리뷰: 스트림(MJPEG)</button>
+        <span id="calib-fps" class="hint"></span>
+      </div>
       <div class="row" style="gap:8px;">
         <button id="calib-verify">검증 (약 3분)</button>
         <button id="calib-start">전체 캘리브레이션 (약 20분)</button>
@@ -110,8 +179,8 @@
       <div class="row" id="profile-actions" style="gap:8px; margin-bottom:8px;">
         <button id="prof-act-copy" title="다른 카메라의 발행본을 이 카메라의 새 리비전으로 복사합니다. 같은 모델을 여러 대 들일 때 20분 스윕을 매번 돌리지 않아도 됩니다.">복사</button>
         <button id="prof-act-import" title="곡선을 직접 넣어 발행합니다. 스윕을 돌릴 수 없는 기기(클릭 센터링이 없거나 실기 시간을 못 얻은 기기)를 위한 문입니다.">수입</button>
-        <button id="prof-act-apply" title="이미 발행된 리비전을 이 백엔드의 런타임에 깝니다. 옛 리비전을 고르면 되돌리기가 됩니다.">적용</button>
-        <button id="prof-act-retire" title="이 카메라의 발행본 전체를 퇴역시킵니다. 파일은 .trash 로 옮겨질 뿐 지워지지 않고, 런타임 값은 그대로 둡니다.">퇴역</button>
+        <button id="prof-act-apply" title="런타임이 읽을 발행본을 확인하고, 옛 리비전으로 되돌립니다. 런타임은 언제나 최신 발행본을 읽으므로 되돌리기는 그 리비전을 새 리비전으로 다시 발행하는 것입니다.">되돌리기</button>
+        <button id="prof-act-retire" title="이 카메라의 발행본 전체를 퇴역시킵니다. 파일은 .trash 로 옮겨질 뿐 지워지지 않고, 돌고 있는 카메라는 재시작 전까지 지금 곡선을 그대로 씁니다.">퇴역</button>
       </div>
       <div id="profile-panel" style="display:none; margin-bottom:10px;"></div>
       <div id="profile-msg" class="hint" style="margin-bottom:8px;"></div>
@@ -128,6 +197,7 @@
 import { getJson, postJson, reqJson, api } from "./web/api.mjs";
 import { initPageChrome } from "./web/page-chrome.mjs";
 import { createCameraSelect } from "./web/camera-select.mjs";
+import { createCameraPreview } from "./web/camera-preview.mjs";
 import { chartFigure } from "./web/profile-chart.mjs";
 import { applyI18n, t } from "./web/i18n.mjs";
 
@@ -143,6 +213,240 @@ let calibVerifyOnly = false;
 
 function calibEl(id) { return document.getElementById(id); }
 
+// ── 스윕 오버레이 ────────────────────────────────────────────────────────────
+// 스윕은 실기를 20분 독점한다. 그동안 화면이 퍼센트만 세면 "도는 중"과 "굳음"을 구분할 수
+// 없다. status 의 recent[](마지막 6표본)에 이미 답이 있다 — 어디를 눌렀고(dx,dy), 옮기고
+// 나서 얼마나 빗나갔는지(residualX,Y), 그 표본이 쓸 만했는지(usable·peak·margin).
+//
+// 좌표계는 언제나 1920x1080 논리 프레임이다(저장소 계약) — 프리뷰가 1280 이든 640 이든
+// 화각이 같으므로 viewBox 하나로 정확히 겹친다. naturalWidth 를 읽지 않는다.
+const FRAME_W = 1920, FRAME_H = 1080, CX = FRAME_W / 2, CY = FRAME_H / 2;
+// 검증의 합격선(화면 안내와 같은 값). 허용 원을 이 반지름으로 그려 합·불을 눈으로 가른다.
+const PASS_PX = 10;
+// 잔차는 합격선이 10px 언저리라 실척으로 그리면 화면에서 1~3px 이 되어 보이지 않는다.
+// 확대해 그리되 **배율과 허용 원을 함께** 표시한다 — 말없이 부풀린 그림은 거짓말이다.
+const RESIDUAL_ZOOM = 8;
+const SVGNS = "http://www.w3.org/2000/svg";
+
+function svgEl(name, attrs, text) {
+  const e = document.createElementNS(SVGNS, name);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+  if (text !== undefined) e.textContent = String(text);   // 서버 값 — 언제나 textContent
+  return e;
+}
+const finiteNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+const fmtDur = (ms) => {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+
+// 프레임 가구 — 논리 프레임의 경계·삼분할. 영상만 보면 "어디가 중앙인지"조차 모른다.
+function drawFrameFurniture(svg) {
+  const g = svgEl("g", { opacity: ".28" });
+  for (let i = 1; i <= 2; i++) {
+    g.appendChild(svgEl("line", { x1: (FRAME_W / 3) * i, y1: 0, x2: (FRAME_W / 3) * i, y2: FRAME_H,
+      stroke: "var(--color-border2, #585)", "stroke-width": 2, "stroke-dasharray": "14 18" }));
+    g.appendChild(svgEl("line", { x1: 0, y1: (FRAME_H / 3) * i, x2: FRAME_W, y2: (FRAME_H / 3) * i,
+      stroke: "var(--color-border2, #585)", "stroke-width": 2, "stroke-dasharray": "14 18" }));
+  }
+  const T = 54;
+  for (const [x, y, sx, sy] of [[0, 0, 1, 1], [FRAME_W, 0, -1, 1], [0, FRAME_H, 1, -1], [FRAME_W, FRAME_H, -1, -1]]) {
+    g.appendChild(svgEl("path", { d: `M ${x} ${y + sy * T} L ${x} ${y} L ${x + sx * T} ${y}`,
+      stroke: "var(--color-accent, #4a4)", "stroke-width": 5, fill: "none", opacity: ".8" }));
+  }
+  svg.appendChild(g);
+}
+
+// 줌 앵커 사다리 — 20분짜리 작업에서 "몇 번째 앵커인가"가 곧 남은 시간이다.
+function drawZoomLadder(svg, done, total) {
+  if (!Number.isFinite(total) || total <= 0) return;
+  const x = FRAME_W - 54, top = 150, bottom = FRAME_H - 150, span = bottom - top;
+  const g = svgEl("g", {});
+  g.appendChild(svgEl("line", { x1: x, y1: top, x2: x, y2: bottom,
+    stroke: "var(--color-border2, #585)", "stroke-width": 3, opacity: ".6" }));
+  const n = Math.min(total, 40);                     // 촘촘하면 눈금이 뭉갠다 — 40개로 자른다
+  for (let i = 0; i < n; i++) {
+    const y = top + (span * i) / Math.max(n - 1, 1);
+    const passed = (i / Math.max(n - 1, 1)) * total <= done;
+    g.appendChild(svgEl("line", { x1: x - (passed ? 18 : 10), y1: y, x2: x + (passed ? 18 : 10), y2: y,
+      stroke: passed ? "var(--color-accent, #4a4)" : "var(--color-border2, #585)",
+      "stroke-width": passed ? 5 : 3, opacity: passed ? ".95" : ".5" }));
+  }
+  const cy = top + span * Math.min(Math.max(done / total, 0), 1);
+  g.appendChild(svgEl("circle", { cx: x, cy, r: 13, fill: "var(--color-accent, #4a4)" }));
+  g.appendChild(svgEl("text", { x: x - 26, y: cy + 7, "text-anchor": "end",
+    fill: "var(--color-bright, #cfc)", "font-size": 30, "font-family": "monospace" },
+    `${done}/${total}`));
+  svg.appendChild(g);
+}
+
+// 표본 하나 — 눌러 준 지점, 허용 원, 남은 오차 벡터. 기호가 곧 설명이 되도록 그린다.
+function drawSample(svg, s, opts) {
+  const dx = finiteNum(s.dx), dy = finiteNum(s.dy);
+  if (dx === null || dy === null) return null;        // 모양이 다르면 조용히 건너뛴다
+  const { newest, fade } = opts;
+  // usable===false 만 실패로 친다 — 필드가 없으면(모양 변경) 성공으로 단정하지 않고 중립.
+  const bad = s.usable === false;
+  const color = bad ? "var(--color-warn, #ca4)" : "var(--color-accent, #4a4)";
+  const tx = CX + dx, ty = CY + dy;
+  const g = svgEl("g", { opacity: fade.toFixed(2) });
+
+  // (1) 명령 벡터: 중앙에서 이 지점까지 — "이번에 카메라에게 가운데로 옮기라고 시킨 거리".
+  g.appendChild(svgEl("line", { x1: CX, y1: CY, x2: tx, y2: ty, stroke: color,
+    "stroke-width": newest ? 3 : 2, "stroke-dasharray": "12 12", opacity: ".55" }));
+
+  // (2) 허용 원: 합격선을 잔차와 **같은 배율**로 그린다. 벡터 끝이 이 안이면 합격이다.
+  g.appendChild(svgEl("circle", { cx: tx, cy: ty, r: PASS_PX * RESIDUAL_ZOOM, fill: "none",
+    stroke: "var(--color-border2, #585)", "stroke-width": 2, "stroke-dasharray": "8 10", opacity: ".8" }));
+
+  // (3) 표적 레티클: 십자 + 원. 못 쓴 표본은 파선으로 갈라 보인다.
+  g.appendChild(svgEl("circle", { cx: tx, cy: ty, r: newest ? 17 : 12, fill: "none", stroke: color,
+    "stroke-width": newest ? 4 : 3, "stroke-dasharray": bad ? "6 6" : "none" }));
+  for (const [a, b, c, d] of [[tx - 30, ty, tx - 12, ty], [tx + 12, ty, tx + 30, ty],
+                              [tx, ty - 30, tx, ty - 12], [tx, ty + 12, tx, ty + 30]]) {
+    g.appendChild(svgEl("line", { x1: a, y1: b, x2: c, y2: d, stroke: color, "stroke-width": 3 }));
+  }
+  if (newest) {
+    const pulse = svgEl("circle", { cx: tx, cy: ty, r: 17, fill: "none", stroke: color, "stroke-width": 3 });
+    pulse.append(
+      svgEl("animate", { attributeName: "r", values: "17;58;17", dur: "1.8s", repeatCount: "indefinite" }),
+      svgEl("animate", { attributeName: "opacity", values: ".9;0;.9", dur: "1.8s", repeatCount: "indefinite" }),
+    );
+    g.appendChild(pulse);
+  }
+
+  // (4) 잔차 벡터: 옮기고 나서 남은 오차. 확대 배율은 HUD 와 범례가 말한다.
+  const rx = finiteNum(s.residualX), ry = finiteNum(s.residualY);
+  if (rx !== null && ry !== null) {
+    const ex = tx + rx * RESIDUAL_ZOOM, ey = ty + ry * RESIDUAL_ZOOM;
+    const mag = Math.hypot(rx, ry);
+    const rcol = bad ? "var(--color-warn, #ca4)"
+      : mag > PASS_PX ? "var(--color-danger, #e66)" : "var(--color-bright, #cfc)";
+    g.appendChild(svgEl("line", { x1: tx, y1: ty, x2: ex, y2: ey, stroke: rcol,
+      "stroke-width": newest ? 6 : 4, "stroke-linecap": "round" }));
+    g.appendChild(svgEl("circle", { cx: ex, cy: ey, r: newest ? 8 : 6, fill: rcol }));
+    if (newest) {
+      g.appendChild(svgEl("text", { x: ex + 16, y: ey - 12, fill: rcol, "font-size": 30,
+        "font-family": "monospace" }, `${mag.toFixed(1)}px`));
+    }
+  }
+
+  // (5) 줌 앵커 번호 — 어느 배율에서 잰 표본인지.
+  const z = finiteNum(s.zoom);
+  if (z !== null) {
+    g.appendChild(svgEl("text", { x: tx + 22, y: ty + 40, fill: color, "font-size": 28,
+      "font-family": "monospace", opacity: ".9" }, `z${z}`));
+  }
+  svg.appendChild(g);
+  return { tx, ty };
+}
+
+function hudRow(parent, k, v, cls) {
+  const row = document.createElement("div");
+  row.className = "hud-row" + (cls ? " " + cls : "");
+  const a = document.createElement("span"); a.textContent = k;
+  const b = document.createElement("span"); b.textContent = v;   // 서버 값 — textContent 로
+  row.append(a, b);
+  parent.appendChild(row);
+  return row;
+}
+
+function renderSweepOverlay(st) {
+  const svg = calibEl("calib-overlay");
+  const hud = calibEl("calib-hud");
+  const cap = calibEl("calib-caption");
+  const legend = calibEl("calib-legend");
+  svg.replaceChildren();
+  if (!st || st.state !== "running") {
+    hud.hidden = true; cap.hidden = true; legend.hidden = true;
+    return;
+  }
+  hud.hidden = false; cap.hidden = false; legend.hidden = false;
+
+  const recent = Array.isArray(st.recent) ? st.recent : [];
+  const last = recent.length ? recent[recent.length - 1] : null;
+  const prog = st.progress || {};
+  const done = finiteNum(prog.done) ?? 0, total = finiteNum(prog.total) ?? 0;
+  const pct = finiteNum(prog.percent) ?? 0;
+
+  drawFrameFurniture(svg);
+  drawZoomLadder(svg, done, total);
+
+  // 지나온 표적을 잇는 자취 — 스윕이 프레임을 어떻게 훑고 있는지가 한눈에 보인다.
+  const pts = [];
+  recent.forEach((s, i) => {
+    const p = drawSample(svg, s, { newest: i === recent.length - 1, fade: 0.3 + 0.7 * ((i + 1) / recent.length) });
+    if (p) pts.push(p);
+  });
+  if (pts.length > 1) {
+    svg.appendChild(svgEl("polyline", {
+      points: pts.map((p) => `${p.tx},${p.ty}`).join(" "), fill: "none",
+      stroke: "var(--color-accent, #4a4)", "stroke-width": 2, "stroke-dasharray": "4 14", opacity: ".45",
+    }));
+  }
+
+  // ── HUD ──
+  hud.replaceChildren();
+  const title = document.createElement("div");
+  title.className = "hud-title";
+  title.textContent = st.mode === "verify" ? t("검증 스윕 진행 중") : t("전체 캘리브레이션 진행 중");
+  hud.appendChild(title);
+  const bar = document.createElement("div");
+  bar.className = "hud-bar";
+  const fill = document.createElement("i");
+  fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+  bar.appendChild(fill);
+  hud.appendChild(bar);
+
+  const started = st.startedAt ? Date.parse(st.startedAt) : NaN;
+  const elapsed = Number.isFinite(started) ? Date.now() - started : NaN;
+  // 남은 시간은 지금까지의 평균 속도로 민 추정이다 — 정확한 값인 척하지 않는다(≈).
+  const eta = Number.isFinite(elapsed) && done > 0 && total > 0 ? (elapsed / done) * (total - done) : NaN;
+
+  hudRow(hud, t("진행"), `${pct}%  (${done}/${total})`);
+  hudRow(hud, t("경과 · 남음"), `${fmtDur(elapsed)} · ≈${fmtDur(eta)}`);
+  hudRow(hud, t("기기"), st.deviceId || "—");
+  hudRow(hud, t("줌 앵커"), last && finiteNum(last.zoom) !== null ? `z${last.zoom}` : "—");
+
+  if (last) {
+    const rx = finiteNum(last.residualX), ry = finiteNum(last.residualY);
+    const mag = rx !== null && ry !== null ? Math.hypot(rx, ry) : null;
+    const row = hudRow(hud, t("잔차"), mag === null ? "—" : `${mag.toFixed(1)} px / ${PASS_PX} px`);
+    if (mag !== null) row.classList.add(mag > PASS_PX ? "bad" : "good");
+    hudRow(hud, t("정합 peak · margin"),
+      `${finiteNum(last.peak) ?? "—"} · ${finiteNum(last.margin) ?? "—"}`);
+    const usable = recent.filter((s) => s.usable !== false).length;
+    hudRow(hud, t("쓸 만한 표본"), `${usable}/${recent.length} ${t("최근")}`);
+  }
+
+  // ── 캡션: 서버가 하는 말 그대로 ──
+  cap.replaceChildren();
+  const capIcon = document.createElement("span");
+  capIcon.className = "cap-spin";
+  capIcon.textContent = "◐";
+  const capText = document.createElement("span");
+  // 서버 문자열이다 — 사람이 적은 값이 섞일 수 있으므로 textContent 로만 넣는다.
+  capText.textContent = st.message || t("진행 중…");
+  cap.append(capIcon, capText);
+
+  // ── 범례: 기호가 무슨 뜻인지 화면이 스스로 답한다 ──
+  legend.replaceChildren();
+  for (const [sym, text] of [
+    ["+", t("눌러 준 지점 — 중앙으로 옮기라고 시킨 자리")],
+    ["o", t("허용 원 = {n}px 합격선", { n: PASS_PX })],
+    ["→", t("남은 오차 ×{n} 확대", { n: RESIDUAL_ZOOM })],
+    ["--", t("파선 원 = 못 쓴 표본 (무늬 부족·역광)")],
+  ]) {
+    const row = document.createElement("div");
+    row.className = "lg-row";
+    const a = document.createElement("span"); a.className = "lg-sym"; a.textContent = sym;
+    const b = document.createElement("span"); b.textContent = text;
+    row.append(a, b);
+    legend.appendChild(row);
+  }
+}
+
 function renderCalibStatus(st) {
   const running = st.state === "running";
   calibEl("calib-start").disabled = running;
@@ -152,6 +456,8 @@ function renderCalibStatus(st) {
   // 진행 중 카메라 전환 잠금 — 잡이 몰고 있는 카메라를 갈아타면 실기 오동작 + 결과가 엉뚱한
   // 기기에 저장된다. (cctv 페이지 시절엔 전역 setBusy 버튼 쓸기가 우연히 막아 주던 동작.)
   cam.setEnabled(!running);
+
+  renderSweepOverlay(st);
 
   if (running) {
     const pct = st.progress ? st.progress.percent : 0;
@@ -246,10 +552,13 @@ async function saveSweep(box, force) {
       ...(force ? { force: true } : {}),
     });
     const rev = res && res.minted ? ` (rev ${res.minted.revision} 발행)` : "";
+    // 발행 직후 곧바로 적재한다 — 여기서 멈추면 20분을 들인 곡선이 문서로만 남고, 조준은
+    // 계속 옛 값으로 돈다(증상이 없어서 사람은 그 사실을 모른다).
+    const applied = await applyPublishedToRuntime(await currentCameraId());
     box.replaceChildren();
     const ok = document.createElement("div");
-    ok.style.color = "var(--color-accent,#4a4)";
-    ok.textContent = `저장했습니다${rev}. 백엔드를 재시작하면 적용됩니다 (pm2 restart baro-backend).`;
+    ok.style.color = applied ? "var(--color-accent,#4a4)" : "var(--color-warn,#ca4)";
+    ok.textContent = `저장했습니다${rev}.` + appliedSuffix(applied);
     box.appendChild(ok);
     if (res && res.forced && res.forced.length) {
       const f = document.createElement("div");
@@ -345,13 +654,45 @@ async function loadCalibInstalled() {
     return;
   }
   try {
-    const cfg = await getJson(api("/cctv/config"));
+    // **판정의 출처는 런타임이다.** 예전에는 config 의 devices[].intrinsics 를 보고 답했는데,
+    // 백엔드 0.16.3 부터 발행(mint·copy·import)은 config 에 아무것도 쓰지 않는다 — intrinsics 는
+    // 이제 스윕의 줌 앵커를 잡아 주는 **씨앗값**일 뿐이다. 그래서 config 만 보면 20분 스윕이
+    // 성공해 실제로 적용된 카메라를 두고도 「캘리브레이션이 없습니다」라고 거짓말을 한다
+    // (2026-08-18 실제로 그랬다). 서버가 매 요청 계산해 주는 live.optics 가 정본이다.
+    const [cfg, live] = await Promise.all([
+      getJson(api("/cctv/config")),
+      getJson(api("/help?format=json")).then((h) => h.live || {}).catch(() => ({})),
+    ]);
     const d = cfg.devices || { active: null, list: [] };
     const dev = (d.list || []).find((x) => x.id === d.active);
     if (!dev) { el.textContent = ""; return; }
+    const optics = live.optics || null;
+    if (optics && optics.declared) {
+      // 지금 이 카메라가 실제로 쓰고 있는 곡선. 점 수와 화각 범위가 곧 "무엇이 적용됐나"다.
+      el.replaceChildren();
+      const lead = document.createElement("span");
+      lead.textContent = "현재 ";
+      const who = document.createElement("b");
+      who.textContent = "발행본이 적용돼 있습니다";
+      const tail = document.createElement("span");
+      const pts = Number.isFinite(optics.points) ? `${optics.points}점` : null;
+      const rng = Array.isArray(optics.hfovRangeDeg) && optics.hfovRangeDeg.length === 2
+        ? `화각 ${Number(optics.hfovRangeDeg[0]).toFixed(2)}°~${Number(optics.hfovRangeDeg[1]).toFixed(2)}°` : null;
+      tail.textContent = [pts, rng].filter(Boolean).length
+        ? ` (${[pts, rng].filter(Boolean).join(" · ")}). 출처는 아래 리비전 목록에서 확인하세요.`
+        : ". 출처는 아래 리비전 목록에서 확인하세요.";
+      el.append(lead, who, tail);
+      return;
+    }
     const ins = dev.intrinsics ?? dev.centeringGain;
     if (!ins) {
       el.innerHTML = '현재 이 기기에는 <b>캘리브레이션이 없습니다</b> — 클릭 센터링이 보정 없이 동작합니다.';
+    } else if (optics && !optics.declared) {
+      // 설정에 값은 있는데 런타임이 광학을 모른다 = 그 값은 **씨앗값**이다. 지우면 스윕이
+      // 다른 벤더의 줌 눈금으로 넘어가 앵커를 양끝에 몰아 놓고도 rc=0 으로 끝난다
+      // (측정된 것처럼 보이는 표가 남는다) — 그러니 "쓰이지 않는 값"이라고 말하면 안 된다.
+      el.innerHTML = '현재 <b>적용된 발행본이 없습니다</b> — 설정의 값은 스윕이 줌 앵커를 잡는 데 쓰는 ' +
+        '<b>씨앗값</b>이라 지우지 마세요. 클릭 센터링은 보정 없이 동작합니다.';
     } else if (typeof ins === "string") {
       el.innerHTML = `현재 <b>내장 프리셋 “${ins}”</b>를 쓰고 있습니다 (다른 카메라에서 실측한 값). 이 개체에 맞는지 <b>검증</b>으로 확인하세요.`;
     } else if (ins.label) {
@@ -555,6 +896,33 @@ async function currentCameraId() {
   try { return ((await getJson(api("/cctv/config"))).devices || {}).active || null; } catch { return null; }
 }
 
+// 발행은 문서를 만들 뿐이다. 돌고 있는 드라이버는 **생성 시점의 광학**을 물고 있어서, 방금
+// 발행한 곡선을 모른다 — 화면은 그 상태를 「발행본과 지금 쓰는 값이 다릅니다」로 경고한다.
+//
+// 백엔드는 최신 발행본을 **부팅 또는 기기 재선택** 때 읽는다(`POST /api/cctv/active` — 문서에
+// 「with no restart」라고 적혀 있다). 그러니 발행 직후 같은 기기를 다시 고르면 그 자리에서
+// 적용된다. 20분짜리 실기 작업의 마지막 한 걸음을 사람에게 pm2 로 떠넘길 이유가 없었다.
+//
+// **force 가 필수다.** 같은 id 를 force 없이 보내면 백엔드가 `{unchanged:true}` 로 튕기고
+// 광학은 옛 상태 그대로 남는다(2026-08-18 실측 — 이 함정 때문에 재시작이 유일한 길처럼 보였다).
+async function applyPublishedToRuntime(id) {
+  if (!id) return false;
+  try {
+    await postJson(api("/cctv/active"), { id, force: true });
+    return true;
+  } catch {
+    // 발행은 이미 성공했다 — 적재에 실패했다고 그 사실까지 실패로 말하면 안 된다.
+    return false;
+  }
+}
+
+// 발행 뒤 적재까지 한 문장으로 말한다. 적재가 안 됐을 때만 사람이 할 일을 알려 준다.
+function appliedSuffix(applied) {
+  return applied
+    ? t(" — 지금 이 카메라에 적용됐습니다.")
+    : t(" — 다만 런타임 적재에 실패했습니다. 헤더에서 카메라를 다시 고르면 적용됩니다.");
+}
+
 async function loadProfile() {
   const meta = calibEl("profile-meta");
   const charts = calibEl("profile-charts");
@@ -604,9 +972,9 @@ async function loadDrift() {
   const act = document.createElement("div");
   act.style.marginTop = "8px";
   const btn = document.createElement("button");
-  btn.textContent = t("발행본 적용");
-  btn.title = t("최신 발행본을 런타임에 깔아 이 차이를 없앱니다. 재측정은 필요 없습니다.");
-  btn.onclick = () => applyRevision(null);
+  btn.textContent = t("지금 적용");
+  btn.title = t("최신 발행본을 이 카메라의 런타임에 지금 적재합니다 — 기기 재선택으로 처리하므로 백엔드 재시작이 필요 없습니다. 재측정도 필요 없습니다.");
+  btn.onclick = () => applyLatestToRuntime();
   act.appendChild(btn);
   box.appendChild(act);
 }
@@ -765,12 +1133,52 @@ function openPanel(title, build) {
   profMsg("");
 }
 
-async function applyRevision(revision) {
+// 발행이 곧 적용이다(백엔드 help 「Publishing is applying」). 런타임은 부팅과 기기 재선택 때
+// **최신** 발행본을 직접 읽으므로 "런타임에 깐다"는 별도 단계가 없다. 그래서 apply 는 쓰기가
+// 아니라 **확인**이고, 옛 리비전을 실어 보내면 409 다 — 되돌리기는 그 리비전을 **다시 발행**해서
+// 한다(같은 카메라에서 fromRevision 으로 copy). 예전에는 mint 가 config 에 런타임 사본을 함께
+// 썼는데, 사본 둘이 갈라져 "아무도 안 읽는 발행본"이 생겼고 그 화해 장치가 사고를 더 냈다.
+// 확인만 하고 끝나는 버튼은 이 상황에서 쓸모가 없다 — 사람이 알고 싶은 것은 "무엇이 읽힐
+// 예정인가"가 아니라 "지금 맞게 돌고 있나"다. apply 로 어느 리비전인지 확인하고, 곧바로
+// 기기 재선택으로 그것을 적재한다.
+async function applyLatestToRuntime() {
   const id = await currentCameraId();
   if (!id) return;
   await profileWrite(
-    () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/apply`), revision ? { revision } : {}),
-    (res) => t("rev {rev} 을 적용했습니다 — 백엔드를 재시작하면 실제 조준에 반영됩니다 (pm2 restart baro-backend).", { rev: res.applied.revision }),
+    async () => {
+      const res = await postJson(api(`/profiles/camera/${encodeURIComponent(id)}/apply`), {});
+      return { res, applied: await applyPublishedToRuntime(id) };
+    },
+    ({ res, applied }) => {
+      // 응답 모양을 단정하지 않는다 — 키 하나 어긋났다고 성공이 빨간 줄로 보이면 안 된다.
+      const rev = res?.applied?.revision ?? res?.latest?.revision ?? res?.revision;
+      const what = rev == null ? t("최신 발행본") : `rev ${rev}`;
+      return applied
+        ? t("{what} 을 지금 이 카메라에 적용했습니다.", { what })
+        : t("{what} 이 읽힐 예정입니다", { what }) + appliedSuffix(false);
+    },
+  );
+}
+
+async function rollbackToRevision(revision) {
+  const id = await currentCameraId();
+  if (!id) return;
+  await profileWrite(
+    async () => {
+      const res = await postJson(api(`/profiles/camera/${encodeURIComponent(id)}/copy`), {
+        from: id,
+        fromRevision: revision,
+        note: `rollback to rev ${revision}`,
+      });
+      return { res, applied: await applyPublishedToRuntime(id) };
+    },
+    ({ res, applied }) => {
+      const rev = res?.published?.revision ?? res?.revision;
+      const head = rev == null
+        ? t("rev {old} 을 다시 발행했습니다", { old: revision })
+        : t("rev {old} 을 rev {rev} 로 다시 발행했습니다", { old: revision, rev });
+      return head + appliedSuffix(applied);
+    },
   );
 }
 
@@ -814,12 +1222,16 @@ async function openCopyPanel(preselect) {
       // 최신을 집는데, 화면을 열어 둔 사이 원본이 새로 발행되면 보지도 않은 곡선이 복사된다.
       const src = others.find((p) => p.profileId === sel.value);
       return profileWrite(
-        () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/copy`), {
-          from: sel.value,
-          ...(src ? { fromRevision: src.revision } : {}),
-          ...(note.value.trim() ? { note: note.value.trim() } : {}),
-        }),
-        (res) => t("{from} 에서 복사해 rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.", { from: sel.value, rev: res.published.revision }),
+        async () => {
+          const res = await postJson(api(`/profiles/camera/${encodeURIComponent(id)}/copy`), {
+            from: sel.value,
+            ...(src ? { fromRevision: src.revision } : {}),
+            ...(note.value.trim() ? { note: note.value.trim() } : {}),
+          });
+          return { res, applied: await applyPublishedToRuntime(id) };
+        },
+        ({ res, applied }) => t("{from} 에서 복사해 rev {rev} 로 발행했습니다",
+          { from: sel.value, rev: res?.published?.revision ?? "?" }) + appliedSuffix(applied),
       );
     };
     panel.appendChild(go);
@@ -854,23 +1266,30 @@ async function openImportPanel() {
       try { body = JSON.parse(ta.value); }
       catch (e) { profMsg(t("JSON 을 읽지 못했습니다") + ": " + e.message, "bad"); return; }
       profileWrite(
-        () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}`),
-          { ...body, ...(note.value.trim() ? { note: note.value.trim() } : {}) }),
-        (res) => t("rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.", { rev: res.published.revision }),
+        async () => {
+          const res = await postJson(api(`/profiles/camera/${encodeURIComponent(id)}`),
+            { ...body, ...(note.value.trim() ? { note: note.value.trim() } : {}) });
+          return { res, applied: await applyPublishedToRuntime(id) };
+        },
+        ({ res, applied }) => t("rev {rev} 로 발행했습니다", { rev: res?.published?.revision ?? "?" }) + appliedSuffix(applied),
       );
     };
     panel.appendChild(go);
   });
 }
 
-async function openApplyPanel() {
+// 이름이 사실을 들어야 한다 — 이 창은 더 이상 "적용"하지 않는다. 런타임은 최신 발행본을
+// 스스로 읽으므로, 여기서 할 수 있는 일은 확인과 재발행(되돌리기) 둘뿐이다.
+async function openRevisionPanel() {
   const id = await currentCameraId();
   if (!id) return;
   let revs = [];
   try { revs = (await getJson(api(`/profiles/camera/${encodeURIComponent(id)}/revisions`))).revisions || []; }
   catch { /* 아래에서 안내한다 */ }
 
-  openPanel(t("발행된 리비전을 이 백엔드의 런타임에 깝니다. 옛 리비전을 고르면 되돌리기입니다."), (panel) => {
+  // 런타임은 언제나 최신 발행본을 읽는다 — 옛 리비전을 "고른다"는 개념이 백엔드에 없다.
+  // 그래서 되돌리기는 고르는 일이 아니라 **다시 발행하는 일**이고, 이력은 선형으로 남는다.
+  openPanel(t("런타임은 언제나 최신 발행본을 읽습니다. 옛 리비전을 고르면 그것을 새 리비전으로 다시 발행해 되돌립니다."), (panel) => {
     if (!revs.length) {
       const none = document.createElement("div");
       none.className = "hint";
@@ -883,9 +1302,20 @@ async function openApplyPanel() {
       sel.appendChild(new Option(`rev ${r.revision} · ${fmtWhen(r.issuedAt)} · ${provText(r.provenance)}`, String(r.revision)));
     }
     panel.appendChild(panelRow(t("리비전"), sel));
+    // 순서를 가정하지 않고 최대값으로 최신을 정한다(목록 정렬은 표시용 규약일 뿐이다).
+    const latest = revs.reduce((m, r) => (Number(r.revision) > m ? Number(r.revision) : m), -Infinity);
     const go = document.createElement("button");
-    go.textContent = t("적용");
-    go.onclick = () => applyRevision(Number(sel.value));
+    // 버튼이 무슨 일이 일어날지 말한다 — 최신은 확인일 뿐이고, 옛것은 새 리비전을 만든다.
+    const syncGo = () => {
+      // 최신도 이제 "확인"이 아니라 실제 적재다 — 라벨이 하는 일을 말해야 한다.
+      go.textContent = Number(sel.value) === latest ? t("지금 적용") : t("이 리비전으로 되돌리기");
+    };
+    sel.onchange = syncGo;
+    syncGo();
+    go.onclick = () => {
+      const picked = Number(sel.value);
+      return picked === latest ? applyLatestToRuntime() : rollbackToRevision(picked);
+    };
     panel.appendChild(go);
   });
 }
@@ -894,10 +1324,10 @@ async function retireProfile() {
   const id = await currentCameraId();
   if (!id) return;
   // 파기가 아니라 퇴역이지만, 목록에서 사라지는 것은 되돌리는 방법이 화면에 없다 — 확인을 받는다.
-  if (!confirm(`${id} 의 발행본 전체를 퇴역시킵니다.\n\n파일은 .trash 로 옮겨질 뿐 지워지지 않지만, 목록과 조회에서는 사라집니다.\n지금 쓰고 있는 값(런타임)은 그대로 남습니다. 계속할까요?`)) return;
+  if (!confirm(`${id} 의 발행본 전체를 퇴역시킵니다.\n\n파일은 .trash 로 옮겨질 뿐 지워지지 않지만, 목록과 조회에서는 사라집니다.\n돌고 있는 카메라는 재시작 전까지 지금 곡선을 그대로 쓰고, 재시작하면 config 씨앗값으로 돌아갑니다. 계속할까요?`)) return;
   await profileWrite(
     () => reqJson("DELETE", api(`/profiles/camera/${encodeURIComponent(id)}`)),
-    (res) => t("rev {revs} 를 퇴역시켰습니다. 지금 쓰는 값은 그대로입니다.", { revs: res.revisions.join(", ") }),
+    (res) => t("rev {revs} 를 퇴역시켰습니다 — 재시작 전까지는 지금 곡선을 쓰고, 재시작하면 config 씨앗값으로 돌아갑니다.", { revs: res.revisions.join(", ") }),
   );
 }
 
@@ -940,7 +1370,7 @@ function renderProfileList() {
     row.className = "prof-row" + (p.profileId === mine ? " mine" : "");
     row.dataset.id = p.profileId;
     // 이 카메라 것이면 적용(되돌리기), 남의 것이면 그 원본으로 복사창을 연다.
-    row.onclick = () => (p.profileId === mine ? openApplyPanel() : openCopyPanel(p.profileId));
+    row.onclick = () => (p.profileId === mine ? openRevisionPanel() : openCopyPanel(p.profileId));
     const id = document.createElement("span");
     id.className = "prof-id";
     id.textContent = p.profileId + (p.profileId === mine ? "  " + t("(이 카메라)") : "");
@@ -959,10 +1389,53 @@ function renderProfileList() {
 
 calibEl("prof-act-copy").onclick = () => openCopyPanel();
 calibEl("prof-act-import").onclick = openImportPanel;
-calibEl("prof-act-apply").onclick = openApplyPanel;
+calibEl("prof-act-apply").onclick = openRevisionPanel;
 calibEl("prof-act-retire").onclick = retireProfile;
 
 // 카메라 전환 → 카드 재구성 (실기 ↔ 시뮬 검증전용). renderCalibStatus 가 cam 을 참조하므로
+// ── 라이브 뷰 ────────────────────────────────────────────────────────────────
+// 스윕은 20분간 실기를 독점한다. 그동안 화면이 퍼센트만 세고 있으면 "도는 중"과 "굳음"을
+// 구분할 수 없고, 시작 전에는 카메라가 어디를 보는지도 모른 채 시작하게 된다.
+// status 의 recent[] 가 이미 그 답을 들고 온다(마지막 6표본) — 지금까지 아무도 안 읽었다.
+const calibPreview = createCameraPreview({
+  img: document.getElementById("calib-view"),
+  modeButton: document.getElementById("calib-preview-mode"),
+  fpsLabel: document.getElementById("calib-fps"),
+  storageKey: "calib",
+});
+const calibPreviewLed = document.getElementById("calib-preview-led");
+const calibPreviewStatus = document.getElementById("calib-preview-status");
+// 프리뷰를 여는 것은 **사용자 선택**이고 그 선택만 기억한다 — 페이지를 여는 행위가 카메라
+// 점유가 되면 안 된다(저장소 계약, 기본 꺼짐).
+const CALIB_PREVIEW_KEY = "calib:preview-on.v1";
+let calibPreviewRunning = false;
+
+function renderCalibPreviewState(label) {
+  document.getElementById("calib-preview-start").disabled = calibPreviewRunning;
+  document.getElementById("calib-preview-stop").disabled = !calibPreviewRunning;
+  calibPreviewLed.classList.toggle("on", calibPreviewRunning);
+  calibPreviewStatus.textContent = label || (calibPreviewRunning ? t("실행 중") : t("준비됨"));
+}
+function startCalibPreview() {
+  try { localStorage.setItem(CALIB_PREVIEW_KEY, "on"); } catch { /* 저장소 사용 불가 */ }
+  calibPreview.start();
+  calibPreviewRunning = true;
+  renderCalibPreviewState(t("실행 중"));
+}
+async function stopCalibPreview() {
+  try { localStorage.setItem(CALIB_PREVIEW_KEY, "off"); } catch { /* 저장소 사용 불가 */ }
+  // 전환은 이전 stop 을 await 한 뒤 — 안 하면 연결이 누적돼 스트림이 저하된다(저장소 계약).
+  await calibPreview.stop();
+  calibPreviewRunning = false;
+  renderCalibPreviewState(t("중지됨"));
+}
+document.getElementById("calib-preview-start").addEventListener("click", startCalibPreview);
+document.getElementById("calib-preview-stop").addEventListener("click", stopCalibPreview);
+renderCalibPreviewState();
+try { if (localStorage.getItem(CALIB_PREVIEW_KEY) === "on") startCalibPreview(); } catch { /* 무시 */ }
+// 탭을 떠나면 업스트림도 끊는다 — 안 하면 유령 시청자로 남아 카메라를 점유한다(저장소 계약).
+window.addEventListener("pagehide", () => { calibPreview.stop(); });
+
 // createCameraSelect 는 initCalibCard 첫 호출 전에 만들어져 있어야 한다.
 const cam = createCameraSelect({
   select: document.getElementById("header-camera-select"),
