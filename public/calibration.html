@@ -416,6 +416,21 @@ function renderSweepOverlay(st) {
     if (mag !== null) row.classList.add(mag > PASS_PX ? "bad" : "good");
     hudRow(hud, t("정합 peak · margin"),
       `${finiteNum(last.peak) ?? "—"} · ${finiteNum(last.margin) ?? "—"}`);
+    // 0.17.1 부터 표본마다 진동 안정화 대기가 실린다(보드 #92) — 이 표본이 멈춘 화면에서
+    // 측정됐는지가 잔차의 신뢰도를 말한다. 필드가 없는 옛 백엔드에서는 줄 자체가 안 뜬다.
+    const settle = finiteNum(last.settleMs);
+    if (settle !== null || last.settleWarn) {
+      const warnText = ({
+        timeout: t("정지 못 함 — 가장 조용한 순간 사용"),
+        unmeasurable: t("패턴 부족 — 추적 불가"),
+        undecodable: t("프레임 손상"),
+      })[last.settleWarn] || null;
+      const val = (settle !== null ? (settle / 1000).toFixed(1) + "s" : "—") + (warnText ? " · " + warnText : "");
+      const row = hudRow(hud, t("진동 안정화"), val);
+      // timeout 은 설치 환경의 속성이다(고배율에서 바람·구조물 — 화면이 영원히 1px 안으로
+      // 안 멈춘다, 보드 #92 실측). 고장 색을 칠하면 정상 동작이 사고처럼 보인다.
+      if (last.settleWarn === "unmeasurable" || last.settleWarn === "undecodable") row.classList.add("bad");
+    }
     const usable = recent.filter((s) => s.usable !== false).length;
     hudRow(hud, t("쓸 만한 표본"), `${usable}/${recent.length} ${t("최근")}`);
   }

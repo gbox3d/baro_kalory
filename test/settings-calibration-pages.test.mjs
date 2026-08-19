@@ -362,6 +362,15 @@ test("캘리브레이션 페이지 — 라이브 뷰와 스윕 오버레이", as
   // recent[] 는 백엔드 모양이 바뀔 수 있다 — 없으면 조용히 건너뛰고, 성공으로 단정하지 않는다.
   assert.match(html, /Array\.isArray\(st\.recent\)/, "recent 를 방어적으로 읽어야 한다");
   assert.match(html, /s\.usable === false/, "usable 이 없을 때 성공으로 단정하지 않는다");
+
+  // 0.17.1 의 진동 안정화(#92): settleMs 는 표본의 신뢰도 정보라 그린다. 다만 timeout 은
+  // 설치 환경의 속성(고배율에서 화면이 영원히 안 멈춤)이지 고장이 아니다 — 빨간색은
+  // unmeasurable/undecodable 에만 쓴다. 필드가 없는 옛 백엔드에서는 줄이 안 떠야 한다.
+  assert.match(html, /last\.settleMs/, "표본의 안정화 대기를 보여줘야 한다");
+  assert.match(html, /가장 조용한 순간 사용/, "timeout 은 최선 프레임 사용이라고 말해야 한다 — 고장이 아니다");
+  assert.match(html, /settleWarn === "unmeasurable" \|\| last\.settleWarn === "undecodable"/,
+    "고장 색은 진짜 문제에만 칠한다 — timeout 을 빨갛게 칠하면 정상이 사고처럼 보인다");
+  assert.match(html, /settle !== null \|\| last\.settleWarn/, "필드가 없으면 줄 자체가 없어야 한다 (옛 백엔드)");
   // 서버가 준 값은 textContent 로 — 사람이 적은 값이 섞이면 innerHTML 은 마크업이 된다.
   assert.doesNotMatch(html, /hud[\s\S]{0,200}innerHTML/, "HUD 는 innerHTML 로 조립하지 않는다");
 });
