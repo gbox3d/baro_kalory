@@ -320,6 +320,19 @@ test("캘리브레이션 페이지 — 프로파일 관리 창구", async () => 
   assert.match(html, /다른 카메라의 발행본을 지우려면 헤더에서 그 카메라를 먼저 고르세요/, "잠금 사유가 다음 행동을 알려줘야 한다");
   assert.match(html, /에는 삭제할 발행본이 없습니다[\s\S]{0,80}다른 카메라의 것/, "안전망 메시지는 카메라 이름과 원인을 함께 말해야 한다");
 
+  // 0.18.0(#73): 존재와 적용은 다른 축이다. 「적용 해제」는 지우기가 아니라 같은 카메라로
+  // 적용 전/후를 비교해 보여주는 시연 상태다. 포인터가 없는 옛 백엔드에서는 이 축을 그리지
+  // 않는다 — 없는 상태를 있는 척하는 버튼이 곧 죽은 코드다.
+  assert.match(html, /id="prof-act-detach"/, "적용 해제 버튼이 있어야 한다");
+  assert.match(html, /\{ revision: null \}/, "해제는 apply {revision:null} 이다");
+  assert.match(html, /\{ follow: true \}/, "복귀는 apply {follow:true} 다");
+  assert.match(html, /function pinToRevision\(revision\)[\s\S]{0,400}\{ revision \}/,
+    "옛 리비전 복귀는 0.18.0 부터 재발행이 아니라 고정이다 — 이력에 사본이 늘지 않는다");
+  assert.match(html, /rollbackToRevision/, "포인터 없는 옛 백엔드용 재발행 경로는 남아야 한다");
+  assert.match(html, /optics\.source === "published"/, "설치 상태는 source 가 있으면 그걸 읽는다 — 추론은 물러난다");
+  assert.match(html, /적용 해제됨/, "detached 는 고장 경고가 아니라 비교 시연 상태로 그린다");
+  assert.match(html, /renderAppliedControls\(null, id\)/, "포인터를 못 읽으면 이 축을 그리지 않는다");
+
   // 발행이 곧 적용이다 — 런타임은 최신 발행본을 스스로 읽는다. 그래서 apply 는 확인이고,
   // 옛 리비전을 실어 보내면 409 다(백엔드 0.16.4). 되돌리기는 그 리비전의 **재발행**이다.
   assert.doesNotMatch(html, /\/apply`\), *revision *\?/, "옛 리비전을 apply 에 실어 보내면 안 된다 — 409 다");

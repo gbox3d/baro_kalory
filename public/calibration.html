@@ -180,9 +180,11 @@
         <button id="prof-act-copy" title="다른 카메라의 발행본을 이 카메라의 새 리비전으로 복사합니다. 같은 모델을 여러 대 들일 때 20분 스윕을 매번 돌리지 않아도 됩니다.">복사</button>
         <button id="prof-act-import" title="곡선을 직접 넣어 발행합니다. 스윕을 돌릴 수 없는 기기(클릭 센터링이 없거나 실기 시간을 못 얻은 기기)를 위한 문입니다.">수입</button>
         <button id="prof-act-apply" title="런타임이 읽을 발행본을 확인하고, 옛 리비전으로 되돌립니다. 런타임은 언제나 최신 발행본을 읽으므로 되돌리기는 그 리비전을 새 리비전으로 다시 발행하는 것입니다.">되돌리기</button>
+        <button id="prof-act-detach" style="display:none;">적용 해제</button>
         <button id="prof-act-retire" title="이 카메라의 발행본 전체를 삭제합니다. 목록과 조회에서 사라지고 화면에서는 되돌릴 수 없습니다 — 이 카메라는 config 씨앗값으로 조준하게 됩니다.">삭제</button>
       </div>
       <div id="profile-panel" style="display:none; margin-bottom:10px;"></div>
+      <div id="profile-applied" class="hint" style="display:none; margin-bottom:8px;"></div>
       <div id="profile-msg" class="hint" style="margin-bottom:8px;"></div>
       <div id="profile-meta" class="hint">불러오는 중…</div>
       <div id="profile-charts" style="margin-top:10px;"></div>
@@ -731,6 +733,23 @@ async function loadCalibInstalled() {
             ? `화각 ${Number(optics.hfovRangeDeg[0]).toFixed(2)}°~${Number(optics.hfovRangeDeg[1]).toFixed(2)}°` : null,
         ].filter(Boolean).join(" · ")
       : "";
+    // 0.18.0 부터 런타임이 방금 읽은 광학의 **출처**를 스스로 말한다(source·revision·
+    // following·detached, 보드 #73) — 존재 재조회(hasProfile)와 declared 추론은 그 앞에서
+    // 물러나 옛 백엔드에서만 산다. reload.required 와 같은 퇴역 패턴이다.
+    if (optics && optics.detached === true) {
+      // 일부러 뗀 상태 — 비교 시연 중일 가능성이 높다. 고장 경고를 칠하지 않는다.
+      el.innerHTML = `현재 <b>적용 해제됨</b> — ${optics.source === "seed" ? "config 씨앗값으로" : "보정 없이"} 조준 중입니다(적용 전/후 비교 상태). 발행본은 그대로 있고, 아래 「다시 적용」으로 복귀합니다.`;
+      return;
+    }
+    if (optics && optics.source === "published") {
+      el.innerHTML = `현재 <b>발행본 rev ${Number(optics.revision)}</b> 이 적용돼 있습니다${opticsDesc ? ` (${opticsDesc})` : ""} — ${optics.following === false ? "이 리비전에 <b>고정</b>됨(새 발행이 실리지 않습니다)" : "최신 따름"}. 출처는 아래 리비전 목록에서 확인하세요.`;
+      return;
+    }
+    if (optics && optics.source === "seed") {
+      el.innerHTML = `현재 <b>발행본이 없습니다</b> — config 씨앗값으로 조준합니다${opticsDesc ? ` (${opticsDesc})` : ""}.`;
+      return;
+    }
+    // source 필드가 없는 옛 백엔드(≤0.17.x): 아래 추론 경로가 그대로 답한다.
     if (optics && optics.declared && hasProfile !== false) {
       // 지금 이 카메라가 실제로 쓰고 있는 곡선. 점 수와 화각 범위가 곧 "무엇이 적용됐나"다.
       el.replaceChildren();
@@ -1033,11 +1052,82 @@ function opticsSig(o) {
 
 function retireEffect(before, after) {
   if (!after) return t("광학 상태를 다시 읽지는 못했습니다 — 위 상태 줄을 확인하세요.");
+  // 0.18.0 부터 런타임이 방금 읽은 광학의 출처를 스스로 말한다(source) — 있으면 추론(전후
+  // 비교)은 그 앞에서 물러난다. reload.required 와 같은 패턴: 백엔드의 답이 이기고,
+  // 옛 추론은 옛 백엔드에서만 산다.
+  if (typeof after.source === "string") {
+    if (after.source === "seed") return t("이 카메라는 지금 config 씨앗값으로 조준합니다.");
+    if (after.source === "none") return t("이 카메라는 지금 보정 없이 조준합니다 — 씨앗값도 없습니다.");
+    return t("돌고 있는 카메라는 아직 발행 곡선을 씁니다 — 카메라를 다시 고르거나 백엔드를 재시작하면 씨앗값으로 돌아갑니다.");
+  }
   if (after.declared === false) return t("이 카메라는 지금 보정 없이 조준합니다 — 씨앗값도 없습니다.");
   if (before && opticsSig(before) !== opticsSig(after)) return t("이 카메라는 지금 config 씨앗값으로 조준합니다.");
   // 광학이 그대로다 — 옛 계약(부팅·재선택 때만 읽는 백엔드)이 옛 곡선을 물고 있는 경우다.
   // 씨앗값이 우연히 같은 숫자일 수도 있지만, 그때도 조준 값은 같으니 이 문장은 틀리지 않는다.
   return t("돌고 있는 카메라는 아직 지금 곡선을 씁니다 — 카메라를 다시 고르거나 백엔드를 재시작하면 씨앗값으로 돌아갑니다.");
+}
+
+// ── 적용 포인터 (0.18.0, 보드 #73) ────────────────────────────────────────────
+// 존재와 적용은 다른 축이다. 「적용 해제」는 지우는 게 아니라 조준만 보정 전으로 되돌리는 것 —
+// 같은 카메라로 적용 전/후를 비교해 보여주는 시연이 이 상태의 존재 이유다. 포인터가 없는
+// 옛 백엔드에서는 이 축 자체를 그리지 않는다(없는 상태를 있는 척하지 않는다).
+function renderAppliedControls(applied, id) {
+  const btn = calibEl("prof-act-detach");
+  const line = calibEl("profile-applied");
+  if (!applied || (applied.following !== false && applied.revision == null)) {
+    // 옛 백엔드(포인터 없음)거나 아직 발행본이 없다(미발행은 해제가 아니다).
+    btn.style.display = "none"; line.style.display = "none";
+    return;
+  }
+  btn.style.display = "";
+  line.style.display = "";
+  line.style.color = "";
+  if (applied.detached) {
+    // 일부러 뗀 상태 — 경고가 아니라 시연 상태다. 색은 주의(호박)까지만.
+    line.style.color = "var(--color-warn, #ca4)";
+    line.textContent = t("적용 해제됨 — 씨앗값(없으면 무보정)으로 조준 중입니다. 발행본은 그대로 있습니다.");
+    btn.textContent = t("다시 적용");
+    btn.title = t("발행본을 다시 적용합니다 — 최신 따름으로 복귀합니다.");
+    btn.onclick = refollowProfile;
+    return;
+  }
+  if (applied.following === false) {
+    line.style.color = "var(--color-warn, #ca4)";
+    line.textContent = t("적용 상태: rev {rev} 에 고정 — 새로 발행해도 조준에 실리지 않습니다. 「되돌리기」 창에서 최신 따름으로 풀 수 있습니다.", { rev: applied.revision });
+  } else {
+    line.textContent = t("적용 상태: rev {rev} · 최신 따름", { rev: applied.revision });
+  }
+  btn.textContent = t("적용 해제");
+  btn.title = t("발행본을 지우지 않고 조준만 보정 전 상태(씨앗값)로 되돌립니다 — 적용 전/후 비교 시연용입니다.");
+  btn.onclick = detachProfile;
+}
+
+async function detachProfile() {
+  const id = await currentCameraId();
+  if (!id) return;
+  if (!confirm(`${id} 의 발행본 적용을 해제합니다.\n\n다음 조준부터 config 씨앗값(없으면 무보정)으로 동작합니다 — 적용 전/후를 비교해 보여줄 때 쓰는 상태입니다.\n발행본은 그대로 남고, 「다시 적용」 한 번으로 복귀합니다. 계속할까요?`)) return;
+  await profileWrite(
+    () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/apply`), { revision: null }),
+    () => t("적용을 해제했습니다 — 지금부터 씨앗값(없으면 무보정)으로 조준합니다. 발행본은 그대로 있습니다."),
+  );
+}
+
+async function refollowProfile() {
+  const id = await currentCameraId();
+  if (!id) return;
+  await profileWrite(
+    () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/apply`), { follow: true }),
+    (res) => t("다시 적용했습니다 — rev {rev} · 최신 따름.", { rev: res?.applied?.revision ?? "?" }),
+  );
+}
+
+async function pinToRevision(revision) {
+  const id = await currentCameraId();
+  if (!id) return;
+  await profileWrite(
+    () => postJson(api(`/profiles/camera/${encodeURIComponent(id)}/apply`), { revision }),
+    () => t("rev {rev} 에 고정했습니다 — 고정을 풀기 전까지 새 발행이 조준에 실리지 않습니다.", { rev: revision }),
+  );
 }
 
 // 삭제·되돌리기는 **활성 카메라의 발행본**에만 작용한다. 발행본이 없으면 성공할 수 없는
@@ -1071,6 +1161,10 @@ async function loadProfile() {
   try {
     renderProfile(await getJson(api(`/profiles/camera/${encodeURIComponent(id)}`)));
     setProfileActions(true, id);
+    // 0.18.0(보드 #73)부터 revisions 응답이 적용 포인터를 실어 준다 — 없으면(옛 백엔드) null.
+    let applied = null;
+    try { applied = (await getJson(api(`/profiles/camera/${encodeURIComponent(id)}/revisions`))).applied ?? null; } catch { /* 옛 백엔드 */ }
+    renderAppliedControls(applied, id);
   } catch (e) {
     // 404 는 장애가 아니라 "아직 한 번도 발행하지 않았다"는 정상 상태다 — 그렇게 말한다.
     meta.replaceChildren();
@@ -1079,6 +1173,7 @@ async function loadProfile() {
       : "프로파일을 읽지 못했습니다: " + (e.message || e)));
     // 읽기 실패(404 아님)까지 잠그지는 않는다 — 일시 장애로 버튼이 죽으면 그게 더 나쁘다.
     if (e.status === 404) setProfileActions(false, id);
+    renderAppliedControls(null, id);
   }
 }
 
@@ -1422,13 +1517,20 @@ async function openImportPanel() {
 async function openRevisionPanel() {
   const id = await currentCameraId();
   if (!id) return;
-  let revs = [];
-  try { revs = (await getJson(api(`/profiles/camera/${encodeURIComponent(id)}/revisions`))).revisions || []; }
-  catch { /* 아래에서 안내한다 */ }
+  let revs = [], applied = null;
+  try {
+    const res = await getJson(api(`/profiles/camera/${encodeURIComponent(id)}/revisions`));
+    revs = res.revisions || [];
+    applied = res.applied ?? null;   // 0.18.0(보드 #73)의 적용 포인터 — 옛 백엔드엔 없다
+  } catch { /* 아래에서 안내한다 */ }
 
-  // 런타임은 언제나 최신 발행본을 읽는다 — 옛 리비전을 "고른다"는 개념이 백엔드에 없다.
-  // 그래서 되돌리기는 고르는 일이 아니라 **다시 발행하는 일**이고, 이력은 선형으로 남는다.
-  openPanel(t("런타임은 언제나 최신 발행본을 읽습니다. 옛 리비전을 고르면 그것을 새 리비전으로 다시 발행해 되돌립니다."), (panel) => {
+  // 0.18.0 부터 런타임은 **적용 포인터**를 따른다(기본: 최신 따름). 옛 리비전으로 돌아가는
+  // 일은 재발행이 아니라 **고정**이다 — 이력에 사본이 늘지 않고, "rev 3 을 다시 쓴다"가
+  // 그대로 남는다. 포인터가 없는 옛 백엔드에서만 재발행(copy)으로 되돌린다.
+  const head = applied
+    ? t("런타임은 적용 포인터를 따릅니다(기본: 최신 따름). 옛 리비전을 고르면 재발행 없이 그 리비전에 고정합니다.")
+    : t("런타임은 언제나 최신 발행본을 읽습니다. 옛 리비전을 고르면 그것을 새 리비전으로 다시 발행해 되돌립니다.");
+  openPanel(head, (panel) => {
     if (!revs.length) {
       const none = document.createElement("div");
       none.className = "hint";
@@ -1438,21 +1540,33 @@ async function openRevisionPanel() {
     }
     const sel = document.createElement("select");
     for (const r of revs.slice().reverse()) {
-      sel.appendChild(new Option(`rev ${r.revision} · ${fmtWhen(r.issuedAt)} · ${provText(r.provenance)}`, String(r.revision)));
+      // 어느 리비전이 지금 조준에 실려 있는지 목록이 스스로 말한다.
+      const mark = applied && Number(applied.revision) === Number(r.revision)
+        ? (applied.following === false ? t(" · 적용 중(고정)") : t(" · 적용 중")) : "";
+      sel.appendChild(new Option(`rev ${r.revision} · ${fmtWhen(r.issuedAt)} · ${provText(r.provenance)}${mark}`, String(r.revision)));
     }
     panel.appendChild(panelRow(t("리비전"), sel));
     // 순서를 가정하지 않고 최대값으로 최신을 정한다(목록 정렬은 표시용 규약일 뿐이다).
     const latest = revs.reduce((m, r) => (Number(r.revision) > m ? Number(r.revision) : m), -Infinity);
     const go = document.createElement("button");
-    // 버튼이 무슨 일이 일어날지 말한다 — 최신은 확인일 뿐이고, 옛것은 새 리비전을 만든다.
+    // 버튼이 무슨 일이 일어날지 말한다 — 포인터가 있으면 고정/따름, 없으면 재발행이다.
     const syncGo = () => {
-      // 최신도 이제 "확인"이 아니라 실제 적재다 — 라벨이 하는 일을 말해야 한다.
-      go.textContent = Number(sel.value) === latest ? t("지금 적용") : t("이 리비전으로 되돌리기");
+      const picked = Number(sel.value);
+      if (applied) {
+        go.textContent = picked !== latest ? t("이 리비전에 고정")
+          : (applied.following === false ? t("최신 따름으로") : t("지금 적용"));
+      } else {
+        go.textContent = picked === latest ? t("지금 적용") : t("이 리비전으로 되돌리기");
+      }
     };
     sel.onchange = syncGo;
     syncGo();
     go.onclick = () => {
       const picked = Number(sel.value);
+      if (applied) {
+        if (picked !== latest) return pinToRevision(picked);
+        return applied.following === false ? refollowProfile() : applyLatestToRuntime();
+      }
       return picked === latest ? applyLatestToRuntime() : rollbackToRevision(picked);
     };
     panel.appendChild(go);

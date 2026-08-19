@@ -122,6 +122,13 @@ Pages 는 **재작성 규칙이 없는 순수 정적 호스트**다. 다음이 �
 - **`status.recent[]`** 가 마지막 6표본을 준다 — `{zoom, dx, dy, residualX, residualY, peak,
   margin, usable}`. 진행률만 세지 말고 이걸 그린다. 20분 독점 작업에서 "도는 중"과 "굳음"을
   가르는 유일한 신호다.
+- **0.18.0 부터 적용 포인터가 있다**(보드 #73). `apply {revision:N}`=고정(옛 리비전 합법) ·
+  `{revision:null}`=적용 해제(다음 읽기부터 씨앗값) · `{follow:true}`=최신 따름 복귀 · `{}`=확인.
+  상태는 revisions 응답의 `applied` 와 `live.optics` 의 `source·revision·following·detached` 로
+  온다 — 4-상태: 최신 따름 / 고정 / 해제(detached) / 미발행(revision null + following, 해제 아님).
+  **핀·해제 중 발행은 문서만 쓰고 `reload.applied:false` + 사유**로 답한다(appliedSuffix 가 그대로
+  옮긴다). **고정 중 DELETE 는 409 `pinned`** — 해제 후 삭제가 백엔드 규칙이다. 옛 리비전 복귀는
+  재발행(copy)이 아니라 **고정**으로 한다 — 이력에 사본이 늘지 않는다(포인터 없는 옛 백엔드만 copy).
 - **0.19.0 부터 검증 판정은 「구간 대 문턱」이다**(보드 #95). 줌마다 자기 게이트
   `thresholdPx = max(10px, f(z)·tan(0.040°))` 와 신뢰구간 `ciAbsPx{lo,hi}` 가 오고, 구간이
   게이트에 걸치면 `inconclusive`(+`reason: noise|few_samples`) 다. **논리 분기는 `certified`
