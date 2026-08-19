@@ -284,7 +284,7 @@ test("캘리브레이션 페이지 — 프로파일 관리 창구", async () => 
   assert.match(html, /c\.textContent = text/, "이력 표의 값은 textContent 로 넣어야 한다");
 
   // 퇴역은 목록에서 사라지고, 되돌리는 방법이 화면에 없다 — 확인을 받아야 한다.
-  assert.match(html, /async function retireProfile\(\)[\s\S]{0,600}confirm\(/, "퇴역은 확인을 받아야 한다");
+  assert.match(html, /async function retireProfile\(\)[\s\S]{0,1400}confirm\(/, "삭제는 확인을 받아야 한다");
   // **언제** 씨앗값으로 돌아가는지는 백엔드 계약마다 다르다 — 0.17.0 은 다음 조준부터고,
   // 그 이전은 기기 재선택·재시작부터다. 예측하지 말고 끝난 뒤에 읽는다. 다만 **한 칸(declared)만
   // 읽으면 안 된다** — declared 는 발행본과 씨앗값을 구분하지 못해서, 씨앗값 있는 기기는 퇴역
@@ -311,6 +311,14 @@ test("캘리브레이션 페이지 — 프로파일 관리 창구", async () => 
   assert.match(html, /id="prof-act-retire"[^>]*>삭제</, "버튼은 「삭제」로 읽혀야 한다");
   assert.match(html, /발행본 전체를 삭제합니다/, "확인창도 같은 말을 써야 한다");
   assert.doesNotMatch(html, /퇴역<\/button>|를 퇴역시켰습니다/, "「퇴역」 표기가 화면으로 돌아오면 안 된다");
+
+  // 성공할 수 없는 버튼은 눌리면 안 된다 — 발행본 없는 카메라에서 삭제·되돌리기가 눌리면,
+  // 옆의 카탈로그(다른 카메라들 발행본)를 보고 누른 사람이 "지웠는데 남아 있다"를 겪는다
+  // (2026-08-19 실제 상황). 실패 메시지도 어느 카메라 얘기인지 이름을 말해야 한다.
+  assert.match(html, /function setProfileActions\(hasProfile, id\)/, "발행본 유무로 버튼을 잠가야 한다");
+  assert.match(html, /retire\.disabled = !hasProfile/, "발행본 없으면 삭제가 잠겨야 한다");
+  assert.match(html, /다른 카메라의 발행본을 지우려면 헤더에서 그 카메라를 먼저 고르세요/, "잠금 사유가 다음 행동을 알려줘야 한다");
+  assert.match(html, /에는 삭제할 발행본이 없습니다[\s\S]{0,80}다른 카메라의 것/, "안전망 메시지는 카메라 이름과 원인을 함께 말해야 한다");
 
   // 발행이 곧 적용이다 — 런타임은 최신 발행본을 스스로 읽는다. 그래서 apply 는 확인이고,
   // 옛 리비전을 실어 보내면 409 다(백엔드 0.16.4). 되돌리기는 그 리비전의 **재발행**이다.
