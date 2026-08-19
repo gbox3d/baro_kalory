@@ -496,28 +496,61 @@ function renderCalibStatus(st) {
     // 합격 = 이 카메라에 지금 걸린 보정이 실제로 맞다는 뜻. 불합격이면 '필요한 게인'이 곧
     // 이 개체가 원하는 값이므로, 전체 캘리브레이션을 돌려 그 값을 실측해 저장하면 된다.
     // '측정 불가'는 합격이 아니다 — 못 본 줌을 통과시켰다고 말하는 게 가장 나쁜 결과다.
-    const verdictText = { pass: "합격", fail: "불합격", incomplete: "측정 불가 구간 있음", unknown: "판정 불가" }[r.verdict] || r.verdict;
+    //
+    // 0.19.0(보드 #95)부터 판정은 **구간 대 문턱**이다 — 줌마다 자기 게이트(thresholdPx =
+    // max(10px, 각도 페데스털))와 신뢰구간(ciAbsPx)이 오고, 구간이 게이트에 걸치면 fail 이
+    // 아니라 **inconclusive** 다. 노이즈가 정한 판정을 불합격이라 부르지 않는다. 논리 분기는
+    // certified 불린만 쓴다 — verdict !== "fail" 은 판정 보류를 성공으로 삼키는 버그다.
+    // 옛 백엔드에는 새 필드가 없으므로 종전 표기가 그대로 나온다 — 없는 값을 지어내지 않는다.
+    const px1 = (v) => (Number.isFinite(Number(v)) ? Number(v).toFixed(1) : "?");
+    const verdictText = { pass: "합격", fail: "불합격", incomplete: "측정 불가 구간 있음",
+      inconclusive: "판정 보류 — 측정 한계", unknown: "판정 불가" }[r.verdict] || r.verdict;
     const color = r.verdict === "pass" ? "var(--color-accent,#4a4)"
       : r.verdict === "fail" ? "var(--color-danger,#e66)" : "var(--color-warn,#ca4)";
+    const headNum = Number.isFinite(Number(r.worstOverGate))
+      ? ` — 최악 잔차가 자기 줌 기준의 ${px1(r.worstOverGate)}×`
+      : (r.worstPx !== null && r.worstPx !== undefined ? ` — 잰 구간의 최악 잔차 ${r.worstPx}px (기준 10px)` : "");
+    // 보정이 하나도 안 걸린 채 잰 검증의 fail 은 「카메라 불량」이 아니라 「보정 전 기록」이다.
+    // 비교 시연의 before 절반이 빨간 경고로 뒤덮이면 안 된다(보드 #95 렌더링 노트).
+    const uncorrected = r.calibration === "none";
+    const hasNew = Array.isArray(r.checks) && r.checks.some((c) => c && c.verdict);
+    const ckVerdictCell = (c) => {
+      const t2 = c.verdict === "pass" ? "합격" : c.verdict === "fail" ? "불합격"
+        : c.reason === "few_samples" ? "보류 · 표본 부족" : "보류 · 측정 한계";
+      const col = c.verdict === "pass" ? "var(--color-accent,#4a4)"
+        : c.verdict === "fail" ? "var(--color-danger,#e66)" : "var(--color-warn,#ca4)";
+      return `<td style="text-align:right; padding:2px 8px; color:${col};">${t2}</td>`;
+    };
     box.innerHTML =
       `<div style="color:${color}; margin-bottom:6px;">
-         검증 ${verdictText}${r.worstPx !== null ? ` — 잰 구간의 최악 잔차 ${r.worstPx}px (기준 10px)` : ""}
+         검증 ${verdictText}${headNum}
        </div>
+       ${uncorrected ? `<div class="hint" style="margin-bottom:6px; color:var(--color-warn,#ca4);"><b>미보정 상태 측정</b> — 지금 이 카메라에는 보정이 걸려 있지 않습니다(게인 1.0). 이 결과는 「보정 전」 기록이지 카메라 불량이 아닙니다.</div>` : ""}
        ${r.checks.length ? `<table style="font-size:12px; border-collapse:collapse;">
          <tr><th style="text-align:right; padding:2px 8px;">zoom</th>
              <th style="text-align:right; padding:2px 8px;">남는 오차</th>
+             ${hasNew ? `<th style="text-align:right; padding:2px 8px;">신뢰구간</th>
+             <th style="text-align:right; padding:2px 8px;">기준</th>
+             <th style="text-align:right; padding:2px 8px;">판정</th>` : ""}
              <th style="text-align:right; padding:2px 8px;">적용 중</th>
              <th style="text-align:right; padding:2px 8px;">이 카메라에 필요</th></tr>
          ${r.checks.map((c) => `<tr>
            <td style="text-align:right; padding:2px 8px;">${c.zoom}</td>
-           <td style="text-align:right; padding:2px 8px;">${c.residualPx}px</td>
+           <td style="text-align:right; padding:2px 8px;">${Number.isFinite(Number(c.signedPx)) ? (Number(c.signedPx) > 0 ? "+" : "") + px1(c.signedPx) : c.residualPx}px</td>
+           ${hasNew ? `<td style="text-align:right; padding:2px 8px;">${c.ciAbsPx ? `${px1(c.ciAbsPx.lo)}–${px1(c.ciAbsPx.hi)}px` : "—"}</td>
+           <td style="text-align:right; padding:2px 8px;">${c.thresholdPx != null ? px1(c.thresholdPx) + "px" : "—"}</td>
+           ${c.verdict ? ckVerdictCell(c) : '<td style="text-align:right; padding:2px 8px;">—</td>'}` : ""}
            <td style="text-align:right; padding:2px 8px;">${c.gainApplied}</td>
            <td style="text-align:right; padding:2px 8px;">${c.gainNeeded}</td></tr>`).join("")}
        </table>` : ""}
+       ${hasNew ? '<div class="hint" style="margin-top:4px;">남는 오차의 부호: + 는 못 미침(undershoot), − 는 지나침(overshoot). 「보류 · 측정 한계」는 이 설치 환경(바람·구조물)의 산포가 기준보다 커서 판정할 수 없다는 뜻입니다 — 다시 재도 같습니다. 표본을 늘리면 좁아질 수 있습니다.</div>' : ""}
+       ${(Array.isArray(r.unmeasured) && r.unmeasured.length) ? `<div class="hint" style="margin-top:6px; color:var(--color-warn,#ca4);">${r.unmeasured.map((u) => `줌 ${u.zoom}: ${u.why || u.reason || "측정하지 못했습니다"} — 장면 문제라 판정에서 뺐습니다`).join("<br>")}</div>` : ""}
        ${r.hint ? `<div class="hint" style="margin-top:6px; color:var(--color-warn,#ca4);">${r.hint}</div>` : ""}
        ${r.verdict === "fail" ? (calibVerifyOnly
          ? '<div class="hint" style="margin-top:6px; color:var(--color-danger,#e66);">시뮬레이터 조준이 렌더와 어긋납니다 — 플러그인(HucomsProtocol) 기하가 회귀했을 수 있습니다.</div>'
-         : '<div class="hint" style="margin-top:6px;">이 개체는 지금 걸린 값과 다릅니다 — 전체 캘리브레이션을 돌려 이 카메라의 실측값을 저장하세요.</div>') : ""}
+         : (uncorrected
+           ? '<div class="hint" style="margin-top:6px;">보정이 없는 상태의 측정입니다 — 전체 캘리브레이션을 돌려 이 카메라의 실측값을 발행하면 위 「필요」 값이 걸립니다.</div>'
+           : '<div class="hint" style="margin-top:6px;">이 개체는 지금 걸린 값과 다릅니다 — 전체 캘리브레이션을 돌려 이 카메라의 실측값을 저장하세요.</div>')) : ""}
        <div class="hint" style="margin-top:6px;">샘플 ${r.usable}/${r.of} 사용 (나머지는 장면에 특징이 없거나 반복 무늬라 버림)</div>`;
     return;
   }

@@ -122,6 +122,15 @@ Pages 는 **재작성 규칙이 없는 순수 정적 호스트**다. 다음이 �
 - **`status.recent[]`** 가 마지막 6표본을 준다 — `{zoom, dx, dy, residualX, residualY, peak,
   margin, usable}`. 진행률만 세지 말고 이걸 그린다. 20분 독점 작업에서 "도는 중"과 "굳음"을
   가르는 유일한 신호다.
+- **0.19.0 부터 검증 판정은 「구간 대 문턱」이다**(보드 #95). 줌마다 자기 게이트
+  `thresholdPx = max(10px, f(z)·tan(0.040°))` 와 신뢰구간 `ciAbsPx{lo,hi}` 가 오고, 구간이
+  게이트에 걸치면 `inconclusive`(+`reason: noise|few_samples`) 다. **논리 분기는 `certified`
+  불린 하나만 쓴다** — `verdict !== "fail"` 은 판정 보류를 성공으로 삼키는 버그다. 헤드라인
+  숫자는 `worstOverGate`(자기 줌 기준의 배수) — 23배 화각 범위에서 픽셀 원값 비교가 #95 의
+  병인이었다. `calibration: "none"` 이면 「미보정 상태 측정」 캡션을 먼저 붙인다 — 보정 전
+  기록의 fail 이 카메라 불량으로 읽히면 비교 시연의 before 절반이 빨간 경고로 덮인다.
+  `inconclusive/noise` 와 #92 의 `settleWarn: timeout` 은 같은 물리적 사실(좁은 화각에서
+  화면이 안 멈춤)의 두 얼굴이다 — 한 이야기로 그린다.
 - **0.17.1 부터 표본마다 `settleMs`·`settleWarn` 이 실린다**(보드 #92 — 진동 안정화 게이트).
   `settleWarn` 은 정상이면 없음, `timeout`(1px 안으로 못 멈춤 — **가장 조용한 순간의 프레임**을
   사용, 고배율에서는 바람·구조물 때문에 정상) · `unmeasurable`(패턴 부족) · `undecodable`.

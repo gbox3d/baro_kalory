@@ -371,6 +371,17 @@ test("캘리브레이션 페이지 — 라이브 뷰와 스윕 오버레이", as
   assert.match(html, /settleWarn === "unmeasurable" \|\| last\.settleWarn === "undecodable"/,
     "고장 색은 진짜 문제에만 칠한다 — timeout 을 빨갛게 칠하면 정상이 사고처럼 보인다");
   assert.match(html, /settle !== null \|\| last\.settleWarn/, "필드가 없으면 줄 자체가 없어야 한다 (옛 백엔드)");
+
+  // 0.19.0(#95): 판정은 구간 대 문턱이다. 구간이 게이트에 걸치면 fail 이 아니라 inconclusive —
+  // 노이즈가 정한 판정을 불합격이라 부르면 완벽한 보정이 20분 재측정으로 이어진다.
+  assert.match(html, /inconclusive: "판정 보류 — 측정 한계"/, "판정 보류는 불합격과 다른 말이어야 한다");
+  assert.match(html, /보류 · 표본 부족/, "noise 와 few_samples 는 처방이 다르다 — 갈라 말해야 한다");
+  assert.match(html, /worstOverGate/, "줌마다 기준이 달라졌으니 헤드라인은 기준 배수로 말해야 한다");
+  assert.match(html, /ciAbsPx/, "오차 막대를 숫자 옆에 그려야 한다 — 맨숫자는 실제보다 정밀해 보인다");
+  assert.match(html, /thresholdPx/, "기준을 하드코딩하지 않는다 — 줌마다 백엔드가 준 값을 쓴다");
+  assert.match(html, /미보정 상태 측정/, "보정 전 기록의 fail 은 카메라 불량으로 읽히면 안 된다");
+  assert.match(html, /certified 불린만 쓴다/, "논리 분기는 certified 로 — verdict!==fail 은 보류를 성공으로 삼킨다");
+  assert.match(html, /r\.unmeasured/, "장면 탓 미측정은 판정 보류와 다른 축이다 — 따로 그린다");
   // 서버가 준 값은 textContent 로 — 사람이 적은 값이 섞이면 innerHTML 은 마크업이 된다.
   assert.doesNotMatch(html, /hud[\s\S]{0,200}innerHTML/, "HUD 는 innerHTML 로 조립하지 않는다");
 });
