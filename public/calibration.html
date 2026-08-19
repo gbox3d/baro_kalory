@@ -180,7 +180,7 @@
         <button id="prof-act-copy" title="다른 카메라의 발행본을 이 카메라의 새 리비전으로 복사합니다. 같은 모델을 여러 대 들일 때 20분 스윕을 매번 돌리지 않아도 됩니다.">복사</button>
         <button id="prof-act-import" title="곡선을 직접 넣어 발행합니다. 스윕을 돌릴 수 없는 기기(클릭 센터링이 없거나 실기 시간을 못 얻은 기기)를 위한 문입니다.">수입</button>
         <button id="prof-act-apply" title="런타임이 읽을 발행본을 확인하고, 옛 리비전으로 되돌립니다. 런타임은 언제나 최신 발행본을 읽으므로 되돌리기는 그 리비전을 새 리비전으로 다시 발행하는 것입니다.">되돌리기</button>
-        <button id="prof-act-retire" title="이 카메라의 발행본 전체를 퇴역시킵니다. 파일은 .trash 로 옮겨질 뿐 지워지지 않지만 목록에서는 사라지고, 이 카메라는 config 씨앗값으로 조준하게 됩니다.">퇴역</button>
+        <button id="prof-act-retire" title="이 카메라의 발행본 전체를 삭제합니다. 목록과 조회에서 사라지고 화면에서는 되돌릴 수 없습니다 — 이 카메라는 config 씨앗값으로 조준하게 됩니다.">삭제</button>
       </div>
       <div id="profile-panel" style="display:none; margin-bottom:10px;"></div>
       <div id="profile-msg" class="hint" style="margin-bottom:8px;"></div>
@@ -660,15 +660,30 @@ async function loadCalibInstalled() {
     // 이제 스윕의 줌 앵커를 잡아 주는 **씨앗값**일 뿐이다. 그래서 config 만 보면 20분 스윕이
     // 성공해 실제로 적용된 카메라를 두고도 「캘리브레이션이 없습니다」라고 거짓말을 한다
     // (2026-08-18 실제로 그랬다). 서버가 매 요청 계산해 주는 live.optics 가 정본이다.
-    const [cfg, live] = await Promise.all([
-      getJson(api("/cctv/config")),
-      getJson(api("/help?format=json")).then((h) => h.live || {}).catch(() => ({})),
-    ]);
+    const cfg = await getJson(api("/cctv/config"));
     const d = cfg.devices || { active: null, list: [] };
     const dev = (d.list || []).find((x) => x.id === d.active);
     if (!dev) { el.textContent = ""; return; }
+    // declared 하나로는 발행본과 씨앗값을 구분할 수 없다 — 씨앗값이 광학을 제공하는 기기는
+    // 발행본을 퇴역시킨 직후에도 declared:true 다(2026-08-19 ref-ptz 실측: 퇴역 직후 이 줄이
+    // 「발행본이 적용돼 있습니다 (13점…)」라고 거짓말했다). 발행본의 **존재**는 문서 저장소에
+    // 직접 묻는다. 못 읽으면 null — 모르는 것을 아는 척하지 않는다.
+    const [live, hasProfile] = await Promise.all([
+      getJson(api("/help?format=json")).then((h) => h.live || {}).catch(() => ({})),
+      getJson(api(`/profiles/camera/${encodeURIComponent(dev.id)}/revisions`))
+        .then((r) => (r.revisions || []).length > 0)
+        // 404 는 장애가 아니라 답이다 — 「발행본이 확실히 없다」. 그 외 실패만 모름(null)이다.
+        .catch((e) => (e && e.status === 404 ? false : null)),
+    ]);
     const optics = live.optics || null;
-    if (optics && optics.declared) {
+    const opticsDesc = optics
+      ? [
+          Number.isFinite(optics.points) ? `${optics.points}점` : null,
+          Array.isArray(optics.hfovRangeDeg) && optics.hfovRangeDeg.length === 2
+            ? `화각 ${Number(optics.hfovRangeDeg[0]).toFixed(2)}°~${Number(optics.hfovRangeDeg[1]).toFixed(2)}°` : null,
+        ].filter(Boolean).join(" · ")
+      : "";
+    if (optics && optics.declared && hasProfile !== false) {
       // 지금 이 카메라가 실제로 쓰고 있는 곡선. 점 수와 화각 범위가 곧 "무엇이 적용됐나"다.
       el.replaceChildren();
       const lead = document.createElement("span");
@@ -676,12 +691,21 @@ async function loadCalibInstalled() {
       const who = document.createElement("b");
       who.textContent = "발행본이 적용돼 있습니다";
       const tail = document.createElement("span");
-      const pts = Number.isFinite(optics.points) ? `${optics.points}점` : null;
-      const rng = Array.isArray(optics.hfovRangeDeg) && optics.hfovRangeDeg.length === 2
-        ? `화각 ${Number(optics.hfovRangeDeg[0]).toFixed(2)}°~${Number(optics.hfovRangeDeg[1]).toFixed(2)}°` : null;
-      tail.textContent = [pts, rng].filter(Boolean).length
-        ? ` (${[pts, rng].filter(Boolean).join(" · ")}). 출처는 아래 리비전 목록에서 확인하세요.`
-        : ". 출처는 아래 리비전 목록에서 확인하세요.";
+      tail.textContent = (opticsDesc ? ` (${opticsDesc})` : "") + ". 출처는 아래 리비전 목록에서 확인하세요.";
+      el.append(lead, who, tail);
+      return;
+    }
+    if (optics && optics.declared) {
+      // 발행본은 없는데 런타임은 광학을 갖고 있다. 0.17.0 에선 씨앗값이고, 옛 백엔드에서
+      // 방금 퇴역시켰다면 재선택 전까지 옛 곡선이 남은 것이다 — 출처를 단정하면 어느 한쪽
+      // 계약에서 거짓말이 되므로, 아는 두 경우를 그대로 말한다.
+      el.replaceChildren();
+      const lead = document.createElement("span");
+      lead.textContent = "현재 ";
+      const who = document.createElement("b");
+      who.textContent = "발행본이 없습니다";
+      const tail = document.createElement("span");
+      tail.textContent = ` — 그래도 런타임에 광학이 있습니다${opticsDesc ? ` (${opticsDesc})` : ""}: config 씨앗값이거나, 방금 삭제한 곡선이 아직 남은 것입니다.`;
       el.append(lead, who, tail);
       return;
     }
@@ -944,15 +968,28 @@ function appliedSuffix(state) {
 
 // 퇴역은 적재의 반대라 적용 경로를 쓸 수 없다. 그리고 언제 씨앗값으로 돌아가는지는 백엔드가
 // 광학을 **언제 읽느냐**에 달려 있다 — 계약마다 다르다. 예측하는 갈래를 만드는 대신 **물어본다.**
-async function opticsDeclaredNow() {
-  try { return !!((await getJson(api("/help?format=json"))).live || {}).optics?.declared; }
+//
+// 다만 한 칸(declared)만 읽으면 안 된다 — declared 는 「발행본이 적재됨」과 「씨앗값이 광학을
+// 제공함」을 구분하지 못해서, 씨앗값 있는 기기는 퇴역 직후에도 true 다. 그 판정이 「아직 옛
+// 곡선을 씁니다」라는 거짓말을 만들었다(2026-08-19 ref-ptz 실측 — 실제로는 이미 씨앗값 13점으로
+// 내려앉아 있었다). 그래서 퇴역 **전후를 비교**한다: 광학이 달라졌으면 내려앉은 것, 그대로면
+// 아직 옛 곡선. 어느 필드 하나의 의미에도 기대지 않는 판정이다.
+async function opticsSnapshot() {
+  try { return ((await getJson(api("/help?format=json"))).live || {}).optics || null; }
   catch { return null; }
 }
 
-function retireEffect(declared) {
-  if (declared === false) return t("이 카메라는 지금 config 씨앗값으로 조준합니다.");
-  if (declared === true) return t("돌고 있는 카메라는 아직 지금 곡선을 씁니다 — 카메라를 다시 고르거나 백엔드를 재시작하면 씨앗값으로 돌아갑니다.");
-  return t("이제 config 씨앗값으로 조준합니다(광학 상태를 다시 읽지는 못했습니다).");
+function opticsSig(o) {
+  return o ? JSON.stringify({ d: !!o.declared, p: o.points ?? null, r: o.hfovRangeDeg ?? null }) : null;
+}
+
+function retireEffect(before, after) {
+  if (!after) return t("광학 상태를 다시 읽지는 못했습니다 — 위 상태 줄을 확인하세요.");
+  if (after.declared === false) return t("이 카메라는 지금 보정 없이 조준합니다 — 씨앗값도 없습니다.");
+  if (before && opticsSig(before) !== opticsSig(after)) return t("이 카메라는 지금 config 씨앗값으로 조준합니다.");
+  // 광학이 그대로다 — 옛 계약(부팅·재선택 때만 읽는 백엔드)이 옛 곡선을 물고 있는 경우다.
+  // 씨앗값이 우연히 같은 숫자일 수도 있지만, 그때도 조준 값은 같으니 이 문장은 틀리지 않는다.
+  return t("돌고 있는 카메라는 아직 지금 곡선을 씁니다 — 카메라를 다시 고르거나 백엔드를 재시작하면 씨앗값으로 돌아갑니다.");
 }
 
 async function loadProfile() {
@@ -1355,20 +1392,24 @@ async function openRevisionPanel() {
 async function retireProfile() {
   const id = await currentCameraId();
   if (!id) return;
-  // 파기가 아니라 퇴역이지만, 목록에서 사라지는 것은 되돌리는 방법이 화면에 없다 — 확인을 받는다.
-  // 퇴역은 **그 카메라의 발행본 전체**를 한 번에 치운다(라우트에 revision 인자가 없다).
+  // 화면 표기는 **「삭제」**다. 백엔드 용어는 retire(.trash 이동, 바이트 보존)지만 그건 서버
+  // 관리자의 사정이고, 작업자에게는 목록에서 사라지고 화면으로 못 되돌리면 그게 삭제다 —
+  // 「퇴역」이라는 표기가 이 버튼을 은어 뒤에 숨겨 삭제 방법을 못 찾게 했다(2026-08-19).
+  // 삭제는 **그 카메라의 발행본 전체**를 한 번에 치운다(라우트에 revision 인자가 없다).
   // 되돌리는 길이 API 에 없으므로(.trash 복구 라우트 없음) 확인을 받는다.
   // 언제 씨앗값으로 돌아가는지는 백엔드 계약마다 다르므로 여기서 단정하지 않는다 — 확인창은
   // 되돌릴 수 없다는 것과 결과만 말하고, 시점은 끝난 뒤에 실제로 읽어서 말한다.
-  if (!confirm(`${id} 의 발행본 전체를 퇴역시킵니다.\n\n파일은 .trash 로 옮겨질 뿐 지워지지 않지만, 목록과 조회에서는 사라지고 API 로 되돌릴 방법이 없습니다.\n이 카메라는 발행본을 잃고 config 씨앗값으로 조준하게 됩니다. 계속할까요?`)) return;
+  if (!confirm(`${id} 의 발행본 전체를 삭제합니다.\n\n목록과 조회에서 사라지고 API 로 되돌릴 방법이 없습니다(파일 자체는 서버의 .trash 폴더로 옮겨져 서버 관리자만 손댈 수 있습니다).\n이 카메라는 발행본을 잃고 config 씨앗값으로 조준하게 됩니다. 계속할까요?`)) return;
   // 「적용 해제」가 생기면 비교 시연은 그쪽으로 간다 — 퇴역은 지우는 쪽이다(baro_memo #73).
+  // 판정 기준점은 퇴역 **전**에 찍는다 — 끝나고 나서는 무엇이 달라졌는지 알 길이 없다.
+  const before = await opticsSnapshot();
   await profileWrite(
     async () => ({
       res: await reqJson("DELETE", api(`/profiles/camera/${encodeURIComponent(id)}`)),
-      declared: await opticsDeclaredNow(),
+      after: await opticsSnapshot(),
     }),
-    ({ res, declared }) =>
-      t("rev {revs} 를 퇴역시켰습니다", { revs: res.revisions.join(", ") }) + " — " + retireEffect(declared),
+    ({ res, after }) =>
+      t("rev {revs} 를 삭제했습니다", { revs: res.revisions.join(", ") }) + " — " + retireEffect(before, after),
   );
 }
 

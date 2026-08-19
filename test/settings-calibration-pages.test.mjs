@@ -286,12 +286,31 @@ test("캘리브레이션 페이지 — 프로파일 관리 창구", async () => 
   // 퇴역은 목록에서 사라지고, 되돌리는 방법이 화면에 없다 — 확인을 받아야 한다.
   assert.match(html, /async function retireProfile\(\)[\s\S]{0,600}confirm\(/, "퇴역은 확인을 받아야 한다");
   // **언제** 씨앗값으로 돌아가는지는 백엔드 계약마다 다르다 — 0.17.0 은 다음 조준부터고,
-  // 그 이전은 기기 재선택·재시작부터다. 화면이 그 시점을 예측해 적어 두면 백엔드가 바뀔 때마다
-  // 조용히 거짓말을 시작한다(실제로 하루 만에 두 번 바뀌었다). 예측하지 말고 끝난 뒤에 읽는다.
-  assert.match(html, /async function opticsDeclaredNow\(\)/, "퇴역 뒤 상태는 예측하지 말고 읽어야 한다");
-  assert.match(html, /declared: await opticsDeclaredNow\(\)/, "퇴역 결과 문구는 실제로 읽은 값으로 지어야 한다");
-  assert.match(html, /function retireEffect\(declared\)[\s\S]{0,500}declared === false[\s\S]{0,500}declared === true/,
-    "읽어 온 상태로 갈라 말해야 한다 — 아직 옛 곡선을 쓰는 백엔드가 살아 있다");
+  // 그 이전은 기기 재선택·재시작부터다. 예측하지 말고 끝난 뒤에 읽는다. 다만 **한 칸(declared)만
+  // 읽으면 안 된다** — declared 는 발행본과 씨앗값을 구분하지 못해서, 씨앗값 있는 기기는 퇴역
+  // 직후에도 true 다(2026-08-19 ref-ptz 실측: 이미 씨앗값으로 내려앉았는데 「아직 옛 곡선을
+  // 씁니다」라고 말했다). 그래서 전후를 찍어 **변화**를 본다.
+  assert.match(html, /async function opticsSnapshot\(\)/, "퇴역 앞뒤 광학을 찍어야 한다");
+  assert.match(html, /const before = await opticsSnapshot\(\)/, "기준점은 퇴역 전에 찍어야 한다");
+  assert.match(html, /after: await opticsSnapshot\(\)/, "퇴역 후 상태를 다시 읽어야 한다");
+  assert.match(html, /function retireEffect\(before, after\)[\s\S]{0,800}opticsSig\(before\) !== opticsSig\(after\)/,
+    "한 칸이 아니라 변화를 봐야 한다 — declared 는 발행본과 씨앗값을 구분하지 못한다");
+  assert.doesNotMatch(html, /opticsDeclaredNow/, "declared 한 칸 판정은 돌아오면 안 된다");
+
+  // 「발행본이 적용돼 있습니다」도 declared 하나로 판정하면 같은 거짓말이 된다 — 퇴역 직후
+  // 씨앗값 광학을 보고도 발행본이라고 말했다. 발행본의 존재는 문서 저장소에 직접 묻는다.
+  assert.match(html, /hasProfile !== false/, "발행본 주장에는 발행본 존재 확인이 필요하다");
+  assert.match(html, /revisions[\s\S]{0,80}length > 0/, "발행본 존재는 리비전 목록으로 확인한다");
+  assert.match(html, /e\.status === 404 \? false : null/,
+    "404 는 「확실히 없음」이다 — 장애(null)와 섞으면 발행본 없는 카메라가 발행본 있다고 보인다");
+  assert.match(html, /발행본이 없습니다[\s\S]{0,400}씨앗값이거나, 방금 삭제한 곡선/,
+    "발행본 없이 광학만 있는 상태는 출처를 단정하지 말아야 한다 — 옛 계약이 아직 살아 있다");
+
+  // 화면 표기는 「삭제」다. 백엔드 용어(retire)를 화면에 옮긴 「퇴역」은 작업자가 삭제 버튼을
+  // 못 찾게 했다(2026-08-19) — 목록에서 사라지고 화면으로 못 되돌리면 작업자에게는 삭제다.
+  assert.match(html, /id="prof-act-retire"[^>]*>삭제</, "버튼은 「삭제」로 읽혀야 한다");
+  assert.match(html, /발행본 전체를 삭제합니다/, "확인창도 같은 말을 써야 한다");
+  assert.doesNotMatch(html, /퇴역<\/button>|를 퇴역시켰습니다/, "「퇴역」 표기가 화면으로 돌아오면 안 된다");
 
   // 발행이 곧 적용이다 — 런타임은 최신 발행본을 스스로 읽는다. 그래서 apply 는 확인이고,
   // 옛 리비전을 실어 보내면 409 다(백엔드 0.16.4). 되돌리기는 그 리비전의 **재발행**이다.
