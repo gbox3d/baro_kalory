@@ -722,18 +722,12 @@ const DICT = {
   "최신 발행본을 런타임에 깔아 이 차이를 없앱니다. 재측정은 필요 없습니다.":
     { en: "Loads the latest published profile into the runtime and closes this gap. No re-measurement needed.",
       vi: "Nạp hồ sơ mới nhất vào runtime để xóa chênh lệch. Không cần đo lại." },
-  "rev {rev} 을 적용했습니다 — 백엔드를 재시작하면 실제 조준에 반영됩니다 (pm2 restart baro-backend).":
-    { en: "Applied rev {rev} — restart the backend for aiming to actually use it (pm2 restart baro-backend).",
-      vi: "Đã áp dụng rev {rev} — khởi động lại backend để ngắm dùng giá trị này." },
-  "{from} 에서 복사해 rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.":
-    { en: "Copied from {from} and published rev {rev} — takes effect after a backend restart.",
-      vi: "Đã sao từ {from} và phát hành rev {rev} — có hiệu lực sau khi khởi động lại backend." },
-  "rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다.":
-    { en: "Published rev {rev} — takes effect after a backend restart.",
-      vi: "Đã phát hành rev {rev} — có hiệu lực sau khi khởi động lại backend." },
-  "rev {revs} 를 퇴역시켰습니다. 지금 쓰는 값은 그대로입니다.":
-    { en: "Retired rev {revs}. The values in use are unchanged.",
-      vi: "Đã cho nghỉ rev {revs}. Giá trị đang dùng không đổi." },
+  // 「재시작해야 적용된다」 계열 항목 4개를 지웠다(2026-08-19). 백엔드 0.17.0 부터 발행이 곧
+  // 적용이고 화면은 그 문장을 쓰지 않는다 — 사전에 남겨 두면 다시 집어 쓰기 쉽다.
+  // 삭제한 키: "rev {rev} 을 적용했습니다 — …(pm2 restart baro-backend)" ·
+  // "{from} 에서 복사해 rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다." ·
+  // "rev {rev} 로 발행했습니다 — 백엔드 재시작 후 적용됩니다." ·
+  // "rev {revs} 를 퇴역시켰습니다. 지금 쓰는 값은 그대로입니다."(퇴역→삭제 개명으로도 죽었다)
   "JSON 을 읽지 못했습니다": { en: "Could not parse the JSON", vi: "Không đọc được JSON" },
   "{from} 에서 복사해 rev {rev} 발행":
     { en: "copied from {from}, published rev {rev}", vi: "sao từ {from}, phát hành rev {rev}" },

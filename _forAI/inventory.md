@@ -42,9 +42,22 @@ pnpm-workspace.yaml  # workspace 가 아니라 pnpm 설정용(allowBuilds) — p
 
 - 브라우저 진입: 정적 사이트 루트. Pages 에서는 저장소 이름이 base path 가 된다.
 - 페이지 레지스트리: `src/pages.mjs` — 헤더 nav·버전 배지·홈 카드가 전부 이 표 하나를 본다.
-  페이지를 추가하면 여기와 `styles/tailwind.css` 의 `@source`, `pack.mjs` 를 함께 고친다.
+  페이지를 추가할 때 **손으로 맞춰야 하는 미러는 둘뿐이다** — `server.mjs` 의 `PAGE_ROUTES`·
+`PAGE_REDIRECTS` 와 `styles/tailwind.css` 의 `@source`. `pack.mjs` 는 `PAGES` 에서 파생시키므로
+건드리지 않는다(테스트가 그 파생을 잡고 있다).
 - API 계약: `src/api.mjs` — base 주입 체인이 여기 있다(`memo.md` 참조).
-- TODO: 이전 후 실제 파일 목록으로 확정한다.
+- **페이지 로직은 `public/<페이지>.html` 안의 인라인 `<script type="module">` 에 있다** —
+  `src/` 에는 공용 모듈만 있고 페이지별 JS 파일은 없다. 그래서 페이지 하나가 크다
+  (`calibration.html`·`simulator.html` 이 수천 줄). 페이지를 고칠 때 찾을 곳은 그 HTML 이다.
+- **페이지는 공용 모듈을 `./web/api.mjs` 형태로 import 한다** — `server.mjs` 가 `/web/` 을
+  `src/` 로 서빙하고 `pack.mjs` 가 `dist/web/` 로 배치한다. `./src/` 로 쓰면 붙지 않는다.
+- 공용 모듈(`src/*.mjs`): `api` · `camera-preview` · `camera-select` · `i18n` ·
+  `mjpeg-player` · `motion-settle` · `page-chrome` · `pages` · `profile-chart` ·
+  `ptz-controls` · `theme`.
+- **테스트가 두 자리에 있다** — `test/*.test.mjs` 와 소스 옆 `src/*.test.mjs`
+  (`mjpeg-player` · `motion-settle`). `pnpm test` 가 두 글로브를 모두 돈다.
+- 페이지별 버전은 `public/app-versions.json`, 패키지 버전은 `package.json` — 화면에 바뀐 것이
+  있으면 둘을 함께 올린다. **숫자를 문서에 복사하지 않는다**(반드시 낡는다).
 
 ## Build and validation commands
 
@@ -64,6 +77,11 @@ pm2 logs calory-ui --lines 30
 ```
 
 - `public/app.css` 는 **gitignore 산출물**이다. 빌드하지 않으면 UI 가 무스타일로 나온다.
+- `pnpm watch:css` 는 그대로 돌지 않는다 — `pnpm-workspace.yaml` 의 `allowBuilds` 가
+  `@parcel/watcher: false` 로 네이티브 워처 빌드를 스킵해 둔다(어느 머신에서든 `pnpm install` 이
+  통과하게 하려는 의도적 선택). 워처가 필요하면 그 값을 `true` 로 바꾼다. 1회성 `build:css` 는
+  영향 없다.
+- `pnpm test` 는 **두 글로브**를 돈다 — `test/**` 와 `src/**`. 소스 옆 테스트를 빠뜨리지 않는다.
 - Pages 배포는 `main` push → `.github/workflows/pages.yml`(`pnpm test` → `pnpm build:dist` →
   `dist/` 발행). 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 둬야 한다.
 - pm2 로 올린 것과 `pnpm start` 는 **같은 포트를 다툰다**. pm2 에 올려 둔 채 `pnpm start` 를
