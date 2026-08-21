@@ -25,6 +25,7 @@
 @source "../public/calibration.html";
 @source "../public/height.html";
 @source "../src/*.mjs";
+@source "../src/pages/calibration/*.jsx";
 
 /* ── 기본 테마: 80s 유닉스 쉘 / CRT 터미널 (phosphor green, 심플·차분) ── */
 @theme {

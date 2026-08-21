@@ -30,9 +30,11 @@ export function kaloryCompat() {
   return {
     name: "kalory-compat",
 
-    // "./web/X.mjs" (페이지 인라인 스크립트) → src/X.mjs. dev 와 build 가 같은 훅을 탄다.
+    // "./web/…" (페이지의 모듈 참조) → src/…. dev 와 build 가 같은 훅을 탄다 — dev 서버는
+    // 이 훅이 돌려준 절대경로의 파일을 그대로 변환·서빙한다(별도 미들웨어가 필요 없다).
+    // React 파일럿부터 하위 경로와 .jsx 도 이 규약을 쓴다(src/pages/calibration/…).
     resolveId(source) {
-      const m = source.match(/^(?:\.\/|\/)?web\/([\w.-]+\.mjs)$/);
+      const m = source.match(/^(?:\.\/|\/)?web\/((?:[\w.-]+\/)*[\w.-]+\.(?:mjs|jsx))$/);
       if (m) return join(srcDir, m[1]);
       return null;
     },

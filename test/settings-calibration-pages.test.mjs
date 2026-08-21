@@ -4,6 +4,18 @@ import test from "node:test";
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), "utf8");
 
+// calibration 은 React 페이지다(파일럿, plan §2) — HTML 은 셸이고 로직은 소스 파일들에 있다.
+// 단언은 파일까지 지정한다(어느 파일에 있어도 통과하는 뭉친 검사보다 좁다).
+const CAL = {
+  shell: "../public/calibration.html",
+  app: "../src/pages/calibration/app.jsx",
+  actions: "../src/pages/calibration/actions.mjs",
+  overlay: "../src/pages/calibration/sweep-overlay.jsx",
+  status: "../src/pages/calibration/status-card.jsx",
+  card: "../src/pages/calibration/profile-card.jsx",
+  list: "../src/pages/calibration/profile-list.jsx",
+};
+
 test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
   const html = await read("../public/settings.html");
   // 각 탭이 소유한 요소 — 하나라도 빠지면 이식 중 유실된 것이다.
@@ -131,56 +143,68 @@ test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
 // 오른쪽은 지금 고른 카메라의 작업면. 한 단에 세로로 쌓으면 목록에서 고른 것과 오른쪽에 뜬
 // 것이 한 화면에 함께 보이지 않아 비교가 성립하지 않는다.
 test("캘리브레이션 페이지 — 2단 배치와 프로파일 카탈로그", async () => {
-  const html = await read("../public/calibration.html");
-  assert.match(html, /#cal-split[^}]*flex-direction: row/, "2단이어야 한다");
-  assert.match(html, /\.cal-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
-  assert.match(html, /\.cal-col-detail[^}]*overflow-y: auto/, "작업면은 따로 스크롤해야 한다");
+  const shell = await read(CAL.shell);
+  assert.match(shell, /#cal-split[^}]*flex-direction: row/, "2단이어야 한다");
+  assert.match(shell, /\.cal-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
+  assert.match(shell, /\.cal-col-detail[^}]*overflow-y: auto/, "작업면은 따로 스크롤해야 한다");
   // 쓰기는 전부 오른쪽 창구를 지난다 — 목록이 자기 몫의 복사/적용을 따로 부르면 두 벌이 되고,
   // 두 벌은 언젠가 한쪽만 고쳐진다.
-  assert.match(html, /openRevisionPanel\(\) : openCopyPanel\(p\.profileId\)/,
+  const list = await read(CAL.list);
+  assert.match(list, /onPickMine\(\) : onPickOther\(p\.profileId\)/,
     "줄을 누르면 오른쪽 창구가 열려야 한다 (내 것이면 리비전, 남의 것이면 그 원본으로 복사)");
-  assert.doesNotMatch(html, /profile-list[\s\S]{0,4000}postJson\(api\(`\/profiles/,
-    "목록이 직접 쓰기를 부르면 안 된다");
+  const app = await read(CAL.app);
+  assert.match(app, /onPickMine=\{openRevisionPanel\}/, "내 줄은 리비전 창으로 배선돼야 한다");
+  assert.match(app, /onPickOther=\{\(pid\) => openCopyPanel\(pid\)\}/, "남의 줄은 그 원본 복사창으로 배선돼야 한다");
+  assert.doesNotMatch(list, /postJson|reqJson/, "목록이 직접 쓰기를 부르면 안 된다");
   // 발행·복사·퇴역은 저장소의 목록을 바꾼다 — 함께 다시 읽지 않으면 두 단이 다른 말을 한다.
-  assert.match(html, /refreshProfileCard\(\)[\s\S]{0,300}loadProfileList\(\)/,
+  assert.match(app, /Promise\.all\(\[loadProfile\(\), loadRevisions\(\), loadDrift\(\), loadInstalled\(\), loadProfileList\(\)\]\)/,
     "쓰기 뒤에 카탈로그도 다시 읽어야 한다");
 });
 
+
 test("캘리브레이션 페이지 — 독립 실행 계약", async () => {
-  const html = await read("../public/calibration.html");
-  for (const id of [
-    "calib-card", "calib-desc", "calib-installed", "calib-verify", "calib-start",
-    "calib-stop", "calib-advice", "calib-progress", "calib-bar", "calib-msg", "calib-result",
-    "header-camera-select",
-  ]) {
-    assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
+  const shell = await read(CAL.shell);
+  const app = await read(CAL.app);
+  const status = await read(CAL.status);
+  // 셸이 갖는 것: 헤더 셀렉터와 마운트 지점.
+  for (const id of ["header-camera-select", "cal-root"]) {
+    assert.match(shell, new RegExp(`id="${id}"`), `${id} 누락(셸)`);
   }
-  // 이 페이지의 유일한 진입점 — 탭 핸들러가 사라졌으므로 반드시 자기가 부른다.
-  assert.match(html, /^initCalibCard\(\);$/m, "부트에서 initCalibCard() 를 불러야 한다");
+  // 카드가 갖는 것 — 하나라도 빠지면 이식 중 유실된 것이다.
+  assert.match(app, /id="calib-card"/, "calib-card 누락");
+  for (const id of ["calib-desc", "calib-installed", "calib-verify", "calib-start",
+    "calib-stop", "calib-advice", "calib-progress", "calib-bar", "calib-msg", "calib-result"]) {
+    assert.match(status, new RegExp(`id="${id}"`), `${id} 누락`);
+  }
+  // 이 페이지의 유일한 진입점 — 부트 모듈이 스스로 마운트해야 한다.
+  assert.match(app, /createRoot\(document\.getElementById\("cal-root"\)\)/, "부트에서 마운트해야 한다");
+  assert.match(app, /BOOT\.root\.render\(<App cam=\{BOOT\.cam\} \/>\)/, "루트는 캐시되고 렌더는 한 곳이어야 한다 — dev 이중 평가 방어");
   // 진행 중 카메라 전환 잠금 — cctv 페이지 시절의 전역 setBusy 버튼 쓸기가 우연히 막아 주던
   // 동작이라, 독립 페이지에서는 명시적으로 잠가야 한다(잡이 모는 카메라를 갈아타면 결과 오염).
-  assert.match(html, /cam\.setEnabled\(!running\)/);
+  assert.match(app, /cam\.setEnabled\(!running\)/);
   // 폴링 누수 방지.
-  assert.match(html, /pagehide[\s\S]{0,120}clearInterval\(calibPoll\)/);
-  // 외부 의존은 api 모듈 + 공용 크롬/셀렉터뿐 — 논문용 독립성 계약: cctv 쪽 코드를 호출하지
-  // 않는다(주석에서 이름을 언급하는 것은 무방 — 호출 형태만 잡는다).
-  assert.doesNotMatch(html, /setBusy\(|showSwitching\(|controlPreview\.|discoveryPreview\./);
+  assert.match(app, /clearInterval\(pollRef\.current\); \};\s*window\.addEventListener\("pagehide", bye\)/);
+  // 외부 의존은 api 모듈 + 공용 크롬/셀렉터뿐 — cctv 쪽 코드를 호출하지 않는다.
+  for (const src of [app, status]) {
+    assert.doesNotMatch(src, /setBusy\(|showSwitching\(|controlPreview\.|discoveryPreview\./);
+  }
 });
 
-// 캘리브레이션의 산출물은 config 안의 필드가 아니라 발행 후 불변인 리비전 문서다. 그 문서가
-// 무엇을 담고 있는지 화면으로 볼 수 있어야 "지금 이 카메라가 어떤 곡선으로 조준하는가"를
-// 파일을 열지 않고 답할 수 있다.
+
 test("캘리브레이션 페이지 — 발행된 프로파일 가시화", async () => {
-  const html = await read("../public/calibration.html");
-  for (const id of ["profile-card", "profile-meta", "profile-charts", "profile-points", "calib-note"]) {
-    assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
+  const card = await read(CAL.card);
+  const status = await read(CAL.status);
+  for (const id of ["profile-card", "profile-meta", "profile-charts", "profile-points"]) {
+    assert.match(card, new RegExp(`id="${id}"`), `${id} 누락`);
   }
   // 리비전은 발행 후 불변이라 메모를 나중에 고칠 수 없다 — 저장하는 그 순간에 받아야 한다.
-  assert.match(html, /note \? \{ note \} : \{\}/, "메모를 적었으면 저장 요청에 실어 보내야 한다");
-  // 이름·메모는 사람이 적은 문자열이다 — innerHTML 로 이으면 그대로 마크업이 된다.
-  assert.match(html, /v\.textContent = value/, "서버가 준 값은 textContent 로 넣어야 한다");
-  assert.match(html, /e\.status === 404/, "발행 전(404)은 장애가 아니라 정상 상태로 안내해야 한다");
+  assert.match(status, /이 측정에 붙일 이름·메모/, "메모 입력이 있어야 한다");
+  assert.match(status, /note\.trim\(\) \? \{ note: note\.trim\(\) \} : \{\}/, "메모를 적었으면 저장 요청에 실어 보내야 한다");
+  // 이름·메모는 사람이 적은 문자열이다 — React 의 텍스트 렌더가 그 규칙이고, 우회로를 만들지 않는다.
+  assert.doesNotMatch(card, /dangerouslySetInnerHTML|innerHTML/, "서버 값은 텍스트로만 그린다");
+  assert.match(card, /profile\.status === 404/, "발행 전(404)은 장애가 아니라 정상 상태로 안내해야 한다");
 });
+
 
 test("API 오류는 본문을 잃지 않는다", async () => {
   const src = await readFile(new URL("../src/api.mjs", import.meta.url), "utf8");
@@ -254,150 +278,156 @@ test("대문 카드 잠금은 설정 카드를 남긴다", async () => {
 // 복사해 config 에만 넣는 우회로가 생겼다 — 그 결과 대상 카메라는 "보정은 있는데 발행본은
 // 없는" 상태가 되어 두 화면이 서로 다른 말을 했다. 창구는 하나여야 한다.
 test("캘리브레이션 페이지 — 프로파일 관리 창구", async () => {
-  const html = await read("../public/calibration.html");
+  const app = await read(CAL.app);
+  const card = await read(CAL.card);
+  const actions = await read(CAL.actions);
+  const status = await read(CAL.status);
   for (const id of [
     "profile-drift", "profile-actions", "profile-panel", "profile-msg", "profile-revisions",
     "prof-act-copy", "prof-act-import", "prof-act-apply", "prof-act-retire",
-    "profile-list",   // 왼쪽 단: 저장소에 발행된 것 전량(카메라와 무관한 카탈로그)
   ]) {
-    assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
+    assert.match(card, new RegExp(`id="${id}"`), `${id} 누락`);
   }
+  assert.match(app, /id="profile-list"/, "profile-list 누락");   // 왼쪽 단: 카메라와 무관한 카탈로그
 
   // 발행의 정식 이름은 mint 다. /save 는 백엔드가 하위호환으로 남겨 둔 별칭이라 언제
   // 사라져도 이상하지 않다 — 별칭에 매달리지 않는다.
-  assert.match(html, /api\("\/calibration\/mint"\)/, "발행은 mint 라우트로 가야 한다");
-  assert.doesNotMatch(html, /calibration\/save/, "옛 별칭에 매달리지 않는다");
+  assert.match(status, /api\("\/calibration\/mint"\)/, "발행은 mint 라우트로 가야 한다");
+  assert.doesNotMatch(status, /calibration\/save/, "옛 별칭에 매달리지 않는다");
 
   // 네 동작이 전부 백엔드 창구를 지난다. 브라우저가 곡선을 만지면 두 곳 중 한 곳만 쓰인다.
-  assert.match(html, /\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/copy/, "복사는 창구 라우트를 불러야 한다");
-  assert.match(html, /\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/apply/, "적용은 창구 라우트를 불러야 한다");
-  assert.match(html, /reqJson\("DELETE", api\(`\/profiles\/camera\//, "퇴역은 DELETE 여야 한다");
-  assert.match(html, /\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/revisions/, "이력을 읽어야 한다");
+  assert.match(card, /\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/copy/, "복사는 창구 라우트를 불러야 한다");
+  assert.match(app, /\/profiles\/camera\/\$\{enc\(id\)\}\/apply/, "적용은 창구 라우트를 불러야 한다");
+  assert.match(app, /reqJson\("DELETE", api\(`\/profiles\/camera\//, "퇴역은 DELETE 여야 한다");
+  assert.match(app, /\/profiles\/camera\/\$\{enc\(id\)\}\/revisions/, "이력을 읽어야 한다");
 
   // 드리프트 판정은 백엔드가 한다. 브라우저가 곡선을 다시 비교하면 두 번째 구현이 생기고,
   // 두 구현은 언젠가 서로 다른 답을 낸다 — 이 카드가 없애려는 병이 정확히 그것이다.
-  assert.match(html, /help\?format=json[\s\S]{0,200}profileDrift/, "드리프트는 백엔드 라이브 상태에서 가져와야 한다");
-  assert.doesNotMatch(html, /published[\s\S]{0,80}live[\s\S]{0,80}Math\.abs/, "브라우저가 곡선을 다시 비교하면 안 된다");
+  assert.match(app, /help\?format=json[\s\S]{0,200}profileDrift/, "드리프트는 백엔드 라이브 상태에서 가져와야 한다");
+  assert.doesNotMatch(app, /published[\s\S]{0,80}live[\s\S]{0,80}Math\.abs/, "브라우저가 곡선을 다시 비교하면 안 된다");
 
-  // 서버가 준 문자열(경고문·메모·기기명)은 사람이 적은 값이라 innerHTML 로 이으면 마크업이 된다.
-  assert.match(html, /d\.textContent = line/, "드리프트 경고는 textContent 로 넣어야 한다");
-  assert.match(html, /c\.textContent = text/, "이력 표의 값은 textContent 로 넣어야 한다");
+  // 서버가 준 문자열(경고문·메모·기기명)은 사람이 적은 값이다 — React 텍스트 렌더만 쓰고
+  // innerHTML 우회로를 만들지 않는다(위 가시화 테스트가 카드 전체를 문다).
+  assert.match(card, /driftLines\.map\(\(line, i\) =>/, "드리프트 경고는 줄 단위 텍스트로 그린다");
 
   // 퇴역은 목록에서 사라지고, 되돌리는 방법이 화면에 없다 — 확인을 받아야 한다.
-  assert.match(html, /async function retireProfile\(\)[\s\S]{0,1400}confirm\(/, "삭제는 확인을 받아야 한다");
-  // **언제** 씨앗값으로 돌아가는지는 백엔드 계약마다 다르다 — 0.17.0 은 다음 조준부터고,
-  // 그 이전은 기기 재선택·재시작부터다. 예측하지 말고 끝난 뒤에 읽는다. 다만 **한 칸(declared)만
-  // 읽으면 안 된다** — declared 는 발행본과 씨앗값을 구분하지 못해서, 씨앗값 있는 기기는 퇴역
-  // 직후에도 true 다(2026-08-19 ref-ptz 실측: 이미 씨앗값으로 내려앉았는데 「아직 옛 곡선을
-  // 씁니다」라고 말했다). 그래서 전후를 찍어 **변화**를 본다.
-  assert.match(html, /async function opticsSnapshot\(\)/, "퇴역 앞뒤 광학을 찍어야 한다");
-  assert.match(html, /const before = await opticsSnapshot\(\)/, "기준점은 퇴역 전에 찍어야 한다");
-  assert.match(html, /after: await opticsSnapshot\(\)/, "퇴역 후 상태를 다시 읽어야 한다");
-  assert.match(html, /function retireEffect\(before, after\)[\s\S]{0,800}opticsSig\(before\) !== opticsSig\(after\)/,
+  assert.match(app, /async function retireProfile\(\)[\s\S]{0,2200}confirm\(/, "삭제는 확인을 받아야 한다");
+  // **언제** 씨앗값으로 돌아가는지는 백엔드 계약마다 다르다 — 예측하지 말고 끝난 뒤에 읽는다.
+  // 다만 **한 칸(declared)만 읽으면 안 된다** — declared 는 발행본과 씨앗값을 구분하지 못해서,
+  // 씨앗값 있는 기기는 퇴역 직후에도 true 다(2026-08-19 ref-ptz 실측). 전후를 찍어 **변화**를 본다.
+  assert.match(actions, /export async function opticsSnapshot\(\)/, "퇴역 앞뒤 광학을 찍어야 한다");
+  assert.match(app, /const before = await opticsSnapshot\(\)/, "기준점은 퇴역 전에 찍어야 한다");
+  assert.match(app, /after: await opticsSnapshot\(\)/, "퇴역 후 상태를 다시 읽어야 한다");
+  assert.match(actions, /function retireEffect\(before, after\)[\s\S]{0,1000}opticsSig\(before\) !== opticsSig\(after\)/,
     "한 칸이 아니라 변화를 봐야 한다 — declared 는 발행본과 씨앗값을 구분하지 못한다");
-  assert.doesNotMatch(html, /opticsDeclaredNow/, "declared 한 칸 판정은 돌아오면 안 된다");
+  assert.doesNotMatch(app + actions, /opticsDeclaredNow/, "declared 한 칸 판정은 돌아오면 안 된다");
 
   // 「발행본이 적용돼 있습니다」도 declared 하나로 판정하면 같은 거짓말이 된다 — 퇴역 직후
   // 씨앗값 광학을 보고도 발행본이라고 말했다. 발행본의 존재는 문서 저장소에 직접 묻는다.
-  assert.match(html, /hasProfile !== false/, "발행본 주장에는 발행본 존재 확인이 필요하다");
-  assert.match(html, /revisions[\s\S]{0,80}length > 0/, "발행본 존재는 리비전 목록으로 확인한다");
-  assert.match(html, /e\.status === 404 \? false : null/,
+  assert.match(actions, /hasProfile !== false/, "발행본 주장에는 발행본 존재 확인이 필요하다");
+  assert.match(app, /revisions[\s\S]{0,80}length > 0/, "발행본 존재는 리비전 목록으로 확인한다");
+  assert.match(app, /e\.status === 404 \? false : null/,
     "404 는 「확실히 없음」이다 — 장애(null)와 섞으면 발행본 없는 카메라가 발행본 있다고 보인다");
-  assert.match(html, /발행본이 없습니다[\s\S]{0,400}씨앗값이거나, 방금 삭제한 곡선/,
+  assert.match(actions, /발행본이 없습니다[\s\S]{0,400}씨앗값이거나, 방금 삭제한 곡선/,
     "발행본 없이 광학만 있는 상태는 출처를 단정하지 말아야 한다 — 옛 계약이 아직 살아 있다");
 
   // 화면 표기는 「삭제」다. 백엔드 용어(retire)를 화면에 옮긴 「퇴역」은 작업자가 삭제 버튼을
   // 못 찾게 했다(2026-08-19) — 목록에서 사라지고 화면으로 못 되돌리면 작업자에게는 삭제다.
-  assert.match(html, /id="prof-act-retire"[^>]*>삭제</, "버튼은 「삭제」로 읽혀야 한다");
-  assert.match(html, /발행본 전체를 삭제합니다/, "확인창도 같은 말을 써야 한다");
-  assert.doesNotMatch(html, /퇴역<\/button>|를 퇴역시켰습니다/, "「퇴역」 표기가 화면으로 돌아오면 안 된다");
+  assert.match(card, /prof-act-retire[\s\S]{0,400}>삭제</, "버튼은 「삭제」로 읽혀야 한다");
+  assert.match(app, /발행본 전체를 삭제합니다/, "확인창도 같은 말을 써야 한다");
+  assert.doesNotMatch(app + card, /퇴역<\/button>|를 퇴역시켰습니다/, "「퇴역」 표기가 화면으로 돌아오면 안 된다");
 
   // 성공할 수 없는 버튼은 눌리면 안 된다 — 발행본 없는 카메라에서 삭제·되돌리기가 눌리면,
   // 옆의 카탈로그(다른 카메라들 발행본)를 보고 누른 사람이 "지웠는데 남아 있다"를 겪는다
   // (2026-08-19 실제 상황). 실패 메시지도 어느 카메라 얘기인지 이름을 말해야 한다.
-  assert.match(html, /function setProfileActions\(hasProfile, id\)/, "발행본 유무로 버튼을 잠가야 한다");
-  assert.match(html, /retire\.disabled = !hasProfile/, "발행본 없으면 삭제가 잠겨야 한다");
-  assert.match(html, /다른 카메라의 발행본을 지우려면 헤더에서 그 카메라를 먼저 고르세요/, "잠금 사유가 다음 행동을 알려줘야 한다");
-  assert.match(html, /에는 삭제할 발행본이 없습니다[\s\S]{0,80}다른 카메라의 것/, "안전망 메시지는 카메라 이름과 원인을 함께 말해야 한다");
+  const locks = card.match(/disabled=\{!hasProfile\}/g) || [];
+  assert.ok(locks.length >= 2, `발행본 없으면 삭제·되돌리기가 잠겨야 한다 (지금 ${locks.length})`);
+  assert.match(card, /다른 카메라의 발행본을 지우려면 헤더에서 그 카메라를 먼저 고르세요/, "잠금 사유가 다음 행동을 알려줘야 한다");
+  assert.match(app, /에는 삭제할 발행본이 없습니다[\s\S]{0,80}다른 카메라의 것/, "안전망 메시지는 카메라 이름과 원인을 함께 말해야 한다");
 
   // 0.18.0(#73): 존재와 적용은 다른 축이다. 「적용 해제」는 지우기가 아니라 같은 카메라로
   // 적용 전/후를 비교해 보여주는 시연 상태다. 포인터가 없는 옛 백엔드에서는 이 축을 그리지
   // 않는다 — 없는 상태를 있는 척하는 버튼이 곧 죽은 코드다.
-  assert.match(html, /id="prof-act-detach"/, "적용 해제 버튼이 있어야 한다");
-  assert.match(html, /\{ revision: null \}/, "해제는 apply {revision:null} 이다");
-  assert.match(html, /\{ follow: true \}/, "복귀는 apply {follow:true} 다");
-  assert.match(html, /function pinToRevision\(revision\)[\s\S]{0,400}\{ revision \}/,
+  assert.match(card, /id="prof-act-detach"/, "적용 해제 버튼이 있어야 한다");
+  assert.match(app, /\{ revision: null \}/, "해제는 apply {revision:null} 이다");
+  assert.match(app, /\{ follow: true \}/, "복귀는 apply {follow:true} 다");
+  assert.match(app, /async function pinToRevision\(revision\)[\s\S]{0,400}\{ revision \}/,
     "옛 리비전 복귀는 0.18.0 부터 재발행이 아니라 고정이다 — 이력에 사본이 늘지 않는다");
-  assert.match(html, /rollbackToRevision/, "포인터 없는 옛 백엔드용 재발행 경로는 남아야 한다");
-  assert.match(html, /optics\.source === "published"/, "설치 상태는 source 가 있으면 그걸 읽는다 — 추론은 물러난다");
-  assert.match(html, /적용 해제됨/, "detached 는 고장 경고가 아니라 비교 시연 상태로 그린다");
-  assert.match(html, /renderAppliedControls\(null, id\)/, "포인터를 못 읽으면 이 축을 그리지 않는다");
+  assert.match(app, /rollbackToRevision/, "포인터 없는 옛 백엔드용 재발행 경로는 남아야 한다");
+  assert.match(actions, /optics\.source === "published"/, "설치 상태는 source 가 있으면 그걸 읽는다 — 추론은 물러난다");
+  assert.match(actions, /적용 해제됨/, "detached 는 고장 경고가 아니라 비교 시연 상태로 그린다");
+  assert.match(app, /setAppliedPtr\(null\)/, "포인터를 못 읽으면 이 축을 그리지 않는다");
+  assert.match(card, /appliedPtr && !\(appliedPtr\.following !== false && appliedPtr\.revision == null\)/,
+    "포인터 없음·미발행에서는 해제 축이 없어야 한다");
 
   // 발행이 곧 적용이다 — 런타임은 최신 발행본을 스스로 읽는다. 그래서 apply 는 확인이고,
   // 옛 리비전을 실어 보내면 409 다(백엔드 0.16.4). 되돌리기는 그 리비전의 **재발행**이다.
-  assert.doesNotMatch(html, /\/apply`\), *revision *\?/, "옛 리비전을 apply 에 실어 보내면 안 된다 — 409 다");
-  assert.match(html, /async function rollbackToRevision[\s\S]{0,400}\/copy`\)[\s\S]{0,160}fromRevision/,
+  assert.doesNotMatch(app, /\/apply`\), *revision *\?/, "옛 리비전을 apply 에 실어 보내면 안 된다 — 409 다");
+  assert.match(app, /async function rollbackToRevision[\s\S]{0,400}\/copy`\)[\s\S]{0,160}fromRevision/,
     "되돌리기는 같은 카메라에서 fromRevision 으로 재발행해야 한다");
-  // 응답 모양을 단정하면 키 하나 어긋난 날 성공이 빨간 줄로 보인다(스폰 응답에서 겪은 것과 같은 병).
-  assert.doesNotMatch(html, /res\.applied\.revision/, "응답 키를 단정하지 않는다");
+  // 응답 모양을 단정하면 키 하나 어긋난 날 성공이 빨간 줄로 보인다.
+  assert.doesNotMatch(app, /res\.applied\.revision/, "응답 키를 단정하지 않는다");
 
   // 복사본을 "이 카메라 실측"이라고 말하면 안 된다 — 창구가 열린 이상 섞여 들어온다.
-  assert.match(html, /Number\.isFinite\(ins\.profileRevision\)/, "깔린 리비전 번호로 출처를 말해야 한다");
+  assert.match(actions, /Number\.isFinite\(ins\.profileRevision\)/, "깔린 리비전 번호로 출처를 말해야 한다");
 });
 
-// 스윕은 실기를 20분 독점한다. 퍼센트만 세는 화면은 "도는 중"과 "굳음"을 구분하지 못하고,
-// 시작 전에는 카메라가 어디를 보는지도 모른 채 시작하게 된다("밝을 때, 무늬 있는 쪽" 전제).
+
 test("캘리브레이션 페이지 — 라이브 뷰와 스윕 오버레이", async () => {
-  const html = await read("../public/calibration.html");
+  const app = await read(CAL.app);
+  const overlay = await read(CAL.overlay);
+  const status = await read(CAL.status);
 
   // 프리뷰는 공유 모듈을 쓴다. 두 벌째 구현을 두면 스트림 수명·폴백 규칙이 갈라진다.
-  assert.match(html, /import \{ createCameraPreview \} from "\.\/web\/camera-preview\.mjs"/,
+  assert.match(app, /import \{ createCameraPreview \} from "\.\.\/\.\.\/camera-preview\.mjs"/,
     "프리뷰는 공유 모듈이어야 한다");
-  assert.doesNotMatch(html, /new EventSource|createMjpegPlayer/, "페이지가 스트림을 직접 몰면 안 된다");
+  assert.doesNotMatch(app + overlay, /new EventSource|createMjpegPlayer/, "페이지가 스트림을 직접 몰면 안 된다");
 
   // 페이지를 여는 행위가 카메라 점유가 되면 안 된다 — 켜는 것은 사용자 선택이고 그것만 기억한다.
-  assert.match(html, /calib:preview-on\.v1/, "프리뷰 켬/끔 선택을 기억해야 한다");
-  assert.match(html, /pagehide[\s\S]{0,120}calibPreview\.stop\(\)/,
-    "탭을 떠나면 업스트림도 끊어야 한다 — 유령 시청자가 카메라를 점유한다");
-  assert.match(html, /await calibPreview\.stop\(\)/, "정지는 await 해야 한다 — 전환마다 연결이 누적된다");
+  assert.match(app, /calib:preview-on\.v1/, "프리뷰 켬/끔 선택을 기억해야 한다");
+  assert.match(app, /addEventListener\("pagehide", bye\)/, "탭을 떠나면 업스트림도 끊어야 한다 — 유령 시청자가 카메라를 점유한다");
+  assert.match(app, /const bye = \(\) => \{ preview\.stop\(\); \}/, "pagehide 가 프리뷰를 멈춰야 한다");
+  assert.match(app, /await previewRef\.current\.stop\(\)/, "정지는 await 해야 한다 — 전환마다 연결이 누적된다");
 
   // 좌표는 언제나 1920x1080 논리 프레임이다. naturalWidth 로 재면 프리뷰 해상도가 바뀔 때
   // 오버레이만 조용히 어긋난다(화각은 그대로인데 픽셀 수만 다르다).
-  assert.match(html, /viewBox="0 0 1920 1080"/, "오버레이는 논리 프레임 viewBox 를 써야 한다");
+  assert.match(overlay, /FRAME_W = 1920, FRAME_H = 1080/, "논리 프레임 상수가 있어야 한다");
+  assert.match(overlay, /viewBox=\{`0 0 \$\{FRAME_W\} \$\{FRAME_H\}`\}/, "오버레이는 논리 프레임 viewBox 를 써야 한다");
   // 단어가 아니라 **사용**을 본다 — 주석에서 "naturalWidth 를 쓰지 않는다"고 적는 것은 정당하다.
-  assert.doesNotMatch(html, /.s*natural(Width|Height)/, "naturalWidth 를 읽으면 안 된다");
+  assert.doesNotMatch(app + overlay, /\.natural(Width|Height)/, "naturalWidth 를 읽으면 안 된다");
 
-  // 잔차는 합격선이 20px 언저리라 실척으로는 화면에서 안 보인다. 확대는 해도 되지만
+  // 잔차는 합격선이 10px 언저리라 실척으로는 화면에서 안 보인다. 확대는 해도 되지만
   // **배율을 화면에 적어야** 한다 — 말없이 부풀린 그림은 거짓말이다.
-  assert.match(html, /RESIDUAL_ZOOM/, "잔차 확대 배율이 상수로 있어야 한다");
-  assert.match(html, /확대", \{ n: RESIDUAL_ZOOM \}|×\{n\} 확대/, "확대 배율을 화면에 적어야 한다");
+  assert.match(overlay, /RESIDUAL_ZOOM/, "잔차 확대 배율이 상수로 있어야 한다");
+  assert.match(overlay, /확대", \{ n: RESIDUAL_ZOOM \}|×\{n\} 확대/, "확대 배율을 화면에 적어야 한다");
 
   // recent[] 는 백엔드 모양이 바뀔 수 있다 — 없으면 조용히 건너뛰고, 성공으로 단정하지 않는다.
-  assert.match(html, /Array\.isArray\(st\.recent\)/, "recent 를 방어적으로 읽어야 한다");
-  assert.match(html, /s\.usable === false/, "usable 이 없을 때 성공으로 단정하지 않는다");
+  assert.match(overlay, /Array\.isArray\(st\.recent\)/, "recent 를 방어적으로 읽어야 한다");
+  assert.match(overlay, /s\.usable === false/, "usable 이 없을 때 성공으로 단정하지 않는다");
 
   // 0.17.1 의 진동 안정화(#92): settleMs 는 표본의 신뢰도 정보라 그린다. 다만 timeout 은
   // 설치 환경의 속성(고배율에서 화면이 영원히 안 멈춤)이지 고장이 아니다 — 빨간색은
   // unmeasurable/undecodable 에만 쓴다. 필드가 없는 옛 백엔드에서는 줄이 안 떠야 한다.
-  assert.match(html, /last\.settleMs/, "표본의 안정화 대기를 보여줘야 한다");
-  assert.match(html, /가장 조용한 순간 사용/, "timeout 은 최선 프레임 사용이라고 말해야 한다 — 고장이 아니다");
-  assert.match(html, /settleWarn === "unmeasurable" \|\| last\.settleWarn === "undecodable"/,
+  assert.match(overlay, /last\.settleMs/, "표본의 안정화 대기를 보여줘야 한다");
+  assert.match(overlay, /가장 조용한 순간 사용/, "timeout 은 최선 프레임 사용이라고 말해야 한다 — 고장이 아니다");
+  assert.match(overlay, /settleWarn === "unmeasurable" \|\| last\.settleWarn === "undecodable"/,
     "고장 색은 진짜 문제에만 칠한다 — timeout 을 빨갛게 칠하면 정상이 사고처럼 보인다");
-  assert.match(html, /settle !== null \|\| last\.settleWarn/, "필드가 없으면 줄 자체가 없어야 한다 (옛 백엔드)");
+  assert.match(overlay, /settle !== null \|\| last\.settleWarn/, "필드가 없으면 줄 자체가 없어야 한다 (옛 백엔드)");
 
   // 0.19.0(#95): 판정은 구간 대 문턱이다. 구간이 게이트에 걸치면 fail 이 아니라 inconclusive —
   // 노이즈가 정한 판정을 불합격이라 부르면 완벽한 보정이 20분 재측정으로 이어진다.
-  assert.match(html, /inconclusive: "판정 보류 — 측정 한계"/, "판정 보류는 불합격과 다른 말이어야 한다");
-  assert.match(html, /보류 · 표본 부족/, "noise 와 few_samples 는 처방이 다르다 — 갈라 말해야 한다");
-  assert.match(html, /worstOverGate/, "줌마다 기준이 달라졌으니 헤드라인은 기준 배수로 말해야 한다");
-  assert.match(html, /ciAbsPx/, "오차 막대를 숫자 옆에 그려야 한다 — 맨숫자는 실제보다 정밀해 보인다");
-  assert.match(html, /thresholdPx/, "기준을 하드코딩하지 않는다 — 줌마다 백엔드가 준 값을 쓴다");
-  assert.match(html, /미보정 상태 측정/, "보정 전 기록의 fail 은 카메라 불량으로 읽히면 안 된다");
-  assert.match(html, /certified 불린만 쓴다/, "논리 분기는 certified 로 — verdict!==fail 은 보류를 성공으로 삼킨다");
-  assert.match(html, /r\.unmeasured/, "장면 탓 미측정은 판정 보류와 다른 축이다 — 따로 그린다");
-  // 서버가 준 값은 textContent 로 — 사람이 적은 값이 섞이면 innerHTML 은 마크업이 된다.
-  assert.doesNotMatch(html, /hud[\s\S]{0,200}innerHTML/, "HUD 는 innerHTML 로 조립하지 않는다");
+  assert.match(status, /inconclusive: "판정 보류 — 측정 한계"/, "판정 보류는 불합격과 다른 말이어야 한다");
+  assert.match(status, /보류 · 표본 부족/, "noise 와 few_samples 는 처방이 다르다 — 갈라 말해야 한다");
+  assert.match(status, /worstOverGate/, "줌마다 기준이 달라졌으니 헤드라인은 기준 배수로 말해야 한다");
+  assert.match(status, /ciAbsPx/, "오차 막대를 숫자 옆에 그려야 한다 — 맨숫자는 실제보다 정밀해 보인다");
+  assert.match(status, /thresholdPx/, "기준을 하드코딩하지 않는다 — 줌마다 백엔드가 준 값을 쓴다");
+  assert.match(status, /미보정 상태 측정/, "보정 전 기록의 fail 은 카메라 불량으로 읽히면 안 된다");
+  assert.match(status, /certified 불린만 쓴다/, "논리 분기는 certified 로 — verdict!==fail 은 보류를 성공으로 삼킨다");
+  assert.match(status, /r\.unmeasured/, "장면 탓 미측정은 판정 보류와 다른 축이다 — 따로 그린다");
+  // 서버가 준 값은 텍스트로 — 사람이 적은 값이 섞이면 innerHTML 은 마크업이 된다.
+  assert.doesNotMatch(overlay + status, /innerHTML|dangerouslySetInnerHTML/, "HUD·결과는 innerHTML 로 조립하지 않는다");
 });
+
 
 test("설정 페이지 — 캘리브레이션 빌려오기는 백엔드 창구를 지난다", async () => {
   const html = await read("../public/settings.html");
@@ -418,34 +448,32 @@ test("설정 페이지 — 캘리브레이션 빌려오기는 백엔드 창구�
 // 길에 섰다(2026-08-05 cam-real-002: alert 하나 띄우고 끝이라 curl 없이는 방법이 없었다).
 // 거절은 정보여야지 벽이면 안 된다.
 test("캘리브레이션 페이지 — 발행 게이트 거절에 화면 안의 길이 있다", async () => {
-  const html = await read("../public/calibration.html");
+  const status = await read(CAL.status);
   // 422 quality_gate 는 alert 이 아니라 카드 안에서 다뤄야 한다.
-  assert.match(html, /e\.status === 422 && e\.body && e\.body\.code === "quality_gate"/,
+  assert.match(status, /e\.status === 422 && e\.body && e\.body\.code === "quality_gate"/,
     "게이트 거절을 다른 실패와 갈라 다뤄야 한다");
-  assert.match(html, /function renderGateRefusal\(/, "거절 화면이 있어야 한다");
-  assert.match(html, /그래도 발행/, "우회 버튼이 화면에 있어야 한다");
-  assert.match(html, /saveSweep\(box, true\)/, "우회는 force 로 다시 보내야 한다");
+  assert.match(status, /save\.phase === "gate"/, "거절 화면이 있어야 한다");
+  assert.match(status, /그래도 발행/, "우회 버튼이 화면에 있어야 한다");
+  assert.match(status, /saveSweep\(true\)/, "우회는 force 로 다시 보내야 한다");
   // 어느 줌이 스윕을 흐렸는지 없으면 남은 선택지는 20분 전체 재측정뿐이다.
-  assert.match(html, /function noisyAnchorNote\(/, "시끄러운 앵커를 짚어 줘야 한다");
-  assert.match(html, /body\.noisyAnchors/, "거절할 때 앵커를 보여야 한다");
-  assert.match(html, /res\.noisyAnchors/, "통과할 때도 앵커를 보여야 한다");
-  // 불변 문서에 "왜 이 값이 여기 있나"가 남아야 한다.
-  // 메모 입력은 결과 상자 안에 산다 — 거절 화면이 상자를 비우면 함께 사라진다(실제로 그렇게
-  // 날려서 우회 발행이 메모 없이 나갔다: cam-real-002 rev 3).
-  assert.match(html, /const carried = prev \? prev\.value\.trim\(\) : ""/, "지우기 전에 메모를 건져야 한다");
-  assert.match(html, /note\.id = "calib-note"/, "거절 화면이 메모 입력을 다시 세워야 한다");
-  assert.match(html, /"발행 기준 미달을 알고 발행: "/, "비었으면 우회 사유로 채워야 한다");
-  assert.match(html, /res\.forced/, "우회했다는 사실을 저장 후에도 말해야 한다");
-  // 서버 문장은 사람이 읽는 값이라 innerHTML 로 이으면 마크업이 된다.
-  assert.match(html, /d\.textContent = line;\s*\/\/ 서버 문장/, "거절 사유는 textContent 로");
+  assert.match(status, /function NoisyAnchorNote\(/, "시끄러운 앵커를 짚어 줘야 한다");
+  assert.match(status, /body\.noisyAnchors/, "거절할 때 앵커를 보여야 한다");
+  assert.match(status, /res\.noisyAnchors/, "통과할 때도 앵커를 보여야 한다");
+  // 불변 문서에 "왜 이 값이 여기 있나"가 남아야 한다. 메모는 컴포넌트 상태라 거절 화면이
+  // 갈려도 사라지지 않고(옛 판은 상자를 비우며 실제로 날렸다: cam-real-002 rev 3),
+  // 비었으면 우회 사유로 채워 둔다.
+  assert.match(status, /if \(!note\.trim\(\)\) setNote\("발행 기준 미달을 알고 발행: "/, "비었으면 우회 사유로 채워야 한다");
+  assert.match(status, /value=\{note\} onChange/, "거절 화면에도 메모 입력이 있어야 한다");
+  assert.match(status, /failures && body\.failures\.length \? body\.failures : \[String\(body\.error/,
+    "failures 가 비어도 왜를 보여야 한다");
+  assert.match(status, /res\.forced/, "우회했다는 사실을 저장 후에도 말해야 한다");
 
   // fitRmsPx 는 앵커별 최댓값이다 — "피팅 67.3px" 로만 적으면 스윕 전체가 그런 줄 읽힌다.
-  assert.doesNotMatch(html, /피팅 오차 \$\{r\.residual\.fitRmsPx\}px/, "최댓값을 스윕 성적처럼 적으면 안 된다");
-  assert.match(html, /fitRmsMedianPx/, "대표값을 함께 보여야 한다");
+  assert.doesNotMatch(status, /피팅 오차 \$\{r\.residual\.fitRmsPx\}px/, "최댓값을 스윕 성적처럼 적으면 안 된다");
+  assert.match(status, /fitRmsMedianPx/, "대표값을 함께 보여야 한다");
 });
 
-// 설치 높이는 기기 config 의 필드가 아니라 발행본(프로파일)의 값이다. 그 차이를 화면이
-// 지키지 않으면 "저장했는데 왜 안 남지" 또는 "왜 리비전이 하나 더 생겼지"가 된다.
+
 test("설정 › 기기 속성 — 설치 높이는 발행 창구로 나간다", async () => {
   const html = await read("../public/settings.html");
   assert.match(html, /id="dev-height"/, "높이 입력 칸이 있어야 한다");
@@ -473,33 +501,40 @@ test("설정 › 기기 속성 — 설치 높이는 발행 창구로 나간다",
 // 유일한 길이었다. 두 계약이 지금 **동시에** 살아 있다(개발기 0.17.0 · 배포기 0.16.2).
 // 그래서 화면은 버전을 보고 고르지 않고 백엔드가 응답에 적어 준 답을 읽는다.
 test("캘리브레이션 페이지 — 발행이 적용까지 닿는다 (버전이 아니라 응답을 읽는다)", async () => {
-  const html = await read("../public/calibration.html");
+  const actions = await read(CAL.actions);
+  const app = await read(CAL.app);
+  const status = await read(CAL.status);
+  const card = await read(CAL.card);
 
-  assert.match(html, /async function applyPublishedToRuntime\(id, res\)/,
+  assert.match(actions, /export async function applyPublishedToRuntime\(id, res\)/,
     "적재 헬퍼는 발행 응답을 받아야 한다 — 무엇을 더 해야 하는지가 거기 적혀 있다");
-  assert.match(html, /reload\.required === false/,
+  assert.match(actions, /reload\.required === false/,
     "백엔드가 할 일 없다고 답하면 아무것도 하지 않아야 한다 (0.17.0)");
-  assert.match(html, /postJson\(api\("\/cctv\/active"\), \{ id, force: true \}\)/,
+  assert.match(actions, /postJson\(api\("\/cctv\/active"\), \{ id, force: true \}\)/,
     "옛 계약에서는 재선택이 유일한 길이고, force 없이는 unchanged:true 로 튕긴다");
-  assert.doesNotMatch(html, /backendVersion/,
+  assert.doesNotMatch(actions + app + status + card, /backendVersion/,
     "백엔드 버전으로 갈래를 고르면 안 된다 — 응답이 답을 갖고 있고, 그래야 옛 갈래가 저절로 퇴역한다");
 
   // 발행하는 경로가 다섯이다(스윕 mint · 확인 · 복사 · 수입 · 되돌리기 재발행). 하나라도 응답을
   // 안 넘기면 그 경로만 0.17.0 에서 쓸데없이 재선택을 때린다 — 그러면 기기 컨텍스트가 다시
   // 지어지면서 스윕 결과를 쥔 캘리브레이션 매니저가 갈아치워진다(같은 스윕 두 번째 발행이 막힌다).
-  const applies = html.match(/applyPublishedToRuntime\(/g) || [];
-  assert.ok(applies.length >= 6, `발행 경로마다 적재를 확인해야 한다 (정의 1 + 호출 5 이상, 지금 ${applies.length})`);
-  const withRes = html.match(/applyPublishedToRuntime\(id, res\)/g) || [];
-  assert.equal(withRes.length, 5, `네 경로가 전부 응답을 넘겨야 한다 — 정의 1 + 호출 4 (지금 ${withRes.length})`);
-  assert.match(html, /applyPublishedToRuntime\(await currentCameraId\(\), res\)/,
+  // 지금은 writeAndApply 하나가 그 규칙을 갖는다: 확인·되돌리기(app)와 복사·수입(card 패널)이
+  // 전부 이 관문을 지나고, 스윕 mint(status)는 결과 상자 안이라 직접 부른다.
+  assert.match(app, /async function writeAndApply\(run\)[\s\S]{0,200}applyPublishedToRuntime\(await currentCameraId\(\), res\)/,
+    "발행 응답이 적재 확인으로 이어져야 한다");
+  const gateUses = (app.match(/writeAndApply\(/g) || []).length + (card.match(/writeAndApply\(/g) || []).length;
+  assert.ok(gateUses >= 5, `확인·되돌리기·복사·수입이 전부 관문을 지나야 한다 (정의 1 + 호출 4 이상, 지금 ${gateUses})`);
+  assert.match(status, /applyPublishedToRuntime\(await onSaved\.cameraId\(\), res\)/,
     "스윕 발행도 응답을 넘겨야 한다");
 
   // 사람을 SSH 로 보내던 문구는 사라져야 한다 — 더 싼 길을 알면서 안 알려주는 안내였다.
-  assert.doesNotMatch(html, /pm2 restart/, "재시작을 시키지 않는다");
+  assert.doesNotMatch(actions + app + status + card, /pm2 restart/, "재시작을 시키지 않는다");
 
   // 「적용했다」와 「할 일이 없었다」와 「안 됐다」는 다른 말이다. 셋을 한 문장으로 뭉치면
   // 사람이 화면을 안 믿기 시작한다.
-  assert.match(html, /function appliedSuffix\(state\)/, "적재 결과를 갈라 말해야 한다");
-  assert.match(html, /발행 즉시 적용됐습니다/, "아무것도 안 해도 됐다는 사실을 말해야 한다");
-  assert.match(html, /카메라를 다시 고르면 적용됩니다/, "실패 시 사람이 할 일을 말해야 한다");
+  assert.match(actions, /export function appliedSuffix\(state\)/, "적재 결과를 갈라 말해야 한다");
+  assert.match(actions, /발행 즉시 적용됐습니다/, "아무것도 안 해도 됐다는 사실을 말해야 한다");
+  assert.match(actions, /카메라를 다시 고르면 적용됩니다/, "실패 시 사람이 할 일을 말해야 한다");
 });
+
+

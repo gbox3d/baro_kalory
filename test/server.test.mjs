@@ -47,7 +47,7 @@ test("정적 서빙 + API 프록시 (nginx 미러)", async (t) => {
     ["/simulator", "initPageChrome({ page: \"simulator\" })"],
     ["/discovery", "id=\"disc-wrap\""],
     ["/settings", "id=\"set-panel\""],
-    ["/calibration", "id=\"calib-card\""],
+    ["/calibration", "id=\"cal-root\""],   // React 셸 — 카드는 마운트 후 생긴다
     ["/height", "id=\"hgt-wrap\""],
   ]) {
     const r = await fetch(base + route);

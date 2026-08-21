@@ -33,10 +33,13 @@ test("페이지는 공용 크롬을 부르고, backend 가 프런트 버전을 �
   ];
   for (const [name, rel] of pages) {
     const html = await readFile(new URL(rel, webUiDir), "utf8");
-    assert.match(html, new RegExp(`initPageChrome\\(\\{ page: "${name}" \\}\\)`), `${name} 는 공용 크롬을 불러야 한다`);
+    // React 페이지(calibration)는 크롬 호출이 부트 모듈에 있다 — HTML 은 마운트만 갖는다.
+    const boot = name === "calibration"
+      ? await readFile(new URL("src/pages/calibration/app.jsx", webUiDir), "utf8") : html;
+    assert.match(boot, new RegExp(`initPageChrome\\(\\{ page: "${name}" \\}\\)`), `${name} 는 공용 크롬을 불러야 한다`);
     assert.match(html, /data-role="chrome"/, `${name} 헤더에 크롬 마운트가 없다`);
     // backend 응답의 프런트 버전 필드에 의존하면 따로 배포한 순간 값이 어긋난다.
-    assert.doesNotMatch(html, /v\.cctvVersion|v\.simulatorVersion|v\.frontendVersion/, `${name} 잔여 의존`);
+    assert.doesNotMatch(boot, /v\.cctvVersion|v\.simulatorVersion|v\.frontendVersion/, `${name} 잔여 의존`);
   }
 });
 
