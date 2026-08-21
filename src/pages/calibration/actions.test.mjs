@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { appliedSuffix, opticsSig, retireEffect, provText, installedLine } from "./actions.mjs";
+import { t } from "../../i18n.mjs";
 
 // 이 테스트가 존재할 수 있다는 것 자체가 React 전환의 산물이다 — 인라인 <script> 시절에는
 // 이 판정 로직을 node 로 물 수 없어서, 회귀 그물이 HTML 정규식뿐이었다.
@@ -42,12 +43,14 @@ test("opticsSig: 서명은 declared·points·hfovRange 세 축이다", () => {
 });
 
 test("provText: 출처를 모르는 문서를 「실측」이라 부르지 않는다", () => {
-  assert.equal(provText({ method: "sweep" }), "실측");
-  assert.equal(provText({ method: "import" }), "수입");
-  assert.equal(provText({ method: "copy", from: { profileId: "cam-1", revision: 3 } }), "복사 ← cam-1 rev 3");
-  assert.equal(provText(null), "출처 미상");
-  assert.equal(provText({}), "출처 미상");
-  assert.equal(provText({ method: "weird" }), "weird", "모르는 코드는 지어내지 않고 원문 그대로");
+  // 기대값도 t() 를 통과시킨다 — 라벨이 번역 층을 지나는 것이 계약이고, node 의 로케일
+  // (navigator.language)이 en 인 CI 에서도 같은 검증이 성립해야 한다(실제로 CI 에서 걸렸다).
+  assert.equal(provText({ method: "sweep" }), t("실측"));
+  assert.equal(provText({ method: "import" }), t("수입"));
+  assert.equal(provText({ method: "copy", from: { profileId: "cam-1", revision: 3 } }), `${t("복사")} ← cam-1 rev 3`);
+  assert.equal(provText(null), t("출처 미상"));
+  assert.equal(provText({}), t("출처 미상"));
+  assert.equal(provText({ method: "weird" }), "weird", "모르는 코드는 지어내지 않고 원문 그대로 — 번역도 안 탄다");
 });
 
 test("installedLine: 0.18.0 의 source 축 — 존재와 적용이 다른 축으로 그려진다", () => {
@@ -114,7 +117,7 @@ test("installedLine: 파리티 검증이 짚은 커버 공백 — measured-here�
 });
 
 test("provText: from 없는 copy 는 맨 「복사」다 — 출처를 지어내지 않는다", () => {
-  assert.equal(provText({ method: "copy" }), "복사");
+  assert.equal(provText({ method: "copy" }), t("복사"));
 });
 test("installedLine: 서버 문자열은 조각(text)으로만 나간다 — 마크업 해석 여지가 없다", () => {
   const evil = installedLine({ optics: null, hasProfile: null, ins: { label: "<img onerror=x>" } });
