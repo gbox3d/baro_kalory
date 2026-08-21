@@ -47,10 +47,10 @@ export default defineConfig({
   publicDir: false,
   plugins: [react(), kaloryCompat()],
   server: {
-    // 파일럿 동안 server.mjs(BARO_FRONTEND_PORT)와 병행해 화면을 나란히 비교한다.
-    // server.mjs 퇴역 시 이 포트가 BARO_FRONTEND_PORT 를 승계한다. 808x/809x 는 UE
-    // 시뮬레이터 카메라 대역이라 피한다.
-    port: 5173,
+    // 파일럿이 왕복을 증명한 시점(2026-08-22)부터 BARO_FRONTEND_PORT 를 승계한다 —
+    // pm2 상주(kalory-dev)가 이 포트로 뜬다. 값이 없으면 vite 기본(5173).
+    // 808x/809x 는 UE 시뮬레이터 카메라 대역이라 피한다.
+    port: Number(process.env.BARO_FRONTEND_PORT) || 5173,
     host: process.env.BARO_FRONTEND_HOST || "127.0.0.1",
     proxy: { "/api": proxyRoute, "/home-frame": proxyRoute },
   },

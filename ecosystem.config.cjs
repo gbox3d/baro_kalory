@@ -21,11 +21,12 @@
 // 산출물이므로 clone 직후에는 `pnpm build` 를 한 번 돌려야 UI 가 스타일을 갖는다.
 const apps = [
   {
-    name: 'calory-ui',
-    script: 'server.mjs',
+    // React 파일럿(2026-08-22)부터 개발 서버는 Vite 다 — server.mjs 는 JSX 를 못 서빙한다.
+    // 이름의 「dev」가 곧 경고다: 이 프로세스는 개발 도구지 서비스가 아니다(kalory 는
+    // 프런트 전용 저장소고 백엔드는 따로 있다 — 이름이 서비스처럼 읽혀 실제 혼동이 났었다).
+    name: 'kalory-dev',
+    script: 'node_modules/vite/bin/vite.js',
     cwd: __dirname,
-    // .mjs 는 pm2 의 확장자→인터프리터 매핑에 없다. 비워 두면 호스트에 따라
-    // 인터프리터를 못 골라 즉시 죽으므로 명시한다.
     interpreter: 'node',
     exec_mode: 'fork',
     instances: 1,
