@@ -1027,6 +1027,7 @@ import { getJson, postJson, reqJson, fmtPtz as fmt, api } from "./web/api.mjs";
 import { createCameraPreview } from "./web/camera-preview.mjs";
 import { applyI18n, t } from "./web/i18n.mjs";
 import { initPageChrome } from "./web/page-chrome.mjs";
+import { toNum, pad2 } from "./web/format.mjs";
 
 initPageChrome({ page: "simulator" });
 
@@ -2311,7 +2312,7 @@ function renderMap() {
         // 적히는 축은 조준 앵커와 같은 규약: 컨트롤 탭 = 틸트(현재값), 배치 탭 = 설치
         // 하향각(씬 PATCH — 씬 계약에서 설치 하향은 틸트를 다시 앉히는 값이다).
         // 틸트를 모르는 카메라(안 닿음)에는 달지 않는다.
-        const tiltNow = num(viewOf(cam)?.ptz?.tiltpos);
+        const tiltNow = toNum(viewOf(cam)?.ptz?.tiltpos);
         if (tiltNow !== null) {
           const across = { x: Math.cos(rad), y: Math.sin(rad) };   // 축에 수직(평면도 기준)
           const mid = coneLen / 2;
@@ -2477,7 +2478,7 @@ function renderPlacingGhost(span) {
 // 자리와 조준점 두 점이면 설치 자세가 다 나온다: 방위는 두 점을 잇는 각, 하향각은
 // 높이와 수평거리의 아크탄젠트. 사람이 각도를 상상해서 적는 일을 없애는 것이 요점이다.
 function poseFromPlacement() {
-  const h = num(document.getElementById("sim-cam-height").value);
+  const h = toNum(document.getElementById("sim-cam-height").value);
   const heightCm = (h === null ? 6 : h) * 100;
   const from = placing?.location, to = placing?.aim;
   if (!from || !to) return { yawDeg: 0, pitchDeg: -20 };
@@ -2488,13 +2489,7 @@ function poseFromPlacement() {
   return { yawDeg, pitchDeg: Math.max(-89, Math.min(-1, pitchDeg)) };
 }
 
-// 빈 값은 0 이 아니라 없음이다 — Number("") 도 Number(null) 도 0 이라 그냥 쓰면
-// "높이 0 m 카메라"가 조용히 성립한다.
-function num(value) {
-  if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
+// 빈 값은 0 이 아니라 없음이다 — 그 규칙은 format.mjs 의 toNum 이 갖는다.
 
 // **대역이 없는 인스턴스 전용 관례 탐색.** 무제한 인스턴스이거나 대역 계약 이전(플러그인
 // 0.1.17 미만) 백엔드라 서버가 고를 근거를 못 주는 경우다. 그때는 어느 빈 포트든 합법이라
@@ -2601,7 +2596,7 @@ function beginCameraDrag(cam, event) {
   // 옮긴다" 도 생기지 않는다.
   if (cam.id !== mapSelectedCameraId) selectSceneCamera(cam.id);
   const loc = cam?.mount?.location;
-  const x = num(loc?.x), y = num(loc?.y), z = num(loc?.z);
+  const x = toNum(loc?.x), y = toNum(loc?.y), z = toNum(loc?.z);
   // 좌표 셋이 다 있어야 한다 — 축 하나만 보내면 나머지를 sim 이 0 으로 읽어 카메라가 원점으로
   // 날아간다(applyInstallEdit 과 같은 이유).
   if (x === null || y === null || z === null) { selectSceneCamera(cam.id); return; }
@@ -2623,7 +2618,7 @@ function cancelCameraDrag() {
 // 어느 쪽이든 사람이 정하는 것은 **보는 방향**이고, 그 방향을 어느 장부에 적느냐만 다르다.
 function beginAimDrag(cam, event, target) {
   const loc = cam?.mount?.location;
-  const x = num(loc?.x), y = num(loc?.y);
+  const x = toNum(loc?.x), y = toNum(loc?.y);
   // 시작각도 고스트 폭도 그 축의 것이다 — 설치 끌기는 설치방위·기준 시야, 팬 끌기는
   // 보는 방향·지금 화각. 섞으면 잡는 순간 부채꼴이 딴 각으로 튄다.
   const limits = hfovLimitsOf(cam);
@@ -2675,7 +2670,7 @@ function tiltSliderDeg(s, trackLen) {
 
 function beginTiltDrag(cam, event, target, axisYaw, trackLen) {
   const loc = cam?.mount?.location;
-  const x = num(loc?.x), y = num(loc?.y);
+  const x = toNum(loc?.x), y = toNum(loc?.y);
   if (x === null || y === null || axisYaw === null) return;
   tiltDrag = {
     cam, target, from: { x, y }, axisYaw, trackLen,
@@ -2747,7 +2742,7 @@ async function finishTiltDrag() {
 // 여기서 표를 들고 역보간하면 부채꼴과 영상 위 핀이 서로 다른 모델로 그려진다.
 function beginFovDrag(cam, event) {
   const loc = cam?.mount?.location;
-  const x = num(loc?.x), y = num(loc?.y);
+  const x = toNum(loc?.x), y = toNum(loc?.y);
   const axisYaw = viewYawOf(cam), hfov = hfovOf(cam);
   if (x === null || y === null || axisYaw === null || hfov === null) return;
   fovDrag = {
@@ -3176,14 +3171,14 @@ function renderCameraEditForm({ force = false } = {}) {
   const cm = (v) => (v === null ? "" : String(Math.round(v)));
   // 별명은 씬이 준 그대로. 만들어 낸 이름을 채워 두면 아무도 지은 적 없는 이름이 저장된다.
   put(el.note, String(cam.note ?? ""));
-  put(el.x, cm(num(loc?.x)));
-  put(el.y, cm(num(loc?.y)));
+  put(el.x, cm(toNum(loc?.x)));
+  put(el.y, cm(toNum(loc?.y)));
   put(el.height, heightM === null ? "" : heightM.toFixed(2));
   // 설치 자세. 방위는 씬이 준 설치방위 그대로, 하향은 이 카메라의 틸트에서 온다 — 씬 계약에서
   // 설치 하향각은 별도 저장이 아니라 틸트를 다시 앉히는 값이라(pitchDeg→tilt), 틸트가 곧
   // 그 값의 지금 모습이다. 틸트를 모르는 카메라(안 닿음)는 비워 둔다.
-  put(el.bearing, (() => { const b = num(cam?.mount?.baseYaw); return b === null ? "" : b.toFixed(1); })());
-  const camTilt = num(viewOf(cam)?.ptz?.tiltpos);
+  put(el.bearing, (() => { const b = toNum(cam?.mount?.baseYaw); return b === null ? "" : b.toFixed(1); })());
+  const camTilt = toNum(viewOf(cam)?.ptz?.tiltpos);
   put(el.pitch, camTilt === null ? "" : (-camTilt / 100).toFixed(1));
   // PTZ 는 **지금 보고 있는 카메라**의 것이다(lastPtz). 다른 카메라를 고른 폼에 적으면 남의
   // 자세를 이 카메라의 것으로 적게 되므로, 그때는 비워 둔다.
@@ -3217,8 +3212,8 @@ function syncCameraEditForm(camId, changed) {
   const loc = cam?.mount?.location;
   if (changed.location) {
     const cm = (v) => (v === null ? "" : String(Math.round(v)));
-    el.x.value = cm(num(loc?.x));
-    el.y.value = cm(num(loc?.y));
+    el.x.value = cm(toNum(loc?.x));
+    el.y.value = cm(toNum(loc?.y));
   }
 }
 
@@ -3237,11 +3232,11 @@ async function applyInstallEdit() {
   if (!cam) { setCamStatus(t("고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.")); return; }
   const el = editEls();
   const patch = {};
-  const nowX = num(cam?.mount?.location?.x), nowY = num(cam?.mount?.location?.y);
-  const nowZ = num(cam?.mount?.location?.z);
-  const x = typedOrExact(num(el.x.value), nowX);
-  const y = typedOrExact(num(el.y.value), nowY);
-  const heightM = num(el.height.value);
+  const nowX = toNum(cam?.mount?.location?.x), nowY = toNum(cam?.mount?.location?.y);
+  const nowZ = toNum(cam?.mount?.location?.z);
+  const x = typedOrExact(toNum(el.x.value), nowX);
+  const y = typedOrExact(toNum(el.y.value), nowY);
+  const heightM = toNum(el.height.value);
   const nowHeightM = cameraHeightM(cam);
   const heightChanged = heightM !== null && (nowHeightM === null || Math.abs(heightM - nowHeightM) > 0.005);
   if (x !== nowX || y !== nowY || heightChanged) {
@@ -3266,13 +3261,13 @@ async function applyInstallEdit() {
   // 설치 자세(도 단위). 방위는 씬의 설치방위와, 하향은 이 카메라의 틸트(설치 하향의 지금
   // 모습)와 견주어 바뀐 것만 보낸다. 0.05° 는 toFixed(1) 표시 반올림 아래라, 안 고친 칸이
   // 표시 오차만큼 "바뀐 척" 나가는 것을 막는다.
-  const bearing = num(el.bearing.value);
-  const nowBearing = num(cam?.mount?.baseYaw);
+  const bearing = toNum(el.bearing.value);
+  const nowBearing = toNum(cam?.mount?.baseYaw);
   if (bearing !== null && (nowBearing === null || Math.abs(bearing - nowBearing) > 0.05)) {
     patch.yawDeg = bearing;
   }
-  const pitch = num(el.pitch.value);
-  const camTilt = num(viewOf(cam)?.ptz?.tiltpos);
+  const pitch = toNum(el.pitch.value);
+  const camTilt = toNum(viewOf(cam)?.ptz?.tiltpos);
   const nowPitch = camTilt === null ? null : -camTilt / 100;
   if (pitch !== null && (nowPitch === null || Math.abs(pitch - nowPitch) > 0.05)) {
     patch.pitchDeg = pitch;
@@ -3311,7 +3306,7 @@ async function applyDriveEdit() {
     setCamStatus(t("조준할 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다."));
     return;
   }
-  const wantPtz = { panpos: num(el.pan.value), tiltpos: num(el.tilt.value), zoompos: num(el.zoom.value) };
+  const wantPtz = { panpos: toNum(el.pan.value), tiltpos: toNum(el.tilt.value), zoompos: toNum(el.zoom.value) };
   const ptzChanged = Object.entries(wantPtz).every(([, v]) => v !== null)
     && Object.entries(wantPtz).some(([k, v]) => v !== nowPtz[k]);
   if (!ptzChanged) { setCamStatus(t("바뀐 값이 없습니다.")); return; }
@@ -3338,13 +3333,13 @@ async function applyDriveEdit() {
 async function spawnSceneCamera(event) {
   event.preventDefault();
   if (!placing || !placing.location) { setCamStatus(t("먼저 평면도에서 자리를 정하세요.")); return; }
-  const height = num(document.getElementById("sim-cam-height").value);
+  const height = toNum(document.getElementById("sim-cam-height").value);
   if (height === null || height <= 0) { setCamStatus(t("높이를 입력하세요 (m).")); return; }
   // 이름은 필수다. 씬 API 에 감사 로그가 없어서 이 값이 "누가 왜 세웠나"의 유일한 기록이다.
   const note = document.getElementById("sim-cam-note").value.trim();
   if (!note) { setCamStatus(t("이름을 입력하세요 — 누가 왜 세웠는지가 씬에 남는 유일한 기록입니다.")); return; }
-  const httpPort = num(document.getElementById("sim-cam-http").value);
-  const mjpegPort = num(document.getElementById("sim-cam-mjpeg").value);
+  const httpPort = toNum(document.getElementById("sim-cam-http").value);
+  const mjpegPort = toNum(document.getElementById("sim-cam-mjpeg").value);
   // 대역이 꽉 차서 비어 있는 것과, 사람이 지운 것은 다른 사실이다. 전자에 "입력하세요"라고
   // 답하면 넣을 값이 있는 것처럼 들린다 — 없다.
   if (httpPort === null || mjpegPort === null) { setCamStatus(bandFullNotice() || t("포트를 입력하세요.")); return; }
@@ -3369,8 +3364,8 @@ async function spawnSceneCamera(event) {
   if (ground === null) { setCamStatus(t("이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다.")); return; }
   const body = {
     location: { x: placing.location.x, y: placing.location.y, z: height * 100 + ground },
-    yawDeg: num(document.getElementById("sim-cam-yaw").value) ?? 0,
-    pitchDeg: num(document.getElementById("sim-cam-pitch").value) ?? -20,
+    yawDeg: toNum(document.getElementById("sim-cam-yaw").value) ?? 0,
+    pitchDeg: toNum(document.getElementById("sim-cam-pitch").value) ?? -20,
     httpPort, mjpegPort, note,
   };
   setBusy(true, "카메라를 세우는 중…");
@@ -3467,8 +3462,7 @@ let savedScenes = [];
 function sceneStamp(iso) {
   const d = new Date(iso);
   if (!iso || Number.isNaN(d.getTime())) return "";
-  const p = (n) => String(n).padStart(2, "0");
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 async function loadSavedScenes() {

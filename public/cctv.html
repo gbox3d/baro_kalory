@@ -127,6 +127,7 @@ import { createPtzControls } from "./web/ptz-controls.mjs";
 import { applyI18n, t } from "./web/i18n.mjs";
 import { initPageChrome } from "./web/page-chrome.mjs";
 import { createCameraSelect } from "./web/camera-select.mjs";
+import { fmtNum, UNREAD } from "./web/format.mjs";
 
 initPageChrome({ page: "cctv" });
 
@@ -526,12 +527,6 @@ function clearDetectorOverlay() {
   detectorOverlays.replaceChildren();
 }
 
-// 값이 없으면 "0" 이 아니라 "?" 다 — 0 m 는 측정값처럼 보인다.
-function fixed(value, digits) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n.toFixed(digits) : "?";
-}
-
 function detectorBoxFrom(bbox) {
   const nums = Array.isArray(bbox) ? bbox.flat(Infinity).map(Number).filter(Number.isFinite) : [];
   if (nums.length < 4) return null;
@@ -722,10 +717,13 @@ function renderDetectorResults(payload) {
         line.className = "det-line";
         line.textContent = `#${i + 1} ${det.label || "object"} `
           + (Number.isFinite(conf) ? `${conf.toFixed(2)} ` : "")
+          // 값이 없으면 "0" 이 아니라 "?" 다 — 0 m 도 방위 0° 도 측정값처럼 보인다.
+          // 여기 있던 지역 fixed() 는 Number(null)===0 이라 그 규칙을 못 지켰다 —
+          // 주석과 코드가 서로 다른 말을 했다. 지금은 format.mjs 의 값 게이트가 지킨다.
           + t("· 앞 {x} m, 옆 {y} m · {l}×{w}×{h} m · 방위 {yaw}°", {
-            x: fixed(px, 1), y: fixed(py, 1),
-            l: fixed(sl, 2), w: fixed(sw, 2), h: fixed(sh, 2),
-            yaw: fixed(det.yaw_deg, 0),
+            x: fmtNum(px, 1, UNREAD), y: fmtNum(py, 1, UNREAD),
+            l: fmtNum(sl, 2, UNREAD), w: fmtNum(sw, 2, UNREAD), h: fmtNum(sh, 2, UNREAD),
+            yaw: fmtNum(det.yaw_deg, 0, UNREAD),
           });
         lines.appendChild(line);
       }
@@ -737,7 +735,7 @@ function renderDetectorResults(payload) {
         line.className = "det-line";
         line.textContent = t("기준 {id} · 설치높이 {h} m · {status}", {
           id: result.cameraId || cal.camera_id || "?",
-          h: fixed(cal.ground_plane?.mount_height_m ?? cal.model_height_m, 2),
+          h: fmtNum(cal.ground_plane?.mount_height_m ?? cal.model_height_m, 2, UNREAD),
           status: cal.metric_valid === false ? t("미터 아님") : String(cal.status || ""),
         });
         lines.appendChild(line);

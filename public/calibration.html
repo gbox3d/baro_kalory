@@ -202,6 +202,7 @@ import { createCameraSelect } from "./web/camera-select.mjs";
 import { createCameraPreview } from "./web/camera-preview.mjs";
 import { chartFigure } from "./web/profile-chart.mjs";
 import { applyI18n, t } from "./web/i18n.mjs";
+import { toNum, fmtNum, fmtClock, fmtWhen, elapsedMs, UNREAD } from "./web/format.mjs";
 
 initPageChrome({ page: "calibration" });
 
@@ -236,12 +237,6 @@ function svgEl(name, attrs, text) {
   if (text !== undefined) e.textContent = String(text);   // 서버 값 — 언제나 textContent
   return e;
 }
-const finiteNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
-const fmtDur = (ms) => {
-  if (!Number.isFinite(ms) || ms < 0) return "—";
-  const s = Math.round(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-};
 
 // 프레임 가구 — 논리 프레임의 경계·삼분할. 영상만 보면 "어디가 중앙인지"조차 모른다.
 function drawFrameFurniture(svg) {
@@ -285,7 +280,7 @@ function drawZoomLadder(svg, done, total) {
 
 // 표본 하나 — 눌러 준 지점, 허용 원, 남은 오차 벡터. 기호가 곧 설명이 되도록 그린다.
 function drawSample(svg, s, opts) {
-  const dx = finiteNum(s.dx), dy = finiteNum(s.dy);
+  const dx = toNum(s.dx), dy = toNum(s.dy);
   if (dx === null || dy === null) return null;        // 모양이 다르면 조용히 건너뛴다
   const { newest, fade } = opts;
   // usable===false 만 실패로 친다 — 필드가 없으면(모양 변경) 성공으로 단정하지 않고 중립.
@@ -319,7 +314,7 @@ function drawSample(svg, s, opts) {
   }
 
   // (4) 잔차 벡터: 옮기고 나서 남은 오차. 확대 배율은 HUD 와 범례가 말한다.
-  const rx = finiteNum(s.residualX), ry = finiteNum(s.residualY);
+  const rx = toNum(s.residualX), ry = toNum(s.residualY);
   if (rx !== null && ry !== null) {
     const ex = tx + rx * RESIDUAL_ZOOM, ey = ty + ry * RESIDUAL_ZOOM;
     const mag = Math.hypot(rx, ry);
@@ -335,7 +330,7 @@ function drawSample(svg, s, opts) {
   }
 
   // (5) 줌 앵커 번호 — 어느 배율에서 잰 표본인지.
-  const z = finiteNum(s.zoom);
+  const z = toNum(s.zoom);
   if (z !== null) {
     g.appendChild(svgEl("text", { x: tx + 22, y: ty + 40, fill: color, "font-size": 28,
       "font-family": "monospace", opacity: ".9" }, `z${z}`));
@@ -369,8 +364,8 @@ function renderSweepOverlay(st) {
   const recent = Array.isArray(st.recent) ? st.recent : [];
   const last = recent.length ? recent[recent.length - 1] : null;
   const prog = st.progress || {};
-  const done = finiteNum(prog.done) ?? 0, total = finiteNum(prog.total) ?? 0;
-  const pct = finiteNum(prog.percent) ?? 0;
+  const done = toNum(prog.done) ?? 0, total = toNum(prog.total) ?? 0;
+  const pct = toNum(prog.percent) ?? 0;
 
   drawFrameFurniture(svg);
   drawZoomLadder(svg, done, total);
@@ -401,26 +396,28 @@ function renderSweepOverlay(st) {
   bar.appendChild(fill);
   hud.appendChild(bar);
 
-  const started = st.startedAt ? Date.parse(st.startedAt) : NaN;
-  const elapsed = Number.isFinite(started) ? Date.now() - started : NaN;
+  // 경과는 서버의 startedAt 과 이쪽 시계의 차다 — 시계가 어긋나면 음수가 나온다.
+  // 그때 0 으로 뭉개면 「방금 시작함」이라는 틀린 사실이 뜬다. 모르면 모른다고 한다.
+  const elapsed = elapsedMs(st.startedAt);
   // 남은 시간은 지금까지의 평균 속도로 민 추정이다 — 정확한 값인 척하지 않는다(≈).
-  const eta = Number.isFinite(elapsed) && done > 0 && total > 0 ? (elapsed / done) * (total - done) : NaN;
+  const eta = elapsed !== null && done > 0 && total > 0 ? (elapsed / done) * (total - done) : null;
 
   hudRow(hud, t("진행"), `${pct}%  (${done}/${total})`);
-  hudRow(hud, t("경과 · 남음"), `${fmtDur(elapsed)} · ≈${fmtDur(eta)}`);
+  hudRow(hud, t("경과 · 남음"), `${fmtClock(elapsed)} · ≈${fmtClock(eta)}`);
   hudRow(hud, t("기기"), st.deviceId || "—");
-  hudRow(hud, t("줌 앵커"), last && finiteNum(last.zoom) !== null ? `z${last.zoom}` : "—");
+  const lastZoom = last ? toNum(last.zoom) : null;
+  hudRow(hud, t("줌 앵커"), lastZoom !== null ? `z${lastZoom}` : "—");
 
   if (last) {
-    const rx = finiteNum(last.residualX), ry = finiteNum(last.residualY);
+    const rx = toNum(last.residualX), ry = toNum(last.residualY);
     const mag = rx !== null && ry !== null ? Math.hypot(rx, ry) : null;
     const row = hudRow(hud, t("잔차"), mag === null ? "—" : `${mag.toFixed(1)} px / ${PASS_PX} px`);
     if (mag !== null) row.classList.add(mag > PASS_PX ? "bad" : "good");
     hudRow(hud, t("정합 peak · margin"),
-      `${finiteNum(last.peak) ?? "—"} · ${finiteNum(last.margin) ?? "—"}`);
+      `${toNum(last.peak) ?? "—"} · ${toNum(last.margin) ?? "—"}`);
     // 0.17.1 부터 표본마다 진동 안정화 대기가 실린다(보드 #92) — 이 표본이 멈춘 화면에서
     // 측정됐는지가 잔차의 신뢰도를 말한다. 필드가 없는 옛 백엔드에서는 줄 자체가 안 뜬다.
-    const settle = finiteNum(last.settleMs);
+    const settle = toNum(last.settleMs);
     if (settle !== null || last.settleWarn) {
       const warnText = ({
         timeout: t("정지 못 함 — 가장 조용한 순간 사용"),
@@ -504,13 +501,21 @@ function renderCalibStatus(st) {
     // 아니라 **inconclusive** 다. 노이즈가 정한 판정을 불합격이라 부르지 않는다. 논리 분기는
     // certified 불린만 쓴다 — verdict !== "fail" 은 판정 보류를 성공으로 삼키는 버그다.
     // 옛 백엔드에는 새 필드가 없으므로 종전 표기가 그대로 나온다 — 없는 값을 지어내지 않는다.
-    const px1 = (v) => (Number.isFinite(Number(v)) ? Number(v).toFixed(1) : "?");
     const verdictText = { pass: "합격", fail: "불합격", incomplete: "측정 불가 구간 있음",
       inconclusive: "판정 보류 — 측정 한계", unknown: "판정 불가" }[r.verdict] || r.verdict;
     const color = r.verdict === "pass" ? "var(--color-accent,#4a4)"
       : r.verdict === "fail" ? "var(--color-danger,#e66)" : "var(--color-warn,#ca4)";
-    const headNum = Number.isFinite(Number(r.worstOverGate))
-      ? ` — 최악 잔차가 자기 줌 기준의 ${px1(r.worstOverGate)}×`
+    // 남는 오차 칸: 새 계약의 signedPx 가 먼저고, 없으면 옛 residualPx 다. 둘 다 없으면
+    // 「못 읽음」이라고 말한다 — 예전엔 여기서 화면에 "undefinedpx" 가 찍혔다.
+    const signedCell = (c) => {
+      const s = toNum(c.signedPx);
+      if (s !== null) return (s > 0 ? "+" : "") + fmtNum(s, 1);
+      const r0 = toNum(c.residualPx);
+      return r0 !== null ? String(r0) : UNREAD;
+    };
+    const overGate = toNum(r.worstOverGate);
+    const headNum = overGate !== null
+      ? ` — 최악 잔차가 자기 줌 기준의 ${fmtNum(overGate, 1)}×`
       : (r.worstPx !== null && r.worstPx !== undefined ? ` — 잰 구간의 최악 잔차 ${r.worstPx}px (기준 10px)` : "");
     // 보정이 하나도 안 걸린 채 잰 검증의 fail 은 「카메라 불량」이 아니라 「보정 전 기록」이다.
     // 비교 시연의 before 절반이 빨간 경고로 뒤덮이면 안 된다(보드 #95 렌더링 노트).
@@ -538,9 +543,9 @@ function renderCalibStatus(st) {
              <th style="text-align:right; padding:2px 8px;">이 카메라에 필요</th></tr>
          ${r.checks.map((c) => `<tr>
            <td style="text-align:right; padding:2px 8px;">${c.zoom}</td>
-           <td style="text-align:right; padding:2px 8px;">${Number.isFinite(Number(c.signedPx)) ? (Number(c.signedPx) > 0 ? "+" : "") + px1(c.signedPx) : c.residualPx}px</td>
-           ${hasNew ? `<td style="text-align:right; padding:2px 8px;">${c.ciAbsPx ? `${px1(c.ciAbsPx.lo)}–${px1(c.ciAbsPx.hi)}px` : "—"}</td>
-           <td style="text-align:right; padding:2px 8px;">${c.thresholdPx != null ? px1(c.thresholdPx) + "px" : "—"}</td>
+           <td style="text-align:right; padding:2px 8px;">${signedCell(c)}px</td>
+           ${hasNew ? `<td style="text-align:right; padding:2px 8px;">${c.ciAbsPx ? `${fmtNum(c.ciAbsPx.lo, 1, UNREAD)}–${fmtNum(c.ciAbsPx.hi, 1, UNREAD)}px` : "—"}</td>
+           <td style="text-align:right; padding:2px 8px;">${c.thresholdPx != null ? fmtNum(c.thresholdPx, 1, UNREAD) + "px" : "—"}</td>
            ${c.verdict ? ckVerdictCell(c) : '<td style="text-align:right; padding:2px 8px;">—</td>'}` : ""}
            <td style="text-align:right; padding:2px 8px;">${c.gainApplied}</td>
            <td style="text-align:right; padding:2px 8px;">${c.gainNeeded}</td></tr>`).join("")}
@@ -811,7 +816,7 @@ async function loadCalibInstalled() {
       tail.textContent = " 을 쓰고 있습니다. 출처는 아래 리비전 목록에서 확인하세요.";
       el.append(lead, who, tail);
     } else if (ins.measuredAt) {
-      el.innerHTML = `현재 <b>이 카메라에서 실측한 값</b>을 쓰고 있습니다 (${new Date(ins.measuredAt).toLocaleString()}).`;
+      el.innerHTML = `현재 <b>이 카메라에서 실측한 값</b>을 쓰고 있습니다 (${fmtWhen(ins.measuredAt)}).`;
     } else {
       el.innerHTML = "현재 이 기기에 캘리브레이션이 지정돼 있습니다.";
     }
@@ -879,10 +884,8 @@ async function initCalibCard() {
 // ── 발행된 프로파일 ──────────────────────────────────────────────────────────
 // 캘리브레이션의 산출물은 config 안의 필드가 아니라 **발행 후 불변인 리비전 문서**다
 // (정정 = 새 리비전). 화면은 최신 리비전을 보여 준다 — 그게 곧 지금 쓰는 값이다.
-const num = (v, d) => (Number.isFinite(v) ? v.toFixed(d) : "—");
-function fmtWhen(iso) {
-  try { return new Date(iso).toLocaleString(); } catch { return iso || "—"; }
-}
+// 숫자·시각 표기는 ./web/format.mjs 가 갖는다 — 페이지마다 제각기 두었더니 같은 값이
+// 화면마다 다르게(그리고 틀리게) 그려졌다.
 
 // 서버가 준 값은 전부 textContent 로 넣는다 — 이름·메모는 사람이 적은 문자열이라
 // innerHTML 에 이으면 그대로 마크업이 된다.
@@ -968,8 +971,8 @@ function renderProfile(doc) {
   table.appendChild(head);
   for (const p of rows) {
     const tr = document.createElement("tr");
-    for (const c of [p.zoom, num(p.hfov, 2) + "°", num(p.gain, 3), num(p.residualPx, 1) + "px",
-                     num(p.fitRmsPx, 1) + "px", `${p.samples ?? "?"}/${p.of ?? "?"}`]) {
+    for (const c of [p.zoom, fmtNum(p.hfov, 2) + "°", fmtNum(p.gain, 3), fmtNum(p.residualPx, 1) + "px",
+                     fmtNum(p.fitRmsPx, 1) + "px", `${p.samples ?? "?"}/${p.of ?? "?"}`]) {
       const td = document.createElement("td");
       td.textContent = String(c);
       td.style.cssText = "text-align:right; padding:2px 8px;";

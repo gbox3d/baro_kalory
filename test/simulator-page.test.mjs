@@ -432,7 +432,7 @@ test("설치 폼은 늘 열려 있고, 고른 카메라의 자리·설치 자세
   // 카메라가 반올림한 만큼 움직인다.
   const keep = html.slice(html.indexOf("function typedOrExact("), start);
   assert.match(keep, /formValue === Math\.round\(sceneValue\) \? sceneValue : formValue/);
-  assert.match(apply, /const x = typedOrExact\(num\(el\.x\.value\), nowX\)/);
+  assert.match(apply, /const x = typedOrExact\(toNum\(el\.x\.value\), nowX\)/);
 
   // 잠금은 hidden 으로 한다 — setBusy 가 모든 button 의 disabled 를 되돌리므로, disabled 로
   // 막아 둔 삭제 버튼은 다른 작업 하나가 끝날 때 되살아난다.
