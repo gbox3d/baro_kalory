@@ -587,8 +587,17 @@ test("카메라 배치 목록은 씬을 주기적으로 다시 읽되, 바뀐 �
   const end = html.indexOf("setInterval(", start);
   assert.ok(start > 0 && end > start, "주기 갱신 함수가 있어야 한다");
   const poll = html.slice(start, end);
-  // 안 보는 탭이 시뮬 게임스레드를 계속 깨우면 안 된다 — 배치·컨트롤 어느 쪽이든 열려 있으면 돈다.
-  assert.match(poll, /document\.hidden \|\| mapTabKey\(\) === null/);
+  // 게이트는 두 단이다(2026-08-22 감사 [35]). 조준(PTZ)·영상 위 핀은 **어느 탭에서든**
+  // 보이므로 그 갱신은 숨김 여부만 본다 — 옛 판처럼 지도 탭 게이트를 머리에 두면 기본
+  // 탭(로그)에서 핀이 무기한 옛 자세로 남았다. 무거운 리그 갱신(카메라 목록·전체 시야·포트)만
+  // 지도가 보일 때(rig/drive) 돈다 — 안 보는 지도를 위해 시뮬 게임스레드를 깨우지 않는다.
+  assert.ok(poll.includes("if (document.hidden) return;"), "숨김 게이트가 머리에 있어야 한다");
+  const ptzIdx = poll.indexOf('getJson(api("/simulator/control/ptz"))');
+  const tabGate = poll.indexOf("if (mapTabKey() === null) return;");
+  const rigFetch = poll.indexOf("fetchSimCameras()");
+  assert.ok(ptzIdx > -1 && tabGate > -1 && rigFetch > -1, "두 단 게이트의 재료가 다 있어야 한다");
+  assert.ok(ptzIdx < tabGate && tabGate < rigFetch,
+    "조준 갱신은 탭 게이트보다 앞, 리그 갱신은 그 뒤여야 한다");
   // 사람이 배치 중이거나 조작이 도는 중에는 다시 그리지 않는다 — setBusy 가 모든 버튼의
   // disabled 를 되돌리므로 잠가 둔 버튼이 되살아난다. 끄는 중에 지도를 다시 만들면 끌던
   // 것이 손 아래에서 사라진다.

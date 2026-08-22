@@ -561,30 +561,14 @@ header h1 .ver {
   white-space: nowrap;
 }
 
-.sim-cam-grid {
-  display: grid;
-  grid-template-columns: 46px minmax(0, 1fr);
-  gap: 5px 7px;
-  align-items: center;
-  margin-bottom: 6px;
+/* 파괴적 동작(삭제)은 다르게 보여야 한다 — class="danger" 는 지금까지 규칙 없는 허공
+   배선이었다(저장소 전체에 셀렉터가 없었다). muted 도 같은 이유로 여기 산다. */
+button.danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
-
-.sim-cam-grid label {
-  color: var(--color-label);
-  font-size: 12px;
-}
-
-.sim-cam-unit {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.muted {
   color: var(--color-muted);
-  font-size: 11px;
-}
-
-.sim-cam-grid input {
-  width: 100%;
-  min-width: 0;
 }
 
 /* 상태줄은 평면도 pane 안에 산다(두 탭이 함께 본다) — 힌트 위에 겹치지 않게 한 줄 위로. */
@@ -1025,7 +1009,7 @@ header h1 .ver {
 <script type="module">
 import { getJson, postJson, reqJson, fmtPtz as fmt, api } from "./web/api.mjs";
 import { createCameraPreview } from "./web/camera-preview.mjs";
-import { applyI18n, t } from "./web/i18n.mjs";
+import { t } from "./web/i18n.mjs";
 import { initPageChrome } from "./web/page-chrome.mjs";
 import { toNum, pad2 } from "./web/format.mjs";
 
@@ -1066,7 +1050,14 @@ function log(msg) {
   logEl.scrollTop = 0;
   if (logPanel) logPanel.scrollTop = 0;
 }
-function setBusy(on, label) { busyEl.textContent = on ? t(label || "카메라 이동 중…") : ""; document.querySelectorAll("button").forEach((b) => { b.disabled = on; }); }
+function setBusy(on, label) {
+  busyEl.textContent = on ? t(label || "카메라 이동 중…") : "";
+  document.querySelectorAll("button").forEach((b) => { b.disabled = on; });
+  // 작업 중의 카메라 전환은 버튼과 같은 위험(change 핸들러 중첩·active 역전)이라 같이 잠근다.
+  camSelect.disabled = on;
+  // 전부 되살리는 위 줄이 시작/종료의 상태 잠금(실행 중이면 시작 금지)도 지운다 — 되돌린다.
+  if (!on) renderSimPreviewState();
+}
 function setCamInfo(message) {
   camInfo.textContent = message || "";
   camInfo.hidden = !message;
@@ -1154,7 +1145,13 @@ function setSimulatorReadyState(state = {}) {
     simReadyText.textContent = "Fake 모드";
     return;
   }
-  simReadyText.textContent = state.error ? `시뮬레이터 미연결: ${state.error}` : "시뮬레이터 미연결";
+  if (state.unreachable) {
+    // 죽은 것은 백엔드(또는 터널)다 — 「시뮬레이터 미연결」이라고 말하면 사람이 UE 를 뒤진다.
+    simReadyText.textContent = `백엔드 무응답 — 시뮬레이터 상태를 알 수 없습니다 (${state.error})`;
+    return;
+  }
+  const why = state.message || state.error;   // 계약은 message — error 는 로컬(fetch 실패) 폴백
+  simReadyText.textContent = why ? `시뮬레이터 미연결: ${why}` : "시뮬레이터 미연결";
 }
 
 async function refreshSimulatorStatus({ silent = false } = {}) {
@@ -1164,7 +1161,7 @@ async function refreshSimulatorStatus({ silent = false } = {}) {
     if (!silent) setEndpointStatus(statusTextFromSimulatorState(state));
     return state;
   } catch (e) {
-    setSimulatorReadyState({ ready: false, error: e.message });
+    setSimulatorReadyState({ ready: false, unreachable: true, error: e.message });
     if (!silent) setEndpointStatus("상태 확인 실패: " + e.message);
     return null;
   }
@@ -1175,7 +1172,8 @@ function statusTextFromSimulatorState(state = {}) {
   const where = endpoint.host ? `${endpoint.host}${endpoint.port ? ":" + endpoint.port : ""}` : "host 미설정";
   if (state.ready) return `연결됨 · ${endpoint.name || endpoint.id || "sim"} · ${where}`;
   if (state.mode === "fake") return `Fake 모드 · ${where}`;
-  return `미연결 · ${where}` + (state.error ? ` · ${state.error}` : "");
+  const why = state.message || state.error;
+  return `미연결 · ${where}` + (why ? ` · ${why}` : "");
 }
 
 // ---- 시뮬레이터 주소: 월드 하나의 주소와 계정. 카메라·stage 와 무관하다 ----
@@ -1347,7 +1345,12 @@ window.addEventListener("mouseup", async (e) => {
     return;
   }
   marker.hidden = true;
-  const box = { startX: Math.min(start.x, end.x), startY: Math.min(start.y, end.y), endX: Math.max(start.x, end.x), endY: Math.max(start.y, end.y) };
+  // 스테이지 밖에서 놓으면 좌표가 프레임 밖으로 외삽된다 — 서버에 음수·초과 픽셀을 보내지 않는다.
+  const cl = (v, max) => Math.min(max, Math.max(0, v));
+  const box = {
+    startX: cl(Math.min(start.x, end.x), start.nw), startY: cl(Math.min(start.y, end.y), start.nh),
+    endX: cl(Math.max(start.x, end.x), start.nw), endY: cl(Math.max(start.y, end.y), start.nh),
+  };
   setBusy(true);
   try {
     const j = await postJson(api("/simulator/control/center-box"), { ...box, frameWidth: start.nw, frameHeight: start.nh, speed: MOVE_SPEED });
@@ -1371,6 +1374,7 @@ const camInfo = document.getElementById("cam-info");
 function invalidateSimulatorScene({ clearSelection = false } = {}) {
   simCatalog = null;
   simCameras = [];
+  simViewByPort = new Map();   // 포트별 시야도 옛 월드의 것이다 — 같은 포트 번호가 남의 시야를 입는다
   activeCam = null;
   simSlotList = [];
   simCarById = new Map();
@@ -1939,8 +1943,8 @@ async function simSpawn() {
     // 카메라 스폰과 같은 방어(2026-08-17 간헐 관측) — 2xx 인데 본문이 비면 스폰은 됐는데
     // 화면만 「실패」라고 말하고 loadSimulator 를 건너뛰어 슬롯 그리드가 낡는다.
     const car = r.car || null;
+    await loadSimulator();   // 재적재가 status 를 비우므로, 성공 보고는 그 뒤에 한다
     status.textContent = car?.id ? t("스폰됨: {id}", { id: car.id }) : t("스폰됨 — 응답이 차량 정보를 싣지 않았습니다");
-    await loadSimulator();
   } catch (e) { status.textContent = t("스폰 실패") + ": " + e.message; }
 }
 
@@ -1948,9 +1952,10 @@ async function simApply() {
   const status = document.getElementById("sim-status");
   if (!simSelectedCar) { status.textContent = t("편집할 차량을 선택하세요."); return; }
   try {
-    await reqJson("PATCH", api("/simulator/cars/") + encodeURIComponent(simSelectedCar), readSimForm());
-    status.textContent = t("적용됨: {id}", { id: simSelectedCar });
+    const applied = simSelectedCar;
+    await reqJson("PATCH", api("/simulator/cars/") + encodeURIComponent(applied), readSimForm());
     await loadSimulator();
+    status.textContent = t("적용됨: {id}", { id: applied });
   } catch (e) { status.textContent = t("적용 실패") + ": " + e.message; }
 }
 
@@ -1961,8 +1966,8 @@ async function simDelete() {
   try {
     await reqJson("DELETE", api("/simulator/cars/") + encodeURIComponent(id));
     simSelectedCar = null;   // loadSimulator 가 빈 슬롯에서 재확인하지만, 즉시 선점 해제
-    status.textContent = t("삭제됨: {id}", { id });
     await loadSimulator();
+    status.textContent = t("삭제됨: {id}", { id });
   } catch (e) { status.textContent = t("삭제 실패") + ": " + e.message; }
 }
 
@@ -1971,8 +1976,8 @@ async function simReset() {
   try {
     const r = await postJson(api("/simulator/reset"), {});
     simSelectedCar = null;
-    status.textContent = t("{n}대 초기화됨", { n: r.cleared });
     await loadSimulator();
+    status.textContent = t("{n}대 초기화됨", { n: r.cleared });
   } catch (e) { status.textContent = t("초기화 실패") + ": " + e.message; }
 }
 
@@ -2067,7 +2072,7 @@ let placing = null;      // { stage: "position"|"aim", location?, aim? } — 배
 // 자리 끌기와 **다른 상태**로 둔다: 한 변수에 모드를 얹으면 "무엇을 끌고 있나"가 조건문으로
 // 흩어지고, 그 갈래를 하나 빠뜨리는 것이 이 화면이 겪은 사고였다.
 let aimDrag = null;
-// 부채꼴 모서리를 끌고 있는 상태. { cam, from:{x,y}, axisYaw, fromHfov, hfov, moved, … }
+// 부채꼴 모서리를 끌고 있는 상태. { cam, from:{x,y}, axisYaw, hfov, moved, … }
 let fovDrag = null;
 // 시선 막대 위 틸트 앵커를 끌고 있는 상태. { cam, target, from:{x,y}, axisYaw, heightCm, downDeg, moved, … }
 let tiltDrag = null;
@@ -2753,13 +2758,6 @@ function beginTiltDrag(cam, event, target, axisYaw, trackLen) {
   if (mapEl) mapEl.classList.add("aiming");
 }
 
-function cancelTiltDrag() {
-  if (!tiltDrag) return;
-  tiltDrag = null;
-  if (mapEl) mapEl.classList.remove("aiming");
-  renderMap();
-}
-
 async function finishTiltDrag() {
   const drag = tiltDrag;
   tiltDrag = null;
@@ -2820,17 +2818,10 @@ function beginFovDrag(cam, event) {
   const axisYaw = viewYawOf(cam), hfov = hfovOf(cam);
   if (x === null || y === null || axisYaw === null || hfov === null) return;
   fovDrag = {
-    cam, from: { x, y }, axisYaw, fromHfov: hfov, hfov, moved: false,
+    cam, from: { x, y }, axisYaw, hfov, moved: false,
     clientX: event.clientX, clientY: event.clientY,
   };
   if (mapEl) mapEl.classList.add("aiming");
-}
-
-function cancelFovDrag() {
-  if (!fovDrag) return;
-  fovDrag = null;
-  if (mapEl) mapEl.classList.remove("aiming");
-  renderMap();
 }
 
 // 렌즈가 갈 수 있는 화각의 양끝. 서버가 카메라마다 답한 값이다 — 모르면 지금 화각에 묶어
@@ -3625,9 +3616,9 @@ async function putScene(name) {
     // 본문을 싣지 않는다 — 서버가 시뮬에서 직접 읽어 저장한다(브라우저가 씬을 실어 나르면
     // 화면이 낡은 사이에 저장을 누른 만큼 옛 씬이 저장된다).
     const r = await reqJson("PUT", api(`/simulator/scenes/${encodeURIComponent(name)}`));
-    setSceneStatus(t("저장했습니다 — 카메라 {cams}대 · 차량 {cars}대", {
-      cams: r.scene?.cameras ?? 0, cars: r.scene?.cars ?? 0,
-    }));
+    setSceneStatus(r.scene
+      ? t("저장했습니다 — 카메라 {cams}대 · 차량 {cars}대", { cams: r.scene.cameras ?? "?", cars: r.scene.cars ?? "?" })
+      : t("저장했습니다"));   // 요약이 없으면 0 을 지어내지 않는다
     log(t("씬 저장: {name}", { name }));
     await loadSavedScenes();
   } catch (e) {
@@ -3812,11 +3803,15 @@ function rigSignature() {
   ]));
 }
 
+let pollRigInFlight = false;
 async function pollRig() {
-  if (document.hidden || mapTabKey() === null) return;
+  if (pollRigInFlight) return;   // 느린 응답 위에 다음 폴링을 겹치지 않는다(응답 역전 방지)
+  if (document.hidden) return;
   // 사람이 뭔가 하고 있는 중이면 손대지 않는다. 특히 setBusy 는 모든 버튼의 disabled 를
   // 되돌리므로, 그 사이에 목록을 다시 만들면 잠가 둔 버튼이 되살아난다.
   if (placing || dragCam || busyEl.textContent) return;
+  pollRigInFlight = true;
+  try {
   // 조준(PTZ)은 이 화면만 바꾸는 값이 아니다 — 다른 클라이언트도 카메라를
   // 돌린다. 옛 판에서는 이 화면이 스스로 움직였을 때만 숫자를 고쳐 썼기 때문에, 밖에서 돌아간
   // 카메라 앞에서 화면이 옛 자세를 계속 말했다. 달라졌을 때만 고쳐 쓴다.
@@ -3828,6 +3823,9 @@ async function pollRig() {
     scheduleRepose();         // 자세가 갈렸으면 영상 위 주차면 핀도 옛 자세로 그려져 있다
   }
 
+  // 평면도 리그 갱신은 지도가 보일 때만(rig/drive 탭) — 조준·핀은 위에서 이미 봤다.
+  // 이 게이트가 함수 머리에 있던 동안은 기본 탭(로그)에서 영상 위 핀이 무기한 낡았다.
+  if (mapTabKey() === null) return;
   const before = rigSignature();
   await Promise.all([fetchSimCameras(), fetchSimPtz()]);
   if (rigSignature() === before) return;
@@ -3839,6 +3837,7 @@ async function pollRig() {
   renderCameraEditForm();
   // 보고 있던 카메라가 움직였으면 영상 위의 주차면 핀도 옛 포즈로 그려져 있다.
   reproject();
+  } finally { pollRigInFlight = false; }
 }
 
 // 상태 폴링도 숨겨진 탭에서는 쉰다 — 안 보는 탭이 시뮬 게임스레드를 계속 깨우지 않게.
