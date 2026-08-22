@@ -43,12 +43,27 @@ test("페이지는 공용 크롬을 부르고, backend 가 프런트 버전을 �
   }
 });
 
-test("page-chrome 은 버전 파일을 모듈 URL 기준으로 읽는다 (/web/ 404 함정)", async () => {
+test("버전 파일은 「페이지 옆」에서 읽힌다 — 소스 문자열이 아니라 풀린 URL 로 확인한다", async () => {
+  // 이 테스트의 앞 판본은 소스에 적힌 식(new URL("../…", import.meta.url))을 정규식으로 박아 뒀다.
+  // 그래서 2026-08-22 Vite 전환 때 **초록인 채로** 회귀가 나갔다: 식은 그대로인데 모듈이 서빙되는
+  // 자리가 /@fs/<repo>/src/ 로 바뀌어 "../" 가 저장소 루트로 떨어졌고, 6개 페이지 전부 버전 배지가
+  // 「v—」가 됐다(dev 한정, dist 는 무사). 표현을 고정하는 대신 **결과**를 본다 — 소스에서 식을
+  // 꺼내 실제로 평가하고, 그 URL 이 페이지 옆에 떨어지는지 확인한다.
   const chrome = await readFile(new URL("src/page-chrome.mjs", webUiDir), "utf8");
-  // fetch("./app-versions.json") 은 모듈 URL(/barocalory/web/) 기준으로 풀려 404 가 된다 —
-  // 반드시 import.meta.url 에서 한 단계 올라가야 페이지 루트에 닿는다.
-  assert.match(chrome, /new URL\("\.\.\/app-versions\.json", import\.meta\.url\)/);
-  assert.doesNotMatch(chrome, /fetch\("\.\/app-versions\.json"\)/);
+  const call = "await fetch(", i = chrome.indexOf(call);
+  const expr = i < 0 ? "" : chrome.slice(i + call.length, chrome.indexOf(", { cache", i));
+  assert.ok(expr.startsWith("new URL("), "fetchOwnVersions 의 fetch 대상을 못 찾았다 — 이 테스트가 낡았다");
+  // 소스의 식을 그대로 평가한다. import.meta 로 되돌아가면 Function 이 파싱 단계에서 죽는다.
+  const resolve = new Function("document", `return String(${expr})`);
+  for (const [pageUrl, want] of [
+    ["http://h/simulator.html", "http://h/app-versions.json"],
+    ["http://h/simulator", "http://h/app-versions.json"],                              // 확장자 없는 라우트
+    ["http://h/", "http://h/app-versions.json"],                                       // 대문
+    ["http://h/barocalory/settings.html", "http://h/barocalory/app-versions.json"],     // mount 프리픽스
+    ["https://x.github.io/baro_kalory/calibration.html", "https://x.github.io/baro_kalory/app-versions.json"],
+  ]) {
+    assert.equal(resolve({ baseURI: pageUrl }), want, `${pageUrl} 에서 페이지 옆을 못 가리킨다`);
+  }
 });
 
 test("home 카드는 모든 앱을 가리키고 각자의 버전 키를 단다", async () => {

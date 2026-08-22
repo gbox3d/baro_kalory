@@ -8,8 +8,12 @@ import { PAGES, getPage, pageHref } from "./pages.mjs";
 
 // 프런트 버전의 출처는 페이지와 함께 배포되는 app-versions.json 이다(backend 가 아니라 —
 // 프런트만 따로 배포하면 backend 가 아는 값은 브라우저가 실제로 도는 버전과 어긋난다).
-// 주의: 상대경로 문자열로 fetch 하면 모듈 URL(/web/) 기준으로 풀려 404 가 되므로
-// import.meta.url 에서 한 단계 올라간다. `<mount>/web/` → `<mount>/`, dist/web/ → dist/.
+// 기준은 **문서**다 — 이 파일이 원하는 것은 「지금 보는 페이지 옆에 놓인 파일」이고,
+// 그건 모듈이 어디서 서빙되든 document.baseURI 하나로만 정확히 표현된다. import.meta.url
+// 기준으로 풀면 번들러가 소스 위치를 바꾸는 순간 깨진다: 2026-08-22 Vite 전환에서 실제로
+// 깨졌다(dev 가 src 를 /@fs/<repo>/src/ 로 서빙 → "../" 가 저장소 루트로 떨어져 404,
+// 6개 페이지 전부 버전 배지가 「v—」). mount 프리픽스·GitHub Pages base·확장자 없는 URL
+// 어디서도 document 기준은 페이지 옆을 가리킨다.
 //
 // 캐시는 매번 서버에 되묻는다(no-cache). 이 파일은 수백 바이트인데, 정적 호스팅(GitHub
 // Pages 등)의 CDN TTL 동안 옛 사본이 걸리면 배포 직후 배지가 **이전 버전을 우긴다** —
@@ -17,7 +21,7 @@ import { PAGES, getPage, pageHref } from "./pages.mjs";
 // 페이지 코드는 새것인데 배지만 10분 넘게 옛 번호였다.
 async function fetchOwnVersions() {
   try {
-    const r = await fetch(new URL("../app-versions.json", import.meta.url), { cache: "no-cache" });
+    const r = await fetch(new URL("./app-versions.json", document.baseURI), { cache: "no-cache" });
     return await r.json();
   } catch { return {}; }
 }
