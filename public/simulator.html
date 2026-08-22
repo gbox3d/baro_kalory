@@ -1161,11 +1161,11 @@ async function refreshSimulatorStatus({ silent = false } = {}) {
   try {
     const state = await getJson(api("/simulator/status"));
     setSimulatorReadyState(state);
-    if (!silent && simSetStatus) simSetStatus.textContent = statusTextFromSimulatorState(state);
+    if (!silent) setEndpointStatus(statusTextFromSimulatorState(state));
     return state;
   } catch (e) {
     setSimulatorReadyState({ ready: false, error: e.message });
-    if (!silent && simSetStatus) simSetStatus.textContent = "상태 확인 실패: " + e.message;
+    if (!silent) setEndpointStatus("상태 확인 실패: " + e.message);
     return null;
   }
 }
