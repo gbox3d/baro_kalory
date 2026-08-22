@@ -655,7 +655,8 @@ test("스폰 포트는 서버가 정한다 — nextFree · 대역 만원 · 대�
 
   const pick = html.slice(html.indexOf("function pickSpawnPorts"), html.indexOf("function bandFullNotice"));
   const next = pick.indexOf("simPortInfo?.nextFree");
-  const full = pick.indexOf("simPortInfo?.cameraPortRange");
+  // 대역 판정은 portBand() 로 갔다 — null 경계(무제한 인스턴스)를 「대역 없음」으로 접는 관문.
+  const full = pick.indexOf("portBand()");
   const conv = pick.indexOf("suggestPortsByConvention()");
   assert.ok(next > -1 && full > -1 && conv > -1, "세 갈래가 모두 있어야 한다");
   assert.ok(next < full && full < conv,
@@ -696,7 +697,7 @@ test("포트 갱신은 리그가 실제로 바뀐 뒤에만 — 폴링 조기반
 test("대역 밖 포트는 제출 전에 끊는다 — 서버 409 를 사람 말로 먼저", async () => {
   const html = await readFile(simulatorPageUrl, "utf8");
   const fn = html.slice(html.indexOf("async function spawnSceneCamera"), html.indexOf("async function removeSceneCamera"));
-  const gate = fn.indexOf("cameraPortRange");
+  const gate = fn.indexOf("portBand()");
   const post = fn.indexOf('postJson(api("/simulator/cameras")');
   assert.ok(gate > -1 && post > -1 && gate < post, "대역 검증이 POST 보다 먼저여야 한다");
   // 대역을 모르면(옛 백엔드) 막지 않는다 — 추측으로 막으면 스폰 자체가 불가능해진다.

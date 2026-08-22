@@ -321,8 +321,10 @@ export function createCameraPreview(opts) {
       hiddenTimer = setTimeout(async () => {
         hiddenTimer = 0;
         if (paused || !document.hidden) return;
-        suspendedByHidden = true;
         await stop();
+        // stop() 은 suspendedByHidden 을 스스로 지운다(사람이 끈 정지의 기본값) —
+        // 자동 정지 표식은 반드시 stop() **뒤에** 세워야 복귀 때 재개된다.
+        suspendedByHidden = true;
         paused = true;
         // 왜 멈췄는지가 화면에도 보여야 한다 — 그냥 "정지됨"이면 사용자가 자기가 껐다고 오해한다.
         setPaused(true, t("백그라운드 — 자동 정지"));

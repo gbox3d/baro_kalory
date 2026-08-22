@@ -1,5 +1,6 @@
 import { postJson, fmtPtz, api } from "./api.mjs";
 import { t, applyI18n } from "./i18n.mjs";
+import { toNum } from "./format.mjs";
 
 // Renders a PTZ control panel (manual nudge pad + absolute move) into `mount` and
 // drives the camera over the REST control plane. Reusable in any tab — the control
@@ -54,7 +55,13 @@ export function createPtzControls(opts) {
     absPan.value = p.panpos; absTilt.value = p.tiltpos; absZoom.value = p.zoompos;
   });
   q('[data-role="abs-go"]').addEventListener("click", async () => {
-    const panpos = Number(absPan.value), tiltpos = Number(absTilt.value), zoompos = Number(absZoom.value);
+    // Number("") === 0 — 빈 칸을 그대로 태우면 「줌만 바꾸려던」 이동이 팬·틸트를 실제로
+    // 0 위치로 돌린다. 세 값이 다 있어야만 절대 이동이다.
+    const panpos = toNum(absPan.value), tiltpos = toNum(absTilt.value), zoompos = toNum(absZoom.value);
+    if (panpos === null || tiltpos === null || zoompos === null) {
+      log(t("절대 이동에는 P·T·Z 세 값이 모두 필요합니다 — 빈 칸은 「채우기」로 채우세요."));
+      return;
+    }
     onBusy(true);
     try {
       const moveSpeed = speed();
